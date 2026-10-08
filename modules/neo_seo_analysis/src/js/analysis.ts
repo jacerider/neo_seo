@@ -1,11 +1,17 @@
 /**
- * Neo | SEO Analysis — content analysis in the SEO panel.
+ * Neo | SEO Analysis — content analysis for the SEO panel.
  *
- * A Drupal.neoSeoPanel extension: it gathers the focus keyphrase and the
- * cornerstone toggle into an "Analysis" section, runs the engine over every
- * draft render, lists the SEO and readability assessments as traffic lights,
- * and writes the two scores back through the host (quietly: a score never
- * marks the page changed and never blocks a save).
+ * Two surfaces over one Analyzer:
+ * - the edit form: an "Analysis" section in the panel (a Drupal.neoSeoPanel
+ *   extension) holding the focus keyphrase, the cornerstone toggle and the
+ *   assessments;
+ * - Alchemist: the top bar badge (a Drupal.neoSeoPanel.extendBadge()
+ *   extension) — two score pills, kept current from editor load, whose
+ *   dropdown holds the score help, the keyphrase and cornerstone controls and
+ *   the assessments. The Alchemist panel itself carries no analysis.
+ *
+ * Either way the scores are written back through the host quietly: a score
+ * never marks the page changed and never blocks a save or a publish.
  *
  * The engine runs in a Web Worker so typing never waits on it. The worker is
  * inlined (`?worker&inline`) rather than emitted beside the bundle: neo_build
@@ -45,7 +51,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     }[band];
   }
 
-  /** A score's traffic light, as Yoast bands it. */
+  /** A score's traffic light: green 70+, orange 40–69, red below. */
   function scoreBand(score: number): Band {
     return score >= 70 ? 'good' : score >= 40 ? 'ok' : 'problem';
   }
@@ -53,7 +59,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
   const ORDER: Record<Band, number> = { problem: 0, ok: 1, good: 2 };
 
   /**
-   * One worker per page, shared by every panel; answers go to whoever asked.
+   * One worker per page, shared by every analyzer; answers go to whoever asked.
    */
   let worker: Worker | null | undefined;
   let nextId = 0;
@@ -94,51 +100,39 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     });
   }
 
-  class AnalysisSection {
+  /**
+   * Analyses the latest render for a host, newest run wins, and writes the
+   * scores back quietly.
+   */
+  class Analyzer {
 
-    protected readonly context: NeoSeoPanelContext;
+    protected readonly host: NeoSeoPanelHost;
     protected readonly config: AnalysisConfig;
-    protected readonly status: HTMLElement;
-    protected readonly seo: HTMLElement;
-    protected readonly readability: HTMLElement;
+    protected readonly latest: () => NeoSeoDraftRender | null;
+    protected readonly resultListeners: Array<(result: AnalysisResult, values: NeoSeoOverrides) => void> = [];
+    protected readonly busyListeners: Array<(busy: boolean, failed?: boolean) => void> = [];
     protected keyphrases: Promise<string[] | undefined> | null = null;
     protected run = 0;
     protected timer: number | undefined;
-    protected highlighted: HTMLButtonElement | null = null;
 
-    constructor(context: NeoSeoPanelContext) {
-      this.context = context;
-      this.config = (context.config.analysis ?? {}) as AnalysisConfig;
-      const body = context.section('analysis', Drupal.t('Content analysis'));
-      body.classList.add('neo-seo-analysis');
-      // The inputs analysis reads sit with its results. Moved, not copied:
-      // they stay the host's controls and save the way they always did.
-      ['keyphrase', 'cornerstone'].forEach((key) => {
-        const control = context.host.control(key as NeoSeoOverrideKey);
-        if (control) {
-          body.append(control);
-        }
-      });
-      this.status = h('p', { class: 'neo-seo-analysis__status', role: 'status', 'aria-live': 'polite' });
-      this.seo = h('div', { class: 'neo-seo-analysis__group' });
-      this.readability = h('div', { class: 'neo-seo-analysis__group' });
-      body.append(this.status, this.seo, this.readability);
-      this.setStatus(Drupal.t('Analysis runs when the preview is ready.'));
-
-      context.onRender(() => this.analyze());
-      context.host.onChange((change) => {
+    constructor(host: NeoSeoPanelHost, config: NeoSeoPanelConfig, latest: () => NeoSeoDraftRender | null) {
+      this.host = host;
+      this.config = (config.analysis ?? {}) as AnalysisConfig;
+      this.latest = latest;
+      host.onChange((change) => {
         if (change.key === 'keyphrase' || change.key === 'cornerstone') {
           window.clearTimeout(this.timer);
           this.timer = window.setTimeout(() => this.analyze(), RERUN_WAIT);
         }
       });
-      if (context.latest()) {
-        this.analyze();
-      }
     }
 
-    protected setStatus(message: string): void {
-      this.status.textContent = message;
+    onResult(callback: (result: AnalysisResult, values: NeoSeoOverrides) => void): void {
+      this.resultListeners.push(callback);
+    }
+
+    onBusy(callback: (busy: boolean, failed?: boolean) => void): void {
+      this.busyListeners.push(callback);
     }
 
     /** Other pages' keyphrases, fetched once; without them that check skips. */
@@ -155,14 +149,15 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       return this.keyphrases;
     }
 
-    protected async analyze(): Promise<void> {
-      const render = this.context.latest();
+    async analyze(): Promise<void> {
+      const render = this.latest();
       if (!render) {
         return;
       }
       this.run += 1;
       const run = this.run;
-      const values = this.context.host.read();
+      this.busyListeners.forEach((listener) => listener(true));
+      const values = this.host.read();
       let siteHost: string | undefined;
       try {
         siteHost = new URL(render.url, window.location.href).host;
@@ -184,17 +179,14 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       if (used) {
         input.usedKeyphrases = used;
       }
-      this.setStatus(Drupal.t('Analysing…'));
       try {
         const result = await analyze(input);
         if (run !== this.run) {
           return;
         }
-        this.draw(result);
-        this.setStatus(values.cornerstone
-          ? Drupal.t('Analysed as cornerstone content, against stricter thresholds.')
-          : Drupal.t('Analysed. Scores are advice: they never stop a save.'));
-        this.context.host.write({
+        this.resultListeners.forEach((listener) => listener(result, values));
+        this.busyListeners.forEach((listener) => listener(false));
+        this.host.write({
           seo_score: result.seo.score,
           readability_score: result.readability.available ? result.readability.score : null,
         }, { quiet: true });
@@ -202,12 +194,35 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       catch (e) {
         console.error(e);
         if (run === this.run) {
-          this.setStatus(Drupal.t('Analysis is not available in this browser.'));
+          this.busyListeners.forEach((listener) => listener(false, true));
         }
       }
     }
 
-    protected draw(result: AnalysisResult): void {
+  }
+
+  /**
+   * The SEO and readability assessment lists, with a Show button where the
+   * host can mark an assessment's highlights in its preview.
+   */
+  class Results {
+
+    readonly element: HTMLElement;
+    protected readonly host: NeoSeoPanelHost;
+    protected readonly onMissing: () => void;
+    protected readonly seo: HTMLElement;
+    protected readonly readability: HTMLElement;
+    protected highlighted: HTMLButtonElement | null = null;
+
+    constructor(host: NeoSeoPanelHost, onMissing: () => void) {
+      this.host = host;
+      this.onMissing = onMissing;
+      this.seo = h('div', { class: 'neo-seo-analysis__group' });
+      this.readability = h('div', { class: 'neo-seo-analysis__group' });
+      this.element = h('div', { class: 'neo-seo-analysis__results' }, [this.seo, this.readability]);
+    }
+
+    draw(result: AnalysisResult): void {
       this.clearHighlight();
       this.group(this.seo, Drupal.t('SEO'), result.seo.score, result.seo.assessments, null);
       this.group(
@@ -252,7 +267,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         h('span', { class: 'neo-seo-analysis__message' }, [assessment.message]),
       ]);
       const highlights = assessment.highlights ?? [];
-      if (highlights.length && this.context.host.highlight) {
+      if (highlights.length && this.host.highlight) {
         const button = h('button', {
           type: 'button',
           class: 'neo-seo-analysis__mark',
@@ -268,30 +283,190 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     protected toggleHighlight(button: HTMLButtonElement, highlights: NeoSeoHighlight[]): void {
       const on = this.highlighted !== button;
       this.clearHighlight();
-      if (on && this.context.host.highlight?.(highlights)) {
+      if (on && this.host.highlight?.(highlights)) {
         this.highlighted = button;
         button.setAttribute('aria-pressed', 'true');
       }
       else if (on) {
-        this.setStatus(Drupal.t('The preview does not show that text.'));
+        this.onMissing();
       }
     }
 
-    protected clearHighlight(): void {
+    clearHighlight(): void {
       if (this.highlighted) {
         this.highlighted.setAttribute('aria-pressed', 'false');
         this.highlighted = null;
-        this.context.host.highlight?.(null);
+        this.host.highlight?.(null);
       }
     }
 
   }
 
+  /**
+   * The edit form's Analysis section.
+   */
+  function mountSection(context: NeoSeoPanelContext): void {
+    const body = context.section('analysis', Drupal.t('Content analysis'));
+    body.classList.add('neo-seo-analysis');
+    // The inputs analysis reads sit with its results. Moved, not copied: they
+    // stay the host's controls and save the way they always did.
+    (['keyphrase', 'cornerstone'] as NeoSeoOverrideKey[]).forEach((key) => {
+      const control = context.host.control(key);
+      if (control) {
+        body.append(control);
+      }
+    });
+    const status = h('p', { class: 'neo-seo-analysis__status', role: 'status', 'aria-live': 'polite' }, [
+      Drupal.t('Analysis runs when the preview is ready.'),
+    ]);
+    const results = new Results(context.host, () => {
+      status.textContent = Drupal.t('The preview does not show that text.');
+    });
+    body.append(status, results.element);
+    const analyzer = new Analyzer(context.host, context.config, () => context.latest());
+    analyzer.onBusy((busy, failed) => {
+      if (busy) {
+        status.textContent = Drupal.t('Analysing…');
+      }
+      else if (failed) {
+        status.textContent = Drupal.t('Analysis is not available in this browser.');
+      }
+    });
+    analyzer.onResult((result, values) => {
+      results.draw(result);
+      status.textContent = values.cornerstone
+        ? Drupal.t('Analysed as cornerstone content, against stricter thresholds.')
+        : Drupal.t('Analysed. Scores are advice: they never stop a save.');
+    });
+    context.onRender(() => analyzer.analyze());
+    if (context.latest()) {
+      analyzer.analyze();
+    }
+  }
+
+  /**
+   * The Alchemist top bar badge: two score pills and their dropdown.
+   */
+  function mountBadge(badge: HTMLElement, dropdown: NeoAlchemistDropdown, editor: NeoSeoEditor): void {
+    const host = editor.host;
+    const pills = {
+      seo: badge.querySelector<HTMLElement>('[data-neo-seo-score="seo"]'),
+      readability: badge.querySelector<HTMLElement>('[data-neo-seo-score="readability"]'),
+    };
+
+    // The dropdown: what the scores mean, what they are scored against, why.
+    const body = dropdown.element;
+    body.classList.add('neo-seo-analysis', 'neo-seo-analysis--dropdown');
+    const help = h('p', { class: 'neo-seo-analysis__help' }, [
+      Drupal.t('SEO: how well the page is set up to be found for its focus keyphrase. Readability: how easy the text is to read. Green 70+, orange 40–69, red below. They are advice: they never stop you saving.'),
+    ]);
+    const fields = h('div', { class: 'neo-seo-analysis__fields' });
+    // The panel's own keyphrase and cornerstone controls move here: they
+    // still draft through the panel's draft key, like every SEO field.
+    (['keyphrase', 'cornerstone'] as NeoSeoOverrideKey[]).forEach((key) => {
+      const control = host.control(key);
+      if (control) {
+        fields.append(control);
+      }
+    });
+    editor.addRoot(fields);
+    const status = h('p', { class: 'neo-seo-analysis__status', role: 'status', 'aria-live': 'polite' }, [
+      Drupal.t('Analysing…'),
+    ]);
+    const results = new Results(host, () => {
+      status.textContent = Drupal.t('The preview does not show that text.');
+    });
+    body.replaceChildren(help, fields, status, results.element);
+    dropdown.onToggle((open) => {
+      if (!open) {
+        results.clearHighlight();
+      }
+    });
+
+    const keyphraseInput = () => fields.querySelector<HTMLInputElement>('[name="neo_seo[0][keyphrase]"]');
+    // No keyphrase: the SEO pill asks for one and opens straight onto it.
+    // Runs after the editor's own toggle, so the field takes the focus.
+    badge.addEventListener('click', (event) => {
+      const pill = (event.target as Element).closest<HTMLElement>('[data-neo-seo-score="seo"]');
+      if (pill?.dataset.missing === 'true' && dropdown.isOpen()) {
+        keyphraseInput()?.focus();
+      }
+    });
+
+    const setPill = (pill: HTMLElement | null, score: number | null, missing = false) => {
+      if (!pill) {
+        return;
+      }
+      const value = pill.querySelector('.neo-seo-pill__value');
+      pill.dataset.missing = missing ? 'true' : 'false';
+      if (missing) {
+        pill.dataset.band = 'none';
+        if (value) {
+          value.textContent = Drupal.t('– set keyphrase');
+        }
+        pill.title = Drupal.t('No focus keyphrase: set one to score the page.');
+        return;
+      }
+      const band = score === null ? 'none' : scoreBand(score);
+      pill.dataset.band = band;
+      if (value) {
+        value.textContent = score === null ? '–' : String(score);
+      }
+      pill.title = score === null ? '' : `${bandLabel(band as Band)}: ${score} / 100`;
+    };
+    const setUpdating = (updating: boolean) => {
+      [pills.seo, pills.readability].forEach((pill) => pill?.classList.toggle('is-updating', updating));
+      badge.setAttribute('aria-busy', updating ? 'true' : 'false');
+    };
+
+    const analyzer = new Analyzer(host, editor.config, () => editor.latest());
+    analyzer.onBusy((busy, failed) => {
+      if (busy) {
+        setUpdating(true);
+        status.textContent = Drupal.t('Analysing…');
+      }
+      else if (failed) {
+        setUpdating(false);
+        status.textContent = Drupal.t('Analysis is not available in this browser.');
+      }
+    });
+    analyzer.onResult((result, values) => {
+      results.draw(result);
+      setPill(pills.seo, result.seo.score, values.keyphrase.trim() === '');
+      setPill(pills.readability, result.readability.available ? result.readability.score : null);
+      setUpdating(false);
+      status.textContent = values.cornerstone
+        ? Drupal.t('Analysed as cornerstone content, against stricter thresholds.')
+        : Drupal.t('Analysed.');
+    });
+    editor.onState((state) => {
+      if (state === 'updating') {
+        setUpdating(true);
+      }
+      else if (state === 'error') {
+        setUpdating(false);
+        status.textContent = Drupal.t('The page could not be rendered for analysis.');
+      }
+    });
+    editor.onRender(() => analyzer.analyze());
+    if (editor.latest()) {
+      analyzer.analyze();
+    }
+  }
+
   Drupal.neoSeoPanel?.extend({
     id: 'analysis',
     mount(context) {
-      new AnalysisSection(context);
+      // In Alchemist the analysis lives in the top bar badge.
+      if (context.host.kind === 'form') {
+        mountSection(context);
+      }
     },
+  });
+
+  Drupal.neoSeoPanel?.extendBadge({
+    id: 'analysis',
+    mount: mountBadge,
   });
 
 })(Drupal);

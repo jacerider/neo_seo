@@ -6,19 +6,24 @@ Thresholds follow Yoast's published guidance and all live in `src/js/engine/thre
 
 ## In the SEO panel
 
-Enabling the module (it requires `neo_seo_panel`) adds an **Analysis** section to the SEO panel in
-both hosts — the edit form and the Alchemist editor — through `hook_neo_seo_panel_alter()` and
-`Drupal.neoSeoPanel.extend()` (`src/js/analysis.ts`):
+Enabling the module (it requires `neo_seo_panel`) adds analysis to both SEO panel hosts
+(`src/js/analysis.ts`, one `Analyzer` behind two surfaces):
 
-- the focus keyphrase and cornerstone controls move into the section; they stay the host's own
-  inputs, so they save (or draft) as before;
-- every draft render is analysed, and a keyphrase or cornerstone change re-runs the last render
-  without asking the server again;
-- SEO and readability assessments are listed problem-first with traffic lights and scores;
-  "Show" marks an assessment's highlights in the Alchemist preview frames (the edit form has no
-  preview, so it offers none);
-- the two scores are written back through the host quietly: hidden inputs saved with the form, or
-  the panel's draft key when a draft already exists. A score never blocks a save or a publish.
+- **Edit form** — an Analysis section in the panel (`Drupal.neoSeoPanel.extend()`): the focus
+  keyphrase and cornerstone controls move into it, and every draft render is analysed.
+- **Alchemist** — the SEO panel's top bar badge (`hook_neo_seo_panel_badge_alter()` +
+  `Drupal.neoSeoPanel.extendBadge()`): two pills, `● SEO 80` / `● Read 64` (green 70+, orange
+  40–69, red below; grey "SEO – set keyphrase" without a keyphrase, which opens the dropdown on the
+  keyphrase field). They are scored from editor load off the editor's shared draft render, refreshed
+  after every layout or SEO draft change whether or not the panel was opened, and dimmed with a
+  spinner while that happens. The dropdown holds the score help, the keyphrase and cornerstone
+  controls (drafted through the panel's draft key like every SEO field) and the assessments; Show
+  marks an assessment in the preview frames and keeps the dropdown open. The Alchemist panel itself
+  carries no analysis.
+
+A keyphrase or cornerstone change re-runs the last render without asking the server again. The two
+scores are written back through the host quietly: hidden inputs saved with the form, or the panel's
+draft key when a draft already exists. A score never blocks a save or a publish.
 
 `GET /neo-seo/keyphrases?entity_type=…&exclude=…` (permission `edit neo_seo overrides`) lists the
 keyphrases of other pages the editor may view, capped at 500 pages, for the "used before" check.

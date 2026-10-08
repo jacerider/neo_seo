@@ -2,7 +2,8 @@
  * The Alchemist host: the overrides live in the shared layout draft.
  *
  * The controls are the same widget elements, rendered into the side panel by
- * the SeoPanel plugin's form, which is never submitted. An editor's change is
+ * the SeoPanel plugin's form, which is never submitted; some may be moved into
+ * another root (the top bar dropdown, see addRoot()). An editor's change is
  * written to the panel's draft key (only the overrides they touched, merged
  * over what the draft already holds), so it goes live on Publish with the
  * layout and Revert/Reset discard it. Renders come from neo_seo's draft render
@@ -33,27 +34,18 @@ export class AlchemistHost implements NeoSeoPanelHost {
     this.writing = this.writing.then(() => this.persist());
   }, WRITE_WAIT);
 
-  protected readonly form: HTMLElement;
+  protected readonly roots: HTMLElement[] = [];
+  protected readonly scope: controls.Scope;
   protected readonly api: NeoAlchemistPanelApi;
   protected readonly config: NeoSeoPanelConfig;
 
   constructor(form: HTMLElement, api: NeoAlchemistPanelApi, config: NeoSeoPanelConfig) {
-    this.form = form;
     this.api = api;
     this.config = config;
+    this.scope = controls.scopeOf(this.roots);
     // The form is only a container for the controls.
     form.addEventListener('submit', (event) => event.preventDefault());
-    const listener = (event: Event) => {
-      const key = controls.keyOf(event.target);
-      if (!key) {
-        return;
-      }
-      this.touched.add(key);
-      this.writeSoon();
-      this.notify({ source: 'override', key });
-    };
-    form.addEventListener('input', listener);
-    form.addEventListener('change', listener);
+    this.addRoot(form);
 
     this.ready = api.get().then((state) => {
       this.stored = state.data && typeof state.data === 'object' ? state.data as Partial<NeoSeoOverrides> : {};
@@ -67,12 +59,33 @@ export class AlchemistHost implements NeoSeoPanelHost {
     });
   }
 
+  /**
+   * Another element override controls live in: their edits draft the same way.
+   */
+  addRoot(root: HTMLElement): void {
+    if (this.roots.includes(root)) {
+      return;
+    }
+    this.roots.push(root);
+    const listener = (event: Event) => {
+      const key = controls.keyOf(event.target);
+      if (!key) {
+        return;
+      }
+      this.touched.add(key);
+      this.writeSoon();
+      this.notify({ source: 'override', key });
+    };
+    root.addEventListener('input', listener);
+    root.addEventListener('change', listener);
+  }
+
   read(): NeoSeoOverrides {
-    return controls.read(this.form);
+    return controls.read(this.scope);
   }
 
   write(values: Partial<NeoSeoOverrides>, options: { quiet?: boolean } = {}): void {
-    controls.write(this.form, values, false);
+    controls.write(this.scope, values, false);
     if (options.quiet) {
       this.computed = { ...this.computed, ...values };
     }
@@ -83,7 +96,7 @@ export class AlchemistHost implements NeoSeoPanelHost {
   }
 
   control(key: NeoSeoOverrideKey): HTMLElement | null {
-    return controls.wrapper(this.form, key);
+    return controls.wrapper(this.scope, key);
   }
 
   async render(): Promise<NeoSeoDraftRender> {

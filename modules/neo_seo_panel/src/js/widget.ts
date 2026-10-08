@@ -45,13 +45,36 @@ export class SeoPanel {
   protected readonly root: HTMLElement;
   protected readonly host: NeoSeoPanelHost;
   protected readonly config: NeoSeoPanelConfig;
+  protected readonly source: NeoSeoEditor | null;
 
-  constructor(root: HTMLElement, host: NeoSeoPanelHost, config: NeoSeoPanelConfig) {
+  /**
+   * @param source
+   *   An editor that renders for the panel (Alchemist): the panel then only
+   *   draws what it renders. Without one the panel asks its host itself.
+   */
+  constructor(root: HTMLElement, host: NeoSeoPanelHost, config: NeoSeoPanelConfig, source: NeoSeoEditor | null = null) {
     this.root = root;
     this.host = host;
     this.config = config;
+    this.source = source;
     this.build();
     this.host.onChange((change) => this.changed(change));
+    if (source) {
+      source.onRender((render) => this.received(render));
+      source.onState((state) => {
+        if (state === 'updating') {
+          this.setStatus(Drupal.t('Updating preview…'));
+        }
+        else if (state === 'error') {
+          this.setStatus(Drupal.t('The preview could not be updated.'), true);
+        }
+      });
+      const latest = source.latest();
+      if (latest) {
+        this.received(latest);
+      }
+      return;
+    }
     // After every behavior has attached: the host's own wiring (Drupal's AJAX
     // on the edit form) may attach after the panel does.
     window.setTimeout(() => this.refresh(), 0);
@@ -212,10 +235,12 @@ export class SeoPanel {
       // Typed text needs no server to be previewed; the render catches up.
       this.draw();
       this.setStatus(Drupal.t('Updating preview…'));
-      this.renderLater.cancel();
-      this.renderSoon();
+      if (!this.source) {
+        this.renderLater.cancel();
+        this.renderSoon();
+      }
     }
-    else {
+    else if (!this.source) {
       this.renderLater();
     }
   }
@@ -231,18 +256,7 @@ export class SeoPanel {
     this.rendering = true;
     this.again = false;
     try {
-      this.render = await this.host.render();
-      this.draw();
-      this.setStatus(Drupal.t('Preview of the page as it will be saved.'));
-      const render = this.render;
-      this.renderListeners.forEach((listener) => {
-        try {
-          listener(render);
-        }
-        catch (e) {
-          console.error(e);
-        }
-      });
+      this.received(await this.host.render());
     }
     catch (e) {
       console.error(e);
@@ -254,6 +268,23 @@ export class SeoPanel {
         this.refresh();
       }
     }
+  }
+
+  /**
+   * A render arrived: draw it and hand it to the extensions.
+   */
+  protected received(render: NeoSeoDraftRender): void {
+    this.render = render;
+    this.draw();
+    this.setStatus(Drupal.t('Preview of the page as it will be saved.'));
+    this.renderListeners.forEach((listener) => {
+      try {
+        listener(render);
+      }
+      catch (e) {
+        console.error(e);
+      }
+    });
   }
 
   protected setStatus(message: string, error = false): void {

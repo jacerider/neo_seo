@@ -6,12 +6,54 @@ namespace Drupal\neo_seo_analysis\Hook;
 
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Hook\Attribute\Hook;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Url;
 
 /**
  * Adds content analysis to the SEO panel.
  */
 class AnalysisHooks {
+
+  use StringTranslationTrait;
+
+  /**
+   * Implements hook_neo_seo_panel_badge_alter().
+   *
+   * The Alchemist top bar shows the page's SEO and readability scores.
+   */
+  #[Hook('neo_seo_panel_badge_alter')]
+  public function neoSeoPanelBadgeAlter(array &$badge, ContentEntityInterface $entity): void {
+    // The two score pills; analysis.ts fills in the scores once it has them.
+    foreach (['seo' => $this->t('SEO'), 'readability' => $this->t('Read')] as $kind => $label) {
+      $badge['neo_seo_analysis_' . $kind] = [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#attributes' => [
+          'type' => 'button',
+          'class' => ['neo-seo-pill', 'btn', 'btn-xs', 'btn-outline', 'is-updating'],
+          'data-neo-seo-score' => $kind,
+        ],
+        'dot' => [
+          '#type' => 'html_tag',
+          '#tag' => 'span',
+          '#attributes' => ['class' => ['neo-seo-pill__dot'], 'aria-hidden' => 'true'],
+        ],
+        'label' => [
+          '#type' => 'html_tag',
+          '#tag' => 'span',
+          '#value' => $label,
+          '#attributes' => ['class' => ['neo-seo-pill__label']],
+        ],
+        'value' => [
+          '#type' => 'html_tag',
+          '#tag' => 'span',
+          '#value' => '…',
+          '#attributes' => ['class' => ['neo-seo-pill__value']],
+        ],
+      ];
+    }
+    $badge['#attached']['library'][] = 'neo_seo_analysis/panel';
+  }
 
   /**
    * Implements hook_neo_seo_panel_alter().

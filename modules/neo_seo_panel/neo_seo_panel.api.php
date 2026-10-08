@@ -36,5 +36,22 @@ function hook_neo_seo_panel_alter(array &$panel, ContentEntityInterface $entity,
 }
 
 /**
+ * Fills the SEO panel's badge in the Alchemist editor's top bar.
+ *
+ * Empty (the default) means no badge. What is added is rendered left of the
+ * editor's scale controls, where its client half — a
+ * Drupal.neoSeoPanel.extendBadge() extension — keeps it current from editor
+ * load. Every <button> in it toggles the badge's dropdown.
+ *
+ * @param array $badge
+ *   The badge render array.
+ * @param \Drupal\Core\Entity\ContentEntityInterface $entity
+ *   The entity being edited.
+ */
+function hook_neo_seo_panel_badge_alter(array &$badge, ContentEntityInterface $entity): void {
+  $badge['my_module'] = ['#markup' => '<button type="button">SEO</button>'];
+}
+
+/**
  * @} End of "addtogroup hooks".
  */

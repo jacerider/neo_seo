@@ -15,6 +15,26 @@ const KEYS: NeoSeoOverrideKey[] = [
 
 type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 
+/** Where controls are looked up: an element, or several (see scopeOf()). */
+export interface Scope {
+  querySelector<E extends Element = Element>(selectors: string): E | null;
+}
+
+/** One scope over several roots: the first match wins. */
+export function scopeOf(roots: HTMLElement[]): Scope {
+  return {
+    querySelector<E extends Element = Element>(selectors: string): E | null {
+      for (const root of roots) {
+        const found = root.querySelector<E>(selectors);
+        if (found) {
+          return found;
+        }
+      }
+      return null;
+    },
+  };
+}
+
 /** The override a control holds, from its name; null for anything else. */
 export function keyOf(target: EventTarget | null): NeoSeoOverrideKey | null {
   const name = target instanceof Element ? target.getAttribute('name') : null;
@@ -25,12 +45,12 @@ export function keyOf(target: EventTarget | null): NeoSeoOverrideKey | null {
   return KEYS.includes(key) ? key : null;
 }
 
-export function input(root: ParentNode, key: NeoSeoOverrideKey): Control | null {
+export function input(root: Scope, key: NeoSeoOverrideKey): Control | null {
   return root.querySelector<Control>(`[name="${PREFIX}${key}]"]`);
 }
 
 /** The form item wrapping a control. */
-export function wrapper(root: ParentNode, key: NeoSeoOverrideKey): HTMLElement | null {
+export function wrapper(root: Scope, key: NeoSeoOverrideKey): HTMLElement | null {
   const control = input(root, key);
   if (!control || (control instanceof HTMLInputElement && control.type === 'hidden')) {
     return null;
@@ -48,7 +68,7 @@ function score(value: string): number | null {
   return /^\d{1,3}$/.test(value) ? Number(value) : null;
 }
 
-export function read(root: ParentNode): NeoSeoOverrides {
+export function read(root: Scope): NeoSeoOverrides {
   const text = (key: NeoSeoOverrideKey) => input(root, key)?.value ?? '';
   const checked = (key: NeoSeoOverrideKey) => {
     const control = input(root, key);
@@ -72,7 +92,7 @@ export function read(root: ParentNode): NeoSeoOverrides {
  * Writes values into the controls. The share image is not writable: its
  * control holds a label the panel does not know.
  */
-export function write(root: ParentNode, values: Partial<NeoSeoOverrides>, announce: boolean): void {
+export function write(root: Scope, values: Partial<NeoSeoOverrides>, announce: boolean): void {
   (Object.keys(values) as NeoSeoOverrideKey[]).forEach((key) => {
     const control = input(root, key);
     const value = values[key];

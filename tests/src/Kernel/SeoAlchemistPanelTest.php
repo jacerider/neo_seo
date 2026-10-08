@@ -7,6 +7,7 @@ namespace Drupal\Tests\neo_seo\Kernel;
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Render\RenderContext;
 use Drupal\entity_test\Entity\EntityTest;
+use Drupal\neo_alchemist\ComponentManageHelper;
 use Drupal\neo_alchemist\EditorState\SharedDraftStore;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_seo\SeoOverrides;
@@ -131,6 +132,26 @@ class SeoAlchemistPanelTest extends HybridFieldKernelTestBase {
     $this->store()->delete($item);
     $this->assertNull($this->store()->getPanel($item, SeoPanel::ID));
     $this->assertSame('Saved title', SeoOverrides::of($this->reloadEntity($entity))['title']);
+  }
+
+  /**
+   * The top bar badge holds analysis's score pills, for panel editors only.
+   */
+  public function testBadgeShowsScoresOnlyWithAnalysis(): void {
+    $item = $this->item($this->createTestEntity());
+    $this->assertSame([], $this->panel()->badge($item), 'No analysis, no badge.');
+
+    $this->enableModules(['neo_seo_analysis']);
+    $badge = $this->panel()->badge($item);
+    $this->assertSame('seo', $badge['neo_seo_analysis_seo']['#attributes']['data-neo-seo-score']);
+    $this->assertSame('readability', $badge['neo_seo_analysis_readability']['#attributes']['data-neo-seo-score']);
+    $this->assertContains('neo_seo_analysis/panel', $badge['#attached']['library']);
+    $badges = $this->container->get('renderer')->executeInRenderContext(new RenderContext(), static fn() => ComponentManageHelper::buildSidePanels($item))['badges'];
+    $this->assertArrayHasKey('badge_' . SeoPanel::ID, $badges);
+
+    $this->setCurrentUser($this->createUser(['administer entity_test content', 'view test entity']));
+    $badges = $this->container->get('renderer')->executeInRenderContext(new RenderContext(), static fn() => ComponentManageHelper::buildSidePanels($item))['badges'];
+    $this->assertSame([], $badges, 'An editor who may not open the panel gets no badge.');
   }
 
   /**

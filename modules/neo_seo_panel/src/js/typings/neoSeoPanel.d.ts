@@ -118,11 +118,39 @@ interface NeoSeoPanelExtension {
   mount(context: NeoSeoPanelContext): void;
 }
 
+/** Where an Alchemist editor's SEO state stands. */
+type NeoSeoEditorState = 'updating' | 'ready' | 'error';
+
+/**
+ * One Alchemist editor's SEO state: its host and latest draft render, kept
+ * current from editor load. Shared by the panel and its top bar badge.
+ */
+interface NeoSeoEditor {
+  readonly host: NeoSeoPanelHost;
+  readonly config: NeoSeoPanelConfig;
+  latest(): NeoSeoDraftRender | null;
+  onRender(callback: (render: NeoSeoDraftRender) => void): void;
+  onState(callback: (state: NeoSeoEditorState) => void): void;
+  /** Another element holding override controls (moved there from the panel). */
+  addRoot(root: HTMLElement): void;
+  refresh(): void;
+}
+
+/** A module's addition to the Alchemist top bar badge (neo_seo_analysis). */
+interface NeoSeoBadgeExtension {
+  id: string;
+  mount(badge: HTMLElement, dropdown: NeoAlchemistDropdown, editor: NeoSeoEditor): void;
+}
+
 interface NeoSeoPanelApi {
   /** Adds an extension to every panel, including ones already mounted. */
   extend(extension: NeoSeoPanelExtension): void;
+  /** Adds to the Alchemist top bar badge, including one already started. */
+  extendBadge(extension: NeoSeoBadgeExtension): void;
   /** Mounts the panel in the Alchemist editor (neo_seo_panel/alchemist). */
   mountAlchemist(element: HTMLElement, api: NeoAlchemistPanelApi): void;
+  /** Starts the Alchemist top bar badge at editor load (neo_seo_panel/alchemist). */
+  badgeAlchemist(element: HTMLElement, api: NeoAlchemistPanelApi, dropdown: NeoAlchemistDropdown): void;
 }
 
 declare namespace drupal {
