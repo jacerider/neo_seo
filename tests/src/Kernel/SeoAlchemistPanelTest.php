@@ -143,8 +143,10 @@ class SeoAlchemistPanelTest extends HybridFieldKernelTestBase {
 
     $this->enableModules(['neo_seo_analysis']);
     $badge = $this->panel()->badge($item);
-    $this->assertSame('seo', $badge['neo_seo_analysis_seo']['#attributes']['data-neo-seo-score']);
-    $this->assertSame('readability', $badge['neo_seo_analysis_readability']['#attributes']['data-neo-seo-score']);
+    $this->assertContains('btn-group', $badge['neo_seo_analysis']['#attributes']['class'], 'The pills are a button group like the scale and device groups.');
+    $this->assertSame('seo', $badge['neo_seo_analysis']['seo']['#attributes']['data-neo-seo-score']);
+    $this->assertSame('readability', $badge['neo_seo_analysis']['readability']['#attributes']['data-neo-seo-score']);
+    $this->assertContains('is-active:btn-primary', $badge['neo_seo_analysis']['seo']['#attributes']['class']);
     $this->assertContains('neo_seo_analysis/panel', $badge['#attached']['library']);
     $badges = $this->container->get('renderer')->executeInRenderContext(new RenderContext(), static fn() => ComponentManageHelper::buildSidePanels($item))['badges'];
     $this->assertArrayHasKey('badge_' . SeoPanel::ID, $badges);

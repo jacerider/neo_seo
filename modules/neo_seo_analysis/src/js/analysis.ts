@@ -395,63 +395,40 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         content: [results.readability],
       },
     };
-    const tablist = h('div', { class: 'neo-seo-analysis__tabs', role: 'tablist', 'aria-label': Drupal.t('Scores') });
-    const tabs = {} as Record<Side, HTMLButtonElement>;
+    // No tabs: the pills are the switch. The open pill's side is shown; the
+    // other pill swaps it; the open pill again closes (neo_alchemist).
     const panes = {} as Record<Side, HTMLElement>;
     (Object.keys(sides) as Side[]).forEach((side) => {
-      const tab = h('button', {
-        type: 'button',
-        role: 'tab',
-        id: `neo-seo-analysis-tab-${side}`,
-        class: 'neo-seo-analysis__tab',
-        'aria-controls': `neo-seo-analysis-pane-${side}`,
-        'aria-selected': 'false',
-        tabindex: '-1',
-      }, [sides[side].label]);
       const pane = h('div', {
-        role: 'tabpanel',
         id: `neo-seo-analysis-pane-${side}`,
         class: 'neo-seo-analysis__pane',
-        'aria-labelledby': tab.id,
+        role: 'group',
+        'aria-label': sides[side].label,
       }, [h('p', { class: 'neo-seo-analysis__help' }, [sides[side].help]), ...sides[side].content]);
       pane.hidden = true;
-      tab.addEventListener('click', () => select(side));
-      tabs[side] = tab;
       panes[side] = pane;
-      tablist.append(tab);
     });
-    tablist.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
-        event.preventDefault();
-        const next: Side = tabs.seo.getAttribute('aria-selected') === 'true' ? 'readability' : 'seo';
-        select(next);
-        tabs[next].focus();
-      }
-    });
-    // The pill of the side on show is marked while the dropdown is open.
     const select = (side: Side) => {
-      (Object.keys(tabs) as Side[]).forEach((key) => {
+      (Object.keys(panes) as Side[]).forEach((key) => {
         const on = key === side;
-        tabs[key].setAttribute('aria-selected', on ? 'true' : 'false');
-        tabs[key].tabIndex = on ? 0 : -1;
         panes[key].hidden = !on;
         pills[key]?.classList.toggle('is-active', on && dropdown.isOpen());
+        pills[key]?.setAttribute('aria-pressed', on && dropdown.isOpen() ? 'true' : 'false');
       });
-      const pill = pills[side];
-      if (pill && dropdown.isOpen()) {
-        dropdown.setTrigger(pill);
-      }
       if (side !== 'seo') {
         results.clearHighlight();
       }
+      dropdown.element.setAttribute('aria-label', sides[side].label);
     };
     select('seo');
-    body.replaceChildren(tablist, panes.seo, panes.readability, status);
+    body.replaceChildren(panes.seo, panes.readability, status);
     dropdown.onToggle((open, trigger) => {
       if (!open) {
         results.clearHighlight();
-        pills.seo?.classList.remove('is-active');
-        pills.readability?.classList.remove('is-active');
+        (['seo', 'readability'] as Side[]).forEach((key) => {
+          pills[key]?.classList.remove('is-active');
+          pills[key]?.setAttribute('aria-pressed', 'false');
+        });
         return;
       }
       select(trigger?.dataset.neoSeoScore === 'readability' ? 'readability' : 'seo');

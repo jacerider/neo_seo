@@ -23,16 +23,21 @@ class AnalysisHooks {
    */
   #[Hook('neo_seo_panel_badge_alter')]
   public function neoSeoPanelBadgeAlter(array &$badge, ContentEntityInterface $entity): void {
-    // The two score pills; analysis.ts fills in the scores once it has them.
+    // The two scores, as a button group styled like the editor's scale and
+    // device groups beside it; analysis.ts fills in the scores and marks the
+    // open one active (is-active:btn-primary).
+    $badge['neo_seo_analysis'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => ['class' => ['btn-group', 'flush', 'neo-seo-pills']],
+    ];
     foreach (['seo' => $this->t('SEO'), 'readability' => $this->t('Read')] as $kind => $label) {
-      $badge['neo_seo_analysis_' . $kind] = [
+      $badge['neo_seo_analysis'][$kind] = [
         '#type' => 'html_tag',
         '#tag' => 'button',
         '#attributes' => [
           'type' => 'button',
-          // Styled by analysis.css, not the editor's button classes: those
-          // invert on hover, which would sink the traffic-light dot.
-          'class' => ['neo-seo-pill', 'is-updating'],
+          'class' => ['neo-seo-pill', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary', 'is-updating'],
           'data-neo-seo-score' => $kind,
         ],
         'dot' => [
