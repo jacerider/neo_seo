@@ -93,7 +93,6 @@ class SeoPanelForm extends FormBase {
 
     $form[SeoOverrides::FIELD] = ['#tree' => TRUE, 0 => $element];
     $form['#attributes']['class'][] = 'neo-seo-panel-form';
-    $form['#attributes']['class'][] = 'p-3';
     return $form;
   }
 

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\neo_seo\Plugin\Field\FieldWidget;
 
+use Drupal\Component\Utility\Html;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\Attribute\FieldWidget;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Render\Markup;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_seo\Mapping\BundleMappingRepository;
 use Drupal\neo_seo\Plugin\Field\FieldType\SeoOverridesItem;
@@ -115,9 +117,28 @@ class SeoOverridesWidget extends WidgetBase {
     $element['cornerstone'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Cornerstone content'),
-      '#description' => $this->t('One of the site’s most important pages. Analysis holds it to a higher standard.'),
       '#default_value' => (bool) $item->cornerstone,
     ];
+
+    // Plain-language help, the same wherever these controls are shown.
+    $this->help($element['keyphrase'],
+      $this->t('The search phrase you most want this page found for.'),
+      $this->t('The words someone would type into Google to find this page — e.g. “healing gardens”. Pick one phrase per page and don’t reuse it on another page, or your pages compete with each other. The checks show where the phrase is missing: title, description, first paragraph, headings, image alt text. It is never shown to visitors; it only guides these suggestions.'),
+    );
+    $this->help($element['cornerstone'],
+      $this->t('One of the site’s most important pages.'),
+      $this->t('Mark the few pages you most want to rank — usually long, authoritative pages others link to. They are held to stricter checks (more text, tighter readability).'),
+    );
+    foreach (['page_type', 'article_type'] as $type) {
+      $this->help($element[$type],
+        $this->t('What kind of page this is, for search engines.'),
+        $this->t('Search engines use this to understand the page — an About page, a profile, a blog post. It doesn’t change how the page looks. Leave the default unless the page really is a different kind.'),
+      );
+    }
+    $this->help($element['noindex'],
+      $this->t('Ask search engines not to list this page.'),
+      $this->t('For pages that shouldn’t appear in Google — thank-you pages, campaign landing pages. The page stays on the site and works normally for anyone with the link.'),
+    );
     // The scores are written by analysis (neo_seo_analysis), not typed. Hidden
     // inputs, so the panel can set them before a save and a save without the
     // panel carries the stored ones through.
@@ -128,6 +149,33 @@ class SeoOverridesWidget extends WidgetBase {
       ];
     }
     return $element;
+  }
+
+  /**
+   * Gives a control a visible one-line hint and a "What's this?" expander.
+   *
+   * Wrapped together with the control (.neo-seo-field), so the SEO panel keeps
+   * them together wherever it moves the control. Not a #description: those may
+   * become tooltips, and this help is meant to be read where it stands.
+   *
+   * @param array $element
+   *   The control.
+   * @param \Drupal\Core\StringTranslation\TranslatableMarkup $hint
+   *   The one-line hint.
+   * @param \Drupal\Core\StringTranslation\TranslatableMarkup $more
+   *   The longer explanation.
+   */
+  protected function help(array &$element, TranslatableMarkup $hint, TranslatableMarkup $more): void {
+    $id = Html::getUniqueId('neo-seo-help');
+    $element['#attributes']['aria-describedby'] = $id;
+    $element['#prefix'] = Markup::create('<div class="neo-seo-field">');
+    $element['#suffix'] = Markup::create(
+      '<div class="neo-seo-help">'
+      . '<p class="neo-seo-help__hint" id="' . $id . '">' . Html::escape((string) $hint) . '</p>'
+      . '<details class="neo-seo-help__more"><summary>' . Html::escape((string) $this->t('What’s this?')) . '</summary>'
+      . '<p>' . Html::escape((string) $more) . '</p></details>'
+      . '</div></div>'
+    );
   }
 
   /**

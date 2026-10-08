@@ -302,12 +302,20 @@ import AnalysisWorker from './analysis.worker?worker&inline';
 
   }
 
+  /** What the two scores mean: the same words in both surfaces. */
+  function scoresHelp(): HTMLElement {
+    return h('p', { class: 'neo-seo-analysis__help' }, [
+      Drupal.t('SEO: how well the page is set up to be found for its focus keyphrase. Readability: how easy the text is to read. Green 70+, orange 40–69, red below. They are advice: they never stop you saving.'),
+    ]);
+  }
+
   /**
    * The edit form's Analysis section.
    */
   function mountSection(context: NeoSeoPanelContext): void {
     const body = context.section('analysis', Drupal.t('Content analysis'));
     body.classList.add('neo-seo-analysis');
+    body.append(scoresHelp());
     // The inputs analysis reads sit with its results. Moved, not copied: they
     // stay the host's controls and save the way they always did.
     (['keyphrase', 'cornerstone'] as NeoSeoOverrideKey[]).forEach((key) => {
@@ -357,9 +365,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     // The dropdown: what the scores mean, what they are scored against, why.
     const body = dropdown.element;
     body.classList.add('neo-seo-analysis', 'neo-seo-analysis--dropdown');
-    const help = h('p', { class: 'neo-seo-analysis__help' }, [
-      Drupal.t('SEO: how well the page is set up to be found for its focus keyphrase. Readability: how easy the text is to read. Green 70+, orange 40–69, red below. They are advice: they never stop you saving.'),
-    ]);
+    const help = scoresHelp();
     const fields = h('div', { class: 'neo-seo-analysis__fields' });
     // The panel's own keyphrase and cornerstone controls move here: they
     // still draft through the panel's draft key, like every SEO field.

@@ -64,6 +64,24 @@ class SeoPanelFormTest extends NeoSeoKernelTestBase {
   }
 
   /**
+   * The SEO fields carry a visible hint and a "What's this?" expander.
+   */
+  public function testFieldsCarryHelp(): void {
+    $node = Node::create(['type' => 'page', 'title' => 'About']);
+    $node->save();
+    $element = $this->form($node)[SeoOverrides::FIELD]['widget'][0];
+    foreach (['keyphrase', 'cornerstone', 'page_type', 'article_type', 'noindex'] as $key) {
+      $suffix = (string) $element[$key]['#suffix'];
+      $this->assertStringContainsString('class="neo-seo-help__hint"', $suffix, "$key has a hint.");
+      $this->assertStringContainsString('<summary>What’s this?</summary>', $suffix, "$key has an expander.");
+      $this->assertStringContainsString('id="' . $element[$key]['#attributes']['aria-describedby'] . '"', $suffix, "$key is described by its hint.");
+      $this->assertStringContainsString('neo-seo-field', (string) $element[$key]['#prefix']);
+    }
+    $this->assertStringContainsString('Ask search engines not to list this page.', (string) $element['noindex']['#suffix']);
+    $this->assertArrayNotHasKey('#suffix', $element['title'], 'Fields without help are left alone.');
+  }
+
+  /**
    * A new entity has no draft endpoint yet; the panel renders through the form.
    */
   public function testNewEntityHasNoRenderUrl(): void {
