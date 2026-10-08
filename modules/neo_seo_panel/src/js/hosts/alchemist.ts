@@ -1,0 +1,238 @@
+/**
+ * The Alchemist host: the overrides live in the shared layout draft.
+ *
+ * The controls are the same widget elements, rendered into the side panel by
+ * the SeoPanel plugin's form, which is never submitted. An editor's change is
+ * written to the panel's draft key (only the overrides they touched, merged
+ * over what the draft already holds), so it goes live on Publish with the
+ * layout and Revert/Reset discard it. Renders come from neo_seo's draft render
+ * endpoint, which applies the layout draft and this key.
+ */
+
+import * as controls from '../controls';
+import { debounce } from '../dom';
+
+/** How long typing must pause before the draft is written. */
+const WRITE_WAIT = 400;
+
+export class AlchemistHost implements NeoSeoPanelHost {
+
+  readonly kind = 'alchemist';
+
+  /** What the panel's draft key holds, as last read or written. */
+  protected stored: Partial<NeoSeoOverrides> = {};
+  protected hasDraft = false;
+  /** Overrides the editor changed in this session. */
+  protected readonly touched = new Set<NeoSeoOverrideKey>();
+  /** Values the panel computed (scores): kept only beside a draft. */
+  protected computed: Partial<NeoSeoOverrides> = {};
+  protected writing: Promise<void> = Promise.resolve();
+  protected readonly ready: Promise<void>;
+  protected readonly listeners: Array<(change: NeoSeoHostChange) => void> = [];
+  protected readonly writeSoon = debounce(() => {
+    this.writing = this.writing.then(() => this.persist());
+  }, WRITE_WAIT);
+
+  protected readonly form: HTMLElement;
+  protected readonly api: NeoAlchemistPanelApi;
+  protected readonly config: NeoSeoPanelConfig;
+
+  constructor(form: HTMLElement, api: NeoAlchemistPanelApi, config: NeoSeoPanelConfig) {
+    this.form = form;
+    this.api = api;
+    this.config = config;
+    // The form is only a container for the controls.
+    form.addEventListener('submit', (event) => event.preventDefault());
+    const listener = (event: Event) => {
+      const key = controls.keyOf(event.target);
+      if (!key) {
+        return;
+      }
+      this.touched.add(key);
+      this.writeSoon();
+      this.notify({ source: 'override', key });
+    };
+    form.addEventListener('input', listener);
+    form.addEventListener('change', listener);
+
+    this.ready = api.get().then((state) => {
+      this.stored = state.data && typeof state.data === 'object' ? state.data as Partial<NeoSeoOverrides> : {};
+      this.hasDraft = state.hasDraft;
+    });
+    api.onDraftChange((change) => {
+      this.hasDraft = change.hasDraft;
+      if (change.reason === 'layout') {
+        this.notify({ source: 'content' });
+      }
+    });
+  }
+
+  read(): NeoSeoOverrides {
+    return controls.read(this.form);
+  }
+
+  write(values: Partial<NeoSeoOverrides>, options: { quiet?: boolean } = {}): void {
+    controls.write(this.form, values, false);
+    if (options.quiet) {
+      this.computed = { ...this.computed, ...values };
+    }
+    else {
+      (Object.keys(values) as NeoSeoOverrideKey[]).forEach((key) => this.touched.add(key));
+    }
+    this.writeSoon();
+  }
+
+  control(key: NeoSeoOverrideKey): HTMLElement | null {
+    return controls.wrapper(this.form, key);
+  }
+
+  async render(): Promise<NeoSeoDraftRender> {
+    // The endpoint renders what the draft holds, so write first.
+    this.writeSoon.flush();
+    await this.ready;
+    await this.writing;
+    if (!this.config.renderUrl) {
+      throw new Error('No draft render URL.');
+    }
+    const response = await fetch(this.config.renderUrl, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) {
+      throw new Error(`The draft render failed (${response.status}).`);
+    }
+    return await response.json() as NeoSeoDraftRender;
+  }
+
+  onChange(callback: (change: NeoSeoHostChange) => void): void {
+    this.listeners.push(callback);
+  }
+
+  highlight(targets: NeoSeoHighlight[] | null): boolean {
+    return highlightInPreviews(targets);
+  }
+
+  protected notify(change: NeoSeoHostChange): void {
+    this.listeners.forEach((listener) => {
+      try {
+        listener(change);
+      }
+      catch (e) {
+        console.error(e);
+      }
+    });
+  }
+
+  /**
+   * Writes the draft key: what it held, the touched overrides as they are now,
+   * and — only when there is a draft to ride along with — the scores.
+   */
+  protected async persist(): Promise<void> {
+    await this.ready;
+    const values = this.read();
+    const next: Partial<NeoSeoOverrides> = { ...this.stored };
+    this.touched.forEach((key) => {
+      (next as Record<string, unknown>)[key] = values[key];
+    });
+    if (this.hasDraft || this.touched.size) {
+      Object.assign(next, this.computed);
+    }
+    if (JSON.stringify(next) === JSON.stringify(this.stored)) {
+      return;
+    }
+    try {
+      const result = await this.api.set(next);
+      this.stored = next;
+      this.hasDraft = result.hasDraft;
+    }
+    catch (e) {
+      // The panel shows why (a colleague moved the draft on); the edit stays
+      // in the controls, so nothing is lost silently.
+      console.error(e);
+    }
+  }
+
+}
+
+const MARK = 'data-neo-seo-highlight';
+
+/**
+ * Marks highlight targets in the editor's preview frames: the smallest element
+ * holding each target is outlined, and the first is scrolled into view.
+ * Best effort — a target the preview does not show is skipped.
+ */
+function highlightInPreviews(targets: NeoSeoHighlight[] | null): boolean {
+  const frames = Object.values(Drupal.neoAlchemist?.iframes ?? {})
+    .filter((frame): frame is HTMLIFrameElement => !!frame && frame.offsetParent !== null);
+  let first: { frame: HTMLIFrameElement; element: Element } | null = null;
+  frames.forEach((frame) => {
+    const doc = frame.contentDocument;
+    if (!doc?.body) {
+      return;
+    }
+    doc.querySelectorAll(`[${MARK}]`).forEach((element) => element.removeAttribute(MARK));
+    if (!doc.getElementById('neo-seo-highlight-style')) {
+      const style = doc.createElement('style');
+      style.id = 'neo-seo-highlight-style';
+      style.textContent = `[${MARK}]{outline:3px solid #f59e0b!important;outline-offset:3px;background-color:rgb(253 230 138 / .55)!important;}`;
+      doc.head.append(style);
+    }
+    (targets ?? []).forEach((target) => {
+      findTargets(doc, target).forEach((element) => {
+        element.setAttribute(MARK, '');
+        first ??= { frame, element };
+      });
+    });
+  });
+  if (first) {
+    scrollToMark(first);
+  }
+  return first !== null;
+}
+
+function normalize(text: string | null | undefined): string {
+  return (text ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function findTargets(doc: Document, target: NeoSeoHighlight): Element[] {
+  switch (target.kind) {
+    case 'heading': {
+      const text = normalize(target.text);
+      return Array.from(doc.querySelectorAll(`h${target.level}`)).filter((element) => normalize(element.textContent) === text);
+    }
+    case 'image':
+      return Array.from(doc.querySelectorAll('img')).filter((image) => {
+        const src = image.getAttribute('src') ?? '';
+        return src === target.src || (target.src !== '' && image.src.endsWith(target.src));
+      });
+    case 'link':
+      return Array.from(doc.querySelectorAll('a')).filter((link) => link.getAttribute('href') === target.href);
+    default: {
+      // A sentence or paragraph: the innermost block that contains it.
+      const text = normalize(target.text);
+      if (!text) {
+        return [];
+      }
+      const blocks = Array.from(doc.body.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th, blockquote, figcaption, dd, dt'))
+        .filter((element) => normalize(element.textContent).includes(text));
+      return blocks.filter((block) => !blocks.some((other) => other !== block && block.contains(other))).slice(0, 1);
+    }
+  }
+}
+
+/**
+ * The frames are sized to their content, so the editor scrolls, not the frame.
+ */
+function scrollToMark(mark: { frame: HTMLIFrameElement; element: Element }): void {
+  let scroller: HTMLElement | null = mark.frame.parentElement;
+  while (scroller && !(scroller.scrollHeight > scroller.clientHeight && /(auto|scroll)/.test(getComputedStyle(scroller).overflowY))) {
+    scroller = scroller.parentElement;
+  }
+  const top = mark.frame.getBoundingClientRect().top + mark.element.getBoundingClientRect().top;
+  if (scroller) {
+    scroller.scrollTo({ top: scroller.scrollTop + top - scroller.getBoundingClientRect().top - 120, behavior: 'instant' as ScrollBehavior });
+  }
+  else {
+    window.scrollTo({ top: window.scrollY + top - 120, behavior: 'instant' as ScrollBehavior });
+  }
+}

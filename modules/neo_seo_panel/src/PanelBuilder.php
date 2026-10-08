@@ -66,7 +66,9 @@ class PanelBuilder {
         ])->toString(TRUE)->getGeneratedUrl(),
         'favicon' => $this->favicon(),
       ],
-      'libraries' => ['neo_seo_panel/panel'],
+      'libraries' => $host === 'alchemist'
+        ? ['neo_seo_panel/panel', 'neo_seo_panel/alchemist']
+        : ['neo_seo_panel/panel'],
     ];
     $this->moduleHandler->alter('neo_seo_panel', $panel, $entity, $host);
     return [

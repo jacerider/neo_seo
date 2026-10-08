@@ -3,10 +3,12 @@
  *
  * Mounts the SEO panel on every [data-neo-seo-panel] element the edit form
  * renders, and exposes Drupal.neoSeoPanel: extend() for modules that add to
- * the panel (neo_seo_analysis). The panel and its hosts are all in this one
- * entrypoint; other entrypoints reach it through Drupal.neoSeoPanel.
+ * the panel (neo_seo_analysis), mountAlchemist() for the Alchemist editor's
+ * registration (alchemist.ts). The panel and its hosts are all in this one
+ * entrypoint; the others reach it through Drupal.neoSeoPanel.
  */
 
+import { AlchemistHost } from './hosts/alchemist';
 import { FormHost } from './hosts/form';
 import { SeoPanel } from './widget';
 
@@ -30,13 +32,22 @@ import { SeoPanel } from './widget';
       extensions.push(extension);
       panels.forEach((panel) => panel.extend(extension));
     },
+    mountAlchemist(body, api) {
+      const element = body.querySelector<HTMLElement>('[data-neo-seo-panel]');
+      const form = element?.closest<HTMLElement>('form');
+      if (!element || !form) {
+        return;
+      }
+      const settings = config(element);
+      start(element, new AlchemistHost(form, api, settings), settings);
+    },
   };
 
   Drupal.behaviors.neoSeoPanel = {
     attach(context: HTMLElement) {
       once('neo-seo-panel', '[data-neo-seo-panel]', context).forEach((element) => {
         const settings = config(element);
-        // Other hosts mount their panel themselves.
+        // The Alchemist editor mounts its panel when it is first opened.
         if (settings.host !== 'form') {
           return;
         }

@@ -14,3 +14,13 @@ panel:
     - core/once
     - core/jquery
     - core/drupal.ajax
+
+# Registers the panel with the Alchemist editor's side panel registry.
+alchemist:
+  version: VERSION
+  neo: { scope: back }
+  js:
+    src/js/alchemist.ts: {}
+  dependencies:
+    - neo_seo_panel/panel
+    - neo_alchemist/panels

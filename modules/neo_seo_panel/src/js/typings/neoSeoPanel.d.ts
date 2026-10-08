@@ -121,6 +121,8 @@ interface NeoSeoPanelExtension {
 interface NeoSeoPanelApi {
   /** Adds an extension to every panel, including ones already mounted. */
   extend(extension: NeoSeoPanelExtension): void;
+  /** Mounts the panel in the Alchemist editor (neo_seo_panel/alchemist). */
+  mountAlchemist(element: HTMLElement, api: NeoAlchemistPanelApi): void;
 }
 
 declare namespace drupal {

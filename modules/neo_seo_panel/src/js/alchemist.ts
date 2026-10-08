@@ -1,0 +1,14 @@
+/**
+ * Neo | SEO Panel — the Alchemist editor's SEO side panel.
+ *
+ * Registers the SeoPanel plugin's client half. The panel itself is
+ * neo_seo_panel/panel; this only hands it the panel body and the draft api
+ * when the editor first opens the panel.
+ */
+(function (Drupal): void {
+  Drupal.neoAlchemist?.panels?.register('neo_seo', {
+    mount(element, api) {
+      Drupal.neoSeoPanel?.mountAlchemist(element, api);
+    },
+  });
+})(Drupal);
