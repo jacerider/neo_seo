@@ -6,7 +6,6 @@ namespace Drupal\Tests\neo_seo\Kernel;
 
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
-use Drupal\metatag\Entity\MetaTagDefaults;
 use Drupal\neo_seo\Entity\SeoDefaults;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\node\Entity\Node;
@@ -22,14 +21,18 @@ class MetatagMigratorTest extends NeoSeoKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected static $modules = ['node', 'text', 'filter', 'metatag'];
-
-  /**
-   * Schema tags come from schema_metatag, which these tests do not install.
-   *
-   * @var bool
-   */
-  protected $strictConfigSchema = FALSE;
+  protected static $modules = [
+    'node',
+    'text',
+    'filter',
+    'metatag',
+    'metatag_open_graph',
+    'schema_metatag',
+    'schema_organization',
+    'schema_article',
+    'schema_person',
+    'schema_web_site',
+  ];
 
   /**
    * {@inheritdoc}
@@ -50,7 +53,7 @@ class MetatagMigratorTest extends NeoSeoKernelTestBase {
       'og_image_url' => '[neo:image]',
       'canonical_url' => '[current-page:url]',
       'og_type' => 'website',
-      'dcterms_creator' => 'Westwood',
+      'abstract' => 'Westwood',
       'schema_organization_type' => 'Organization',
       'schema_organization_name' => '[site:name]',
       'schema_organization_telephone' => '[site:phone]',
@@ -80,7 +83,9 @@ class MetatagMigratorTest extends NeoSeoKernelTestBase {
    * Creates a metatag defaults set.
    */
   protected function defaults(string $id, array $tags): void {
-    MetaTagDefaults::create(['id' => $id, 'label' => $id, 'tags' => $tags])->save();
+    $this->container->get('entity_type.manager')->getStorage('metatag_defaults')
+      ->create(['id' => $id, 'label' => $id, 'tags' => $tags])
+      ->save();
   }
 
   /**
@@ -111,7 +116,7 @@ class MetatagMigratorTest extends NeoSeoKernelTestBase {
     $this->assertSame(['robots' => 'noindex, follow'], $plan['defaults']['taxonomy_term__region']);
     $this->assertSame('derived', $this->outcome($plan, 'global', 'og_image_url'), 'A second image tag is not a second image.');
     $this->assertSame('derived', $this->outcome($plan, 'global', 'canonical_url'));
-    $this->assertSame('unconverted', $this->outcome($plan, 'global', 'dcterms_creator'));
+    $this->assertSame('unconverted', $this->outcome($plan, 'global', 'abstract'));
 
     $this->assertSame(['article_type' => 'BlogPosting'], $plan['mappings']['node:insight']);
     $this->assertSame('unconverted', $this->outcome($plan, 'node__insight', 'schema_article_author'));
@@ -125,7 +130,8 @@ class MetatagMigratorTest extends NeoSeoKernelTestBase {
     $this->assertSame('derived', $this->outcome($plan, 'global', 'schema_web_site_name'));
 
     $tags = 0;
-    foreach (MetaTagDefaults::loadMultiple() as $defaults) {
+    $storage = $this->container->get('entity_type.manager')->getStorage('metatag_defaults');
+    foreach ($storage->loadMultiple() as $defaults) {
       $tags += count($defaults->get('tags'));
     }
     $this->assertCount($tags, $plan['report'], 'Every metatag value gets a report line.');
@@ -166,7 +172,11 @@ class MetatagMigratorTest extends NeoSeoKernelTestBase {
     $node = Node::create([
       'type' => 'insight',
       'title' => 'Gardens',
-      'field_metatags' => json_encode(['title' => 'Custom title', 'robots' => 'noindex, nofollow', 'og_image' => '/x.png']),
+      'field_metatags' => json_encode([
+        'title' => 'Custom title',
+        'robots' => 'noindex, nofollow',
+        'og_image' => '/x.png',
+      ]),
     ]);
     $node->save();
 
