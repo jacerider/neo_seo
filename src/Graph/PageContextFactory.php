@@ -97,6 +97,9 @@ class PageContextFactory {
         default => $this->routeTitle(),
       },
       routeName: $this->routeMatch->getRouteName(),
+      viewId: $this->routeMatch->getRouteObject()?->getDefault('view_id'),
+      viewDisplayId: $this->routeMatch->getRouteObject()?->getDefault('display_id'),
+      viewArguments: $this->viewArguments(),
     );
     $context->addCacheableDependency($site);
     $context->addCacheableDependency((new CacheableMetadata())->setCacheContexts([
@@ -136,6 +139,24 @@ class PageContextFactory {
       $title = $this->renderer->renderInIsolation($title);
     }
     return $title === NULL ? NULL : trim(strip_tags((string) $title));
+  }
+
+  /**
+   * A Views page's contextual arguments, in the order the view takes them.
+   *
+   * @return string[]
+   *   The raw argument values.
+   */
+  protected function viewArguments(): array {
+    $map = (array) ($this->routeMatch->getRouteObject()?->getOption('_view_argument_map') ?? []);
+    $raw = $this->routeMatch->getRawParameters();
+    $arguments = [];
+    foreach ($map as $parameter) {
+      if ($raw->has($parameter)) {
+        $arguments[] = (string) $raw->get($parameter);
+      }
+    }
+    return $arguments;
   }
 
   /**

@@ -14,15 +14,16 @@ use Drupal\neo_seo\Mapping\BundleMappingRepository;
 use Drupal\neo_seo\MediaImage;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo\TokenText;
+use Drupal\neo_seo\ViewsSeo;
 use Drupal\token\TokenEntityMapperInterface;
 
 /**
  * Resolves a page's head values from its layers of default templates.
  *
- * The layers, lowest precedence first: global → entity type → bundle, then
- * front, then 403 or 404. A more specific layer wins field by field, and only
- * where it has a value — so a bundle that sets only a title keeps everything
- * else from the layers below it. Front, 403 and 404 sit on top of that chain
+ * The layers, lowest precedence first: global → entity type → bundle (or a
+ * Views page's own settings), then front, then 403 or 404. A more specific
+ * layer wins field by field, and only where it has a value — so a bundle that
+ * sets only a title keeps everything else from the layers below it. Front, 403 and 404 sit on top of that chain
  * rather than replacing it, which is the trap metatag's defaults have.
  *
  * An editor's SEO overrides for the page sit above every layer.
@@ -51,6 +52,8 @@ class HeadValuesResolver {
    *   The media image helper, for an overridden share image.
    * @param \Drupal\neo_seo\Mapping\BundleMappingRepository $mapping
    *   The bundle mapping repository.
+   * @param \Drupal\neo_seo\ViewsSeo $viewsSeo
+   *   The Views page settings reader.
    */
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
@@ -59,6 +62,7 @@ class HeadValuesResolver {
     protected HeadTagPluginManager $headTagManager,
     protected MediaImage $mediaImage,
     protected BundleMappingRepository $mapping,
+    protected ViewsSeo $viewsSeo,
   ) {
     $this->resolved = new \WeakMap();
   }
@@ -81,10 +85,26 @@ class HeadValuesResolver {
    */
   protected function doResolve(PageContext $context): HeadValues {
     $layers = $this->layers($context);
-    $templates = [];
+    $viewsSettings = $this->viewsSeo->settings($context);
+
+    // Each layer's templates, lowest precedence first. A Views page's own
+    // settings slot in above global and below front, 403 and 404, which are
+    // only ever layered on top.
+    $stack = [];
     foreach ($layers as $defaults) {
       $context->addCacheableDependency($defaults);
-      foreach ($defaults->getValues() as $field => $template) {
+      if ($viewsSettings !== NULL && in_array($defaults->id(), SeoDefaultsInterface::ON_TOP, TRUE)) {
+        $stack[] = array_diff_key($viewsSettings, ['page_type' => TRUE]);
+        $viewsSettings = NULL;
+      }
+      $stack[] = $defaults->getValues();
+    }
+    if ($viewsSettings !== NULL) {
+      $stack[] = array_diff_key($viewsSettings, ['page_type' => TRUE]);
+    }
+    $templates = [];
+    foreach ($stack as $values) {
+      foreach ($values as $field => $template) {
         if ((string) $template !== '') {
           $templates[$field] = (string) $template;
         }
@@ -101,7 +121,7 @@ class HeadValuesResolver {
       $templates['robots'] = 'noindex, follow';
     }
 
-    $data = $this->tokenData($context->entity);
+    $data = $this->tokenData($context->entity) + $this->viewsSeo->tokenData($context);
     $fields = [];
     foreach (array_keys($this->headTagManager->getFields()) as $field) {
       if ($field === 'image') {
@@ -123,7 +143,7 @@ class HeadValuesResolver {
       $fields,
       $image ? array_intersect_key($image, array_flip(['url', 'width', 'height', 'alt'])) : NULL,
       array_map(static fn(SeoDefaultsInterface $defaults): string => (string) $defaults->id(), $layers),
-      $this->mapping->pageType($context),
+      ($this->viewsSeo->settings($context)['page_type'] ?? '') ?: $this->mapping->pageType($context),
       $this->mapping->articleType($context),
       $context->entity ? $this->mapping->datePublished($context) : NULL,
       $context->entity ? $this->mapping->dateModified($context) : NULL,

@@ -153,3 +153,24 @@ taxonomy.vocabulary.*.third_party.neo_seo:
 
 media.type.*.third_party.neo_seo:
   type: neo_seo.bundle_mapping
+
+views.display_extender.neo_seo:
+  type: views_display_extender
+  label: 'SEO display extender'
+  mapping:
+    seo:
+      type: mapping
+      label: 'SEO'
+      mapping:
+        title:
+          type: string
+          label: 'Title template'
+        description:
+          type: string
+          label: 'Description template'
+        image:
+          type: string
+          label: 'Share image template'
+        page_type:
+          type: string
+          label: 'Page type'

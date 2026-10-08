@@ -94,6 +94,8 @@ abstract class NeoSeoKernelTestBase extends KernelTestBase {
   protected function pushRoute(string $name, array $parameters, string $path): void {
     $route = $this->container->get('router.route_provider')->getRouteByName($name);
     $request = Request::create($path);
+    // Routing puts the route's defaults on the request, as here.
+    $request->attributes->add($route->getDefaults());
     $request->attributes->add($parameters);
     $request->attributes->set(RouteObjectInterface::ROUTE_NAME, $name);
     $request->attributes->set(RouteObjectInterface::ROUTE_OBJECT, $route);

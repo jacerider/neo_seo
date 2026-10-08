@@ -112,3 +112,8 @@ services:
     class: Drupal\neo_seo\Validation\StructuredDataValidator
     arguments: ['@http_client', '@file_system', '@extension.list.module']
   Drupal\neo_seo\Validation\StructuredDataValidator: '@neo_seo.structured_data_validator'
+
+  neo_seo.views_seo:
+    class: Drupal\neo_seo\ViewsSeo
+    arguments: ['@entity_type.manager', '@module_handler']
+  Drupal\neo_seo\ViewsSeo: '@neo_seo.views_seo'

@@ -43,6 +43,12 @@ final class PageContext {
    *   The page title, as a visitor reads it.
    * @param string|null $routeName
    *   The route name, for pieces that describe non-entity pages.
+   * @param string|null $viewId
+   *   On a Views page, the view's id.
+   * @param string|null $viewDisplayId
+   *   On a Views page, the display's id.
+   * @param string[] $viewArguments
+   *   On a Views page, its contextual arguments in order.
    */
   public function __construct(
     public readonly string $siteUrl,
@@ -53,6 +59,9 @@ final class PageContext {
     public readonly ?ContentEntityInterface $entity = NULL,
     public readonly ?string $title = NULL,
     public readonly ?string $routeName = NULL,
+    public readonly ?string $viewId = NULL,
+    public readonly ?string $viewDisplayId = NULL,
+    public readonly array $viewArguments = [],
   ) {
     $this->cacheability = new CacheableMetadata();
     if ($entity) {

@@ -1,0 +1,43 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for neo_seo.
+ */
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_install().
+ *
+ * Turns on the SEO display extender, so Views pages get their SEO settings.
+ */
+function neo_seo_install(): void {
+  _neo_seo_views_display_extender(TRUE);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function neo_seo_uninstall(): void {
+  _neo_seo_views_display_extender(FALSE);
+}
+
+/**
+ * Adds or removes the SEO display extender from the enabled extenders.
+ *
+ * @param bool $enable
+ *   TRUE to enable it, FALSE to remove it.
+ */
+function _neo_seo_views_display_extender(bool $enable): void {
+  if (!\Drupal::moduleHandler()->moduleExists('views')) {
+    return;
+  }
+  $config = \Drupal::configFactory()->getEditable('views.settings');
+  $extenders = (array) $config->get('display_extenders');
+  $extenders = array_values(array_diff($extenders, ['neo_seo']));
+  if ($enable) {
+    $extenders[] = 'neo_seo';
+  }
+  $config->set('display_extenders', $extenders)->save();
+}
