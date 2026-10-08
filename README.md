@@ -254,6 +254,8 @@ uninstalling puts the plain section back.
 - **What the previews show:** the head the page will print, not the raw field. They are refreshed
   from a **draft render**, the page built from the form's current values without saving, so tokens
   and templates resolve exactly as they will on the live page.
+- **Help:** focus keyphrase, cornerstone, page and article type and "Hide from search results" each
+  carry a one-line hint and a *What's this?* expander, in both the edit form and Alchemist.
 
 In the **Alchemist editor** the same panel opens from the editor's bottom bar. SEO edits there are
 **drafted with the layout**:
@@ -262,9 +264,20 @@ In the **Alchemist editor** the same panel opens from the editor's bottom bar. S
 - Revert and Reset discard them;
 - the live page is untouched until then.
 
+The editor keeps one draft render from the moment it loads, refreshed after every layout or SEO
+draft change, which the panel's previews (and the scores below) read.
+
 ## Content analysis (`neo_seo_analysis`)
 
-Adds an **Analysis** section to the panel, in both the edit form and the Alchemist editor.
+Adds content analysis to the panel:
+
+- **Edit form:** an *Analysis* section in the panel, with the focus keyphrase, the cornerstone
+  toggle and the assessments.
+- **Alchemist editor:** two score pills in the editor's top bar, `● SEO 80` and `● Read 64` (green
+  70+, orange 40–69, red below), scored from editor load and dimmed while they update. Without a
+  keyphrase the SEO pill reads *SEO – set keyphrase*. Clicking a pill opens a dropdown with what
+  the scores mean, the keyphrase and cornerstone fields (drafted like every SEO field) and the
+  assessments.
 
 - **SEO checks** against one focus keyphrase: the keyphrase in the title, description, URL, H1,
   introduction, subheadings and image alt text; keyphrase density; title and description length;
@@ -398,7 +411,10 @@ template form.
 
 `hook_neo_seo_panel_alter(array &$panel, ContentEntityInterface $entity, string $host)` adds
 libraries and config to the panel. `Drupal.neoSeoPanel.extend()` hooks into it in the browser.
-Content analysis is built this way. See `modules/neo_seo_panel/neo_seo_panel.api.php`.
+`hook_neo_seo_panel_badge_alter(array &$badge, ContentEntityInterface $entity)` fills the panel's
+badge in the Alchemist top bar (empty: no badge), and `Drupal.neoSeoPanel.extendBadge()` keeps it
+current from editor load. Content analysis is built both ways. See
+`modules/neo_seo_panel/neo_seo_panel.api.php`.
 
 ## Permissions, routes and settings
 
