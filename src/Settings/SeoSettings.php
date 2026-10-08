@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\neo_seo\Settings;
 
+use Drupal\Core\Entity\ContentEntityTypeInterface;
 use Drupal\Core\Entity\EntityRepositoryInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_seo\SeoOverridesStorage;
 use Drupal\neo_seo\SiteIdentity\OrganizationTypes;
 use Drupal\neo_settings\Plugin\SettingsBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -33,6 +36,7 @@ class SeoSettings extends SettingsBase {
    */
   protected $strictParents = [
     ['identity', 'same_as'],
+    ['override_entity_types'],
   ];
 
   /**
@@ -46,12 +50,24 @@ class SeoSettings extends SettingsBase {
   protected ModuleHandlerInterface $moduleHandler;
 
   /**
+   * The entity type manager.
+   */
+  protected EntityTypeManagerInterface $entityTypeManager;
+
+  /**
+   * The SEO overrides field storage manager.
+   */
+  protected SeoOverridesStorage $overrides;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
     $instance = parent::create($container, $configuration, $plugin_id, $plugin_definition);
     $instance->entityRepository = $container->get('entity.repository');
     $instance->moduleHandler = $container->get('module_handler');
+    $instance->entityTypeManager = $container->get('entity_type.manager');
+    $instance->overrides = $container->get('neo_seo.overrides_storage');
     return $instance;
   }
 
@@ -142,6 +158,21 @@ class SeoSettings extends SettingsBase {
         '#default_value' => $identity['address'][$key] ?? '',
       ];
     }
+    $options = [];
+    foreach ($this->entityTypeManager->getDefinitions() as $id => $definition) {
+      if ($definition instanceof ContentEntityTypeInterface && $definition->hasLinkTemplate('canonical')) {
+        $options[$id] = $definition->getLabel();
+      }
+    }
+    asort($options);
+    $form['override_entity_types'] = [
+      '#type' => 'checkboxes',
+      '#title' => $this->t('Per-page SEO'),
+      '#description' => $this->t('Content that editors can give its own search title, description, share image, schema types and focus keyphrase.'),
+      '#options' => $options,
+      '#default_value' => $this->getValue('override_entity_types') ?: [],
+    ];
+
     $verification = $this->getValue('verification') ?: [];
     $form['verification'] = [
       '#type' => 'details',
@@ -193,6 +224,18 @@ class SeoSettings extends SettingsBase {
     $form_state->setValue(['identity', 'logo'], $media ? $media->uuid() : '');
     $form_state->unsetValue(['identity', 'tokens']);
     $form_state->setValue('head_alongside_metatag', (bool) $form_state->getValue('head_alongside_metatag'));
+
+    // Removing per-page SEO from an entity type drops its column, and with it
+    // every value editors set. Refuse while there is any.
+    $enabled = array_values(array_filter((array) $form_state->getValue('override_entity_types')));
+    $form_state->setValue('override_entity_types', $enabled);
+    foreach (array_diff((array) $this->getValue('override_entity_types'), $enabled) as $removed) {
+      if ($this->overrides->hasData($removed)) {
+        $form_state->setErrorByName('override_entity_types', $this->t('%type has SEO overrides stored; they would be deleted. Clear them first.', [
+          '%type' => $this->entityTypeManager->getDefinition($removed)->getLabel(),
+        ]));
+      }
+    }
   }
 
 }

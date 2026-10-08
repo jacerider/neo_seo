@@ -79,6 +79,11 @@ neo_seo:
     head_alongside_metatag:
       type: boolean
       label: 'Print head tags even while metatag is enabled'
+    override_entity_types:
+      type: sequence
+      label: 'Entity types that get the SEO overrides field'
+      sequence:
+        type: string
 
 neo_seo.defaults.*:
   type: config_entity

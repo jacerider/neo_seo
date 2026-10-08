@@ -2,3 +2,6 @@ administer neo_seo:
   title: 'Administer Neo SEO'
   description: 'Configure site identity, default templates and schema mapping.'
   restrict access: true
+edit neo_seo overrides:
+  title: 'Edit SEO overrides'
+  description: 'Change a page’s search title, description, share image, schema types and focus keyphrase.'

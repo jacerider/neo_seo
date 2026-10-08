@@ -20,3 +20,4 @@ verification:
   pinterest: ''
   facebook: ''
 head_alongside_metatag: false
+override_entity_types: []

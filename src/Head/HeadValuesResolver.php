@@ -10,6 +10,8 @@ use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Utility\Token;
 use Drupal\neo_seo\Entity\SeoDefaultsInterface;
 use Drupal\neo_seo\Graph\PageContext;
+use Drupal\neo_seo\MediaImage;
+use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo\TokenText;
 use Drupal\token\TokenEntityMapperInterface;
 
@@ -21,6 +23,8 @@ use Drupal\token\TokenEntityMapperInterface;
  * where it has a value — so a bundle that sets only a title keeps everything
  * else from the layers below it. Front, 403 and 404 sit on top of that chain
  * rather than replacing it, which is the trap metatag's defaults have.
+ *
+ * An editor's SEO overrides for the page sit above every layer.
  */
 class HeadValuesResolver {
 
@@ -42,12 +46,15 @@ class HeadValuesResolver {
    *   The token module's entity type → token type mapper.
    * @param \Drupal\neo_seo\Head\HeadTagPluginManager $headTagManager
    *   The head tag plugin manager, for the field list.
+   * @param \Drupal\neo_seo\MediaImage $mediaImage
+   *   The media image helper, for an overridden share image.
    */
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
     protected Token $token,
     protected TokenEntityMapperInterface $tokenEntityMapper,
     protected HeadTagPluginManager $headTagManager,
+    protected MediaImage $mediaImage,
   ) {
     $this->resolved = new \WeakMap();
   }
@@ -80,6 +87,16 @@ class HeadValuesResolver {
       }
     }
 
+    $overrides = SeoOverrides::of($context->entity);
+    foreach (['title', 'description'] as $field) {
+      if ($overrides[$field] !== NULL) {
+        $templates[$field] = (string) $overrides[$field];
+      }
+    }
+    if ($overrides['noindex']) {
+      $templates['robots'] = 'noindex, follow';
+    }
+
     $data = $this->tokenData($context->entity);
     $fields = [];
     foreach (array_keys($this->headTagManager->getFields()) as $field) {
@@ -89,10 +106,15 @@ class HeadValuesResolver {
       $fields[$field] = isset($templates[$field]) ? $this->replace($templates[$field], $data, $context) : '';
     }
 
+    $image = $overrides['image'] ? $this->mediaImage->resolve((int) $overrides['image'], $context) : NULL;
+    if (!$image && isset($templates['image'])) {
+      $image = $this->image($templates['image'], $data, $context);
+    }
+
     return new HeadValues(
       $context,
       $fields,
-      isset($templates['image']) ? $this->image($templates['image'], $data, $context) : NULL,
+      $image ? array_intersect_key($image, array_flip(['url', 'width', 'height', 'alt'])) : NULL,
       array_map(static fn(SeoDefaultsInterface $defaults): string => (string) $defaults->id(), $layers),
     );
   }

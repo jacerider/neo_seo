@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\neo_seo\SiteIdentity;
 
-use Drupal\Core\Entity\EntityRepositoryInterface;
-use Drupal\Core\File\FileUrlGeneratorInterface;
 use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Utility\Token;
-use Drupal\media\MediaInterface;
 use Drupal\neo_seo\Graph\PageContext;
+use Drupal\neo_seo\MediaImage;
 use Drupal\neo_seo\TokenText;
 use Drupal\neo_settings\SettingsRepository;
 
@@ -28,16 +26,13 @@ class SiteIdentityResolver {
    *   The neo_seo settings repository.
    * @param \Drupal\Core\Utility\Token $token
    *   The token service.
-   * @param \Drupal\Core\Entity\EntityRepositoryInterface $entityRepository
-   *   The entity repository.
-   * @param \Drupal\Core\File\FileUrlGeneratorInterface $fileUrlGenerator
-   *   The file URL generator.
+   * @param \Drupal\neo_seo\MediaImage $mediaImage
+   *   The media image helper.
    */
   public function __construct(
     protected SettingsRepository $settings,
     protected Token $token,
-    protected EntityRepositoryInterface $entityRepository,
-    protected FileUrlGeneratorInterface $fileUrlGenerator,
+    protected MediaImage $mediaImage,
   ) {}
 
   /**
@@ -102,27 +97,13 @@ class SiteIdentityResolver {
    * The logo media as an image: URL, dimensions and caption.
    */
   protected function logo(string $uuid, PageContext $context): ?array {
-    if ($uuid === '') {
-      return NULL;
-    }
-    $media = $this->entityRepository->loadEntityByUuid('media', $uuid);
-    if (!$media instanceof MediaInterface) {
-      return NULL;
-    }
-    $context->addCacheableDependency($media);
-    $sourceField = $media->getSource()->getConfiguration()['source_field'] ?? NULL;
-    $item = $sourceField && $media->hasField($sourceField) ? $media->get($sourceField)->first() : NULL;
-    $file = $item?->entity;
-    if (!$file) {
-      return NULL;
-    }
-    $context->addCacheableDependency($file);
-    return [
-      'url' => $this->fileUrlGenerator->generateAbsoluteString($file->getFileUri()),
-      'width' => isset($item->width) ? (int) $item->width : NULL,
-      'height' => isset($item->height) ? (int) $item->height : NULL,
-      'caption' => (string) ($item->alt ?? '') ?: $media->label(),
-    ];
+    $image = $this->mediaImage->resolve($uuid, $context);
+    return $image ? [
+      'url' => $image['url'],
+      'width' => $image['width'],
+      'height' => $image['height'],
+      'caption' => $image['caption'],
+    ] : NULL;
   }
 
 }

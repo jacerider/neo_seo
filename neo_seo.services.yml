@@ -39,9 +39,16 @@ services:
     arguments:
       - '@neo_seo.settings'
       - '@token'
+      - '@neo_seo.media_image'
+  Drupal\neo_seo\SiteIdentity\SiteIdentityResolver: '@neo_seo.site_identity'
+
+  neo_seo.media_image:
+    class: Drupal\neo_seo\MediaImage
+    arguments:
+      - '@entity_type.manager'
       - '@entity.repository'
       - '@file_url_generator'
-  Drupal\neo_seo\SiteIdentity\SiteIdentityResolver: '@neo_seo.site_identity'
+  Drupal\neo_seo\MediaImage: '@neo_seo.media_image'
 
   plugin.manager.neo_seo_head_tag:
     class: Drupal\neo_seo\Head\HeadTagPluginManager
@@ -61,3 +68,22 @@ services:
       - '@module_handler'
       - '@neo_seo.settings'
   Drupal\neo_seo\Head\HeadGate: '@neo_seo.head_gate'
+
+  logger.channel.neo_seo:
+    parent: logger.channel_base
+    arguments: ['neo_seo']
+
+  neo_seo.overrides_storage:
+    class: Drupal\neo_seo\SeoOverridesStorage
+    arguments:
+      - '@entity_type.manager'
+      - '@entity_field.manager'
+      - '@entity.definition_update_manager'
+      - '@logger.channel.neo_seo'
+  Drupal\neo_seo\SeoOverridesStorage: '@neo_seo.overrides_storage'
+
+  neo_seo.settings_subscriber:
+    class: Drupal\neo_seo\EventSubscriber\SettingsSubscriber
+    arguments: ['@neo_seo.overrides_storage']
+    tags:
+      - { name: event_subscriber }
