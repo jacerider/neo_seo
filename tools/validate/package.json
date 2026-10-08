@@ -1,0 +1,14 @@
+{
+  "name": "neo-seo-validate",
+  "private": true,
+  "description": "Validates the structured data of rendered pages for drush neo-seo:validate.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@adobe/structured-data-validator": "1.7.0",
+    "@marbec/web-auto-extractor": "2.2.1"
+  }
+}
