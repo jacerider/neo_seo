@@ -108,4 +108,44 @@ class DraftRenderTest extends NeoSeoKernelTestBase {
     $this->assertSame('Saved title', Node::load($node->id())->label());
   }
 
+  /**
+   * Values stored outside a field's own key still reach the draft.
+   *
+   * The term form keeps its parent select inside a details but stores it at
+   * ['parent'], and builds the entity from there.
+   */
+  public function testInputsOutsideFieldKeysKeepTheirValues(): void {
+    $form = [
+      '#type' => 'form',
+      'title' => ['#input' => TRUE, '#parents' => ['title']],
+      'relations' => [
+        '#type' => 'details',
+        'parent' => ['#input' => TRUE, '#parents' => ['parent']],
+        'weight' => ['#input' => TRUE, '#parents' => ['weight']],
+      ],
+      'actions' => [
+        DraftRenderHooks::BUTTON => ['#input' => TRUE, '#parents' => [DraftRenderHooks::BUTTON]],
+      ],
+    ];
+    $formState = new FormState();
+    $formState->setTriggeringElement([
+      '#name' => DraftRenderHooks::BUTTON,
+      '#limit_validation_errors' => [['title']],
+    ]);
+
+    DraftRenderHooks::afterBuild($form, $formState);
+
+    $sections = $formState->getTriggeringElement()['#limit_validation_errors'];
+    $this->assertContains(['parent'], $sections);
+    $this->assertContains(['weight'], $sections);
+    $this->assertContains(['title'], $sections);
+    $this->assertCount(1, array_keys($sections, ['title']), 'A section is listed once.');
+
+    // Any other button is left alone.
+    $other = new FormState();
+    $other->setTriggeringElement(['#name' => 'op', '#limit_validation_errors' => FALSE]);
+    DraftRenderHooks::afterBuild($form, $other);
+    $this->assertFalse($other->getTriggeringElement()['#limit_validation_errors']);
+  }
+
 }
