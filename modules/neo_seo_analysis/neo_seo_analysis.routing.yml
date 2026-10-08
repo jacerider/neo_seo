@@ -1,0 +1,9 @@
+neo_seo_analysis.keyphrases:
+  path: '/neo-seo/keyphrases'
+  defaults:
+    _controller: '\Drupal\neo_seo_analysis\Controller\KeyphrasesController::list'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+  requirements:
+    _permission: 'edit neo_seo overrides'

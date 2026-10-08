@@ -1,0 +1,3 @@
+parameters:
+  # Every hook lives on a class under src/Hook.
+  neo_seo_analysis.skip_procedural_hook_scan: true

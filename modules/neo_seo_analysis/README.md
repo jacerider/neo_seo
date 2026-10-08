@@ -4,7 +4,35 @@ Focus-keyphrase and readability analysis for the SEO panel. The engine is our ow
 from Yoast's published descriptions of its free checks; no Yoast code is used (ADR 0003 in the wps
 site). Thresholds follow Yoast's published guidance and all live in `src/js/engine/thresholds.ts`.
 
-Drupal wiring (worker, endpoint, panel) is ticket 17; this module currently ships only the engine.
+## In the SEO panel
+
+Enabling the module (it requires `neo_seo_panel`) adds an **Analysis** section to the SEO panel in
+both hosts — the edit form and the Alchemist editor — through `hook_neo_seo_panel_alter()` and
+`Drupal.neoSeoPanel.extend()` (`src/js/analysis.ts`):
+
+- the focus keyphrase and cornerstone controls move into the section; they stay the host's own
+  inputs, so they save (or draft) as before;
+- every draft render is analysed, and a keyphrase or cornerstone change re-runs the last render
+  without asking the server again;
+- SEO and readability assessments are listed problem-first with traffic lights and scores;
+  "Show" marks an assessment's highlights in the Alchemist preview frames (the edit form has no
+  preview, so it offers none);
+- the two scores are written back through the host quietly: hidden inputs saved with the form, or
+  the panel's draft key when a draft already exists. A score never blocks a save or a publish.
+
+`GET /neo-seo/keyphrases?entity_type=…&exclude=…` (permission `edit neo_seo overrides`) lists the
+keyphrases of other pages the editor may view, capped at 500 pages, for the "used before" check.
+
+### Why the worker is inlined
+
+The engine runs in a Web Worker, bundled with `import AnalysisWorker from
+'./analysis.worker?worker&inline'`. The usual `new Worker(new URL('./worker.ts', import.meta.url))`
+does not survive neo_build: chunks are served as classic scripts, where `import.meta` is a syntax
+error, and the emitted worker file is not in the manifest (its URL comes out as `/assets/…`, outside
+`dist/`). Inline, Vite bundles the worker as an IIFE into `analysis.js` and starts it from a Blob
+URL, so nothing has to be resolved at runtime. There is no main-thread fallback: importing the
+engine into a type-checked entrypoint would put its `.ts` import specifiers (which node's test
+runner needs) in front of `tsc`, which rejects them (TS5097).
 
 ## Tests
 

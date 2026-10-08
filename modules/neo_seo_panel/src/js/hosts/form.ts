@@ -162,12 +162,16 @@ export class FormHost implements NeoSeoPanelHost {
   onChange(callback: (change: NeoSeoHostChange) => void): void {
     const listener = (event: Event) => {
       const target = event.target;
-      if (!(target instanceof Element) || target.closest('.neo-seo-panel, .neo-seo-panel__sections')) {
+      if (!(target instanceof Element)) {
         return;
       }
+      // An override control, wherever the panel or an extension placed it.
       const key = controls.keyOf(target);
       if (key) {
         callback({ source: 'override', key });
+        return;
+      }
+      if (target.closest('.neo-seo-panel, .neo-seo-panel__sections')) {
         return;
       }
       // Inside the SEO element but not an override (an autocomplete's search

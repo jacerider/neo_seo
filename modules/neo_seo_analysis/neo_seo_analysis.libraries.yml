@@ -1,0 +1,13 @@
+# Content analysis in the SEO panel: a Drupal.neoSeoPanel extension that runs
+# the engine in a Web Worker (inlined into this bundle, see analysis.ts).
+panel:
+  version: VERSION
+  neo: { scope: back }
+  css:
+    component:
+      src/css/analysis.css: {}
+  js:
+    src/js/analysis.ts: {}
+  dependencies:
+    - core/drupal
+    - neo_seo_panel/panel
