@@ -1,0 +1,9 @@
+name: 'Neo | SEO Analysis'
+type: module
+neo: true
+description: 'Focus-keyphrase and readability analysis for the SEO panel.'
+package: Neo
+version: 0.0.0
+core_version_requirement: ^11.3
+dependencies:
+  - neo_seo:neo_seo
