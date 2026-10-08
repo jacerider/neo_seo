@@ -1,0 +1,12 @@
+neo_seo.draft_render:
+  path: '/neo-seo/draft/{entity_type_id}/{entity}'
+  defaults:
+    _controller: '\Drupal\neo_seo\Controller\DraftRenderController::render'
+  methods: [GET]
+  options:
+    parameters:
+      entity:
+        type: 'entity:{entity_type_id}'
+    no_cache: TRUE
+  requirements:
+    _entity_access: 'entity.update'

@@ -139,3 +139,18 @@ services:
     class: Drupal\neo_seo\Migration\HeadDiff
     arguments: ['@neo_seo.structured_data_validator', '@neo_seo.diff_mode']
   Drupal\neo_seo\Migration\HeadDiff: '@neo_seo.head_diff'
+
+  neo_seo.draft_renderer:
+    class: Drupal\neo_seo\Draft\DraftRenderer
+    arguments:
+      - '@entity_type.manager'
+      - '@renderer'
+      - '@theme.manager'
+      - '@theme.initialization'
+      - '@config.factory'
+      - '@neo_seo.page_context_factory'
+      - '@neo_seo.head_values'
+      - '@neo_seo.breadcrumb_trail'
+      - '@module_handler'
+      - '@?neo_alchemist.shared_draft_store'
+  Drupal\neo_seo\Draft\DraftRenderer: '@neo_seo.draft_renderer'

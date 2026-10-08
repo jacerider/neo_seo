@@ -70,6 +70,37 @@ class PageContextFactory {
   }
 
   /**
+   * The context of an entity's canonical page, wherever the request is.
+   *
+   * For describing a page from somewhere else — a draft render from the edit
+   * form, a validation run. A new entity has no URL yet, so its page is
+   * described at the site URL.
+   */
+  public function forEntity(ContentEntityInterface $entity): PageContext {
+    $site = $this->configFactory->get('system.site');
+    $siteUrl = $this->siteUrl();
+    $isFront = FALSE;
+    $canonicalUrl = $siteUrl;
+    if (!$entity->isNew() && $entity->hasLinkTemplate('canonical')) {
+      $url = $entity->toUrl('canonical');
+      $canonicalUrl = $url->setAbsolute()->toString();
+      $isFront = '/' . ltrim($url->getInternalPath(), '/') === (string) $site->get('page.front');
+    }
+    $context = new PageContext(
+      siteUrl: $siteUrl,
+      canonicalUrl: $isFront ? $siteUrl : $canonicalUrl,
+      langcode: $entity->language()->getId(),
+      siteName: (string) $site->get('name'),
+      isFront: $isFront,
+      entity: $entity,
+      title: $isFront ? (string) $site->get('name') : (string) $entity->label(),
+      routeName: 'entity.' . $entity->getEntityTypeId() . '.canonical',
+    );
+    $context->addCacheableDependency($site);
+    return $context;
+  }
+
+  /**
    * Builds the context from the current route.
    */
   protected function build(): PageContext {
