@@ -210,8 +210,8 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     readonly element: HTMLElement;
     protected readonly host: NeoSeoPanelHost;
     protected readonly onMissing: () => void;
-    protected readonly seo: HTMLElement;
-    protected readonly readability: HTMLElement;
+    readonly seo: HTMLElement;
+    readonly readability: HTMLElement;
     protected highlighted: HTMLButtonElement | null = null;
 
     constructor(host: NeoSeoPanelHost, onMissing: () => void) {
@@ -362,10 +362,10 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       readability: badge.querySelector<HTMLElement>('[data-neo-seo-score="readability"]'),
     };
 
-    // The dropdown: what the scores mean, what they are scored against, why.
+    // The dropdown: one tab per pill. SEO holds what the score means, what it
+    // is scored against and why; Readability what its score means and why.
     const body = dropdown.element;
     body.classList.add('neo-seo-analysis', 'neo-seo-analysis--dropdown');
-    const help = scoresHelp();
     const fields = h('div', { class: 'neo-seo-analysis__fields' });
     // The panel's own keyphrase and cornerstone controls move here: they
     // still draft through the panel's draft key, like every SEO field.
@@ -382,11 +382,79 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     const results = new Results(host, () => {
       status.textContent = Drupal.t('The preview does not show that text.');
     });
-    body.replaceChildren(help, fields, status, results.element);
-    dropdown.onToggle((open) => {
-      if (!open) {
+    type Side = 'seo' | 'readability';
+    const sides: Record<Side, { label: string; help: string; content: Node[] }> = {
+      seo: {
+        label: Drupal.t('SEO'),
+        help: Drupal.t('SEO: how well the page is set up to be found for its focus keyphrase. Green 70+, orange 40–69, red below. It is advice: it never stops you saving.'),
+        content: [fields, results.seo],
+      },
+      readability: {
+        label: Drupal.t('Readability'),
+        help: Drupal.t('Readability: how easy the text is to read. Green 70+, orange 40–69, red below. It is advice: it never stops you saving.'),
+        content: [results.readability],
+      },
+    };
+    const tablist = h('div', { class: 'neo-seo-analysis__tabs', role: 'tablist', 'aria-label': Drupal.t('Scores') });
+    const tabs = {} as Record<Side, HTMLButtonElement>;
+    const panes = {} as Record<Side, HTMLElement>;
+    (Object.keys(sides) as Side[]).forEach((side) => {
+      const tab = h('button', {
+        type: 'button',
+        role: 'tab',
+        id: `neo-seo-analysis-tab-${side}`,
+        class: 'neo-seo-analysis__tab',
+        'aria-controls': `neo-seo-analysis-pane-${side}`,
+        'aria-selected': 'false',
+        tabindex: '-1',
+      }, [sides[side].label]);
+      const pane = h('div', {
+        role: 'tabpanel',
+        id: `neo-seo-analysis-pane-${side}`,
+        class: 'neo-seo-analysis__pane',
+        'aria-labelledby': tab.id,
+      }, [h('p', { class: 'neo-seo-analysis__help' }, [sides[side].help]), ...sides[side].content]);
+      pane.hidden = true;
+      tab.addEventListener('click', () => select(side));
+      tabs[side] = tab;
+      panes[side] = pane;
+      tablist.append(tab);
+    });
+    tablist.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+        event.preventDefault();
+        const next: Side = tabs.seo.getAttribute('aria-selected') === 'true' ? 'readability' : 'seo';
+        select(next);
+        tabs[next].focus();
+      }
+    });
+    // The pill of the side on show is marked while the dropdown is open.
+    const select = (side: Side) => {
+      (Object.keys(tabs) as Side[]).forEach((key) => {
+        const on = key === side;
+        tabs[key].setAttribute('aria-selected', on ? 'true' : 'false');
+        tabs[key].tabIndex = on ? 0 : -1;
+        panes[key].hidden = !on;
+        pills[key]?.classList.toggle('is-active', on && dropdown.isOpen());
+      });
+      const pill = pills[side];
+      if (pill && dropdown.isOpen()) {
+        dropdown.setTrigger(pill);
+      }
+      if (side !== 'seo') {
         results.clearHighlight();
       }
+    };
+    select('seo');
+    body.replaceChildren(tablist, panes.seo, panes.readability, status);
+    dropdown.onToggle((open, trigger) => {
+      if (!open) {
+        results.clearHighlight();
+        pills.seo?.classList.remove('is-active');
+        pills.readability?.classList.remove('is-active');
+        return;
+      }
+      select(trigger?.dataset.neoSeoScore === 'readability' ? 'readability' : 'seo');
     });
 
     const keyphraseInput = () => fields.querySelector<HTMLInputElement>('[name="neo_seo[0][keyphrase]"]');

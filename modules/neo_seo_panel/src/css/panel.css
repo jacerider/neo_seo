@@ -403,6 +403,17 @@
   padding: 0.5rem 0.75rem 0.75rem;
 }
 
+/* The floating panel draws the box; the form's own card must not draw a
+   second one inside it. (The edit form's sidebar never has this form.) */
+.neo-seo-panel-form.card,
+.neo-seo-panel-form.form--wrapper {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
 .neo-seo-panel-form .form--inner {
   margin: 0;
   padding: 0;

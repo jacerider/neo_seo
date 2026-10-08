@@ -30,7 +30,9 @@ class AnalysisHooks {
         '#tag' => 'button',
         '#attributes' => [
           'type' => 'button',
-          'class' => ['neo-seo-pill', 'btn', 'btn-xs', 'btn-outline', 'is-updating'],
+          // Styled by analysis.css, not the editor's button classes: those
+          // invert on hover, which would sink the traffic-light dot.
+          'class' => ['neo-seo-pill', 'is-updating'],
           'data-neo-seo-score' => $kind,
         ],
         'dot' => [
