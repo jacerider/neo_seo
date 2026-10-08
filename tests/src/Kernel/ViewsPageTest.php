@@ -96,7 +96,7 @@ class ViewsPageTest extends NeoSeoKernelTestBase {
     ]);
     [$document, $tags, $title] = $this->page();
 
-    $this->assertSame('Our people at Westwood', $title);
+    $this->assertSame('Our people at Acme', $title);
     $this->assertSame('Global description', $tags['neo_seo_description'], 'An empty setting keeps the global template.');
     $page = $this->assertGraphNode($document, $tags['neo_seo_canonical']);
     $this->assertSame(['WebPage', 'CollectionPage'], $page['@type']);
@@ -110,7 +110,7 @@ class ViewsPageTest extends NeoSeoKernelTestBase {
   public function testNoSettings(): void {
     $this->createView([]);
     [$document, $tags, $title] = $this->page();
-    $this->assertSame('Global title | Westwood', $title);
+    $this->assertSame('Global title | Acme', $title);
     $this->assertSame('WebPage', $this->assertGraphNode($document, $tags['neo_seo_canonical'])['@type']);
   }
 

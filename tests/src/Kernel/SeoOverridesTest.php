@@ -107,7 +107,7 @@ class SeoOverridesTest extends NeoSeoKernelTestBase {
    */
   public function testOverridesWin(): void {
     $before = $this->head();
-    $this->assertSame('Grid & growth | Westwood', $before['title']);
+    $this->assertSame('Grid & growth | Acme', $before['title']);
     $this->assertSame('Template description', $before['neo_seo_description']);
     $this->assertArrayNotHasKey('neo_seo_robots', $before);
 
@@ -128,7 +128,7 @@ class SeoOverridesTest extends NeoSeoKernelTestBase {
 
     $this->entity = EntityTestMul::load($this->entity->id());
     $this->entity->set(SeoOverrides::FIELD, [])->save();
-    $this->assertSame('Grid & growth | Westwood', $this->head(EntityTestMul::load($this->entity->id()))['title']);
+    $this->assertSame('Grid & growth | Acme', $this->head(EntityTestMul::load($this->entity->id()))['title']);
   }
 
   /**

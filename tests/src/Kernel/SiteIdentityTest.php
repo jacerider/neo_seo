@@ -46,7 +46,7 @@ class SiteIdentityTest extends NeoSeoKernelTestBase {
     $organization = $this->assertGraphNode($document, 'https://example.com/#organization');
 
     $this->assertSame('Organization', $organization['@type']);
-    $this->assertSame('Westwood', $organization['name']);
+    $this->assertSame('Acme', $organization['name']);
     $this->assertSame('Engineering the grid', $organization['description']);
     $this->assertSame('https://example.com/', $organization['url']);
     foreach (['sameAs', 'telephone', 'email', 'address', 'logo'] as $empty) {
@@ -62,15 +62,15 @@ class SiteIdentityTest extends NeoSeoKernelTestBase {
     $media = $this->createImageMedia();
     $this->setIdentity([
       'organization_type' => 'ProfessionalService',
-      'name' => 'Westwood Professional Services',
-      'same_as' => ['https://www.linkedin.com/company/westwood', '[site:url]about'],
-      'telephone' => '952-937-5150',
+      'name' => 'Acme Engineering',
+      'same_as' => ['https://www.linkedin.com/company/acme', '[site:url]about'],
+      'telephone' => '555-0100',
       'email' => '[site:mail], [site:nothing-here]',
       'address' => [
-        'street' => '12701 Whitewater Drive',
-        'locality' => 'Minnetonka',
-        'region' => 'MN',
-        'postal_code' => '55343',
+        'street' => '100 Main Street',
+        'locality' => 'Springfield',
+        'region' => 'IL',
+        'postal_code' => '62701',
         'country' => '',
       ],
       'logo' => $media->uuid(),
@@ -81,16 +81,16 @@ class SiteIdentityTest extends NeoSeoKernelTestBase {
     $organization = $this->assertGraphNode($document, 'https://example.com/#organization');
 
     $this->assertSame('ProfessionalService', $organization['@type']);
-    $this->assertSame('Westwood Professional Services', $organization['name']);
+    $this->assertSame('Acme Engineering', $organization['name']);
     $this->assertCount(2, $organization['sameAs']);
     $this->assertStringEndsWith('/about', $organization['sameAs'][1], 'Tokens resolve in social profiles.');
     $this->assertSame('admin@example.com', $organization['email'], 'A separator stranded by an empty token is tidied.');
     $this->assertSame([
       '@type' => 'PostalAddress',
-      'streetAddress' => '12701 Whitewater Drive',
-      'addressLocality' => 'Minnetonka',
-      'addressRegion' => 'MN',
-      'postalCode' => '55343',
+      'streetAddress' => '100 Main Street',
+      'addressLocality' => 'Springfield',
+      'addressRegion' => 'IL',
+      'postalCode' => '62701',
     ], $organization['address'], 'An empty address part is omitted.');
 
     $this->assertSame(['@id' => 'https://example.com/#/schema/logo/image/'], $organization['logo']);
@@ -99,7 +99,7 @@ class SiteIdentityTest extends NeoSeoKernelTestBase {
     $this->assertStringEndsWith('/logo.png', $logo['contentUrl']);
     $this->assertSame(40, $logo['width']);
     $this->assertSame(20, $logo['height']);
-    $this->assertSame('Westwood logo', $logo['caption']);
+    $this->assertSame('Acme logo', $logo['caption']);
     $this->assertGraphReferencesResolve($document);
 
     $tags = $context->getCacheability()->getCacheTags();
@@ -147,7 +147,7 @@ class SiteIdentityTest extends NeoSeoKernelTestBase {
       'name' => 'Logo',
       $type->getSource()->getConfiguration()['source_field'] => [
         'target_id' => $file->id(),
-        'alt' => 'Westwood logo',
+        'alt' => 'Acme logo',
       ],
     ]);
     $media->save();

@@ -28,7 +28,7 @@ use Drupal\neo_seo\Graph\PageContext;
 function hook_neo_seo_graph_alter(array &$nodes, PageContext $context): void {
   foreach ($nodes as &$node) {
     if ($node['@type'] === 'WebSite') {
-      $node['alternateName'] = 'WPS';
+      $node['alternateName'] = 'Acme';
     }
   }
 }

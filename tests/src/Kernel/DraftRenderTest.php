@@ -60,7 +60,7 @@ class DraftRenderTest extends NeoSeoKernelTestBase {
     $render = $this->container->get('neo_seo.draft_renderer')->render($draft);
 
     $this->assertStringStartsWith('<h1>Draft title</h1>', $render['html']);
-    $this->assertSame('Draft title | Westwood', $render['head']['title']);
+    $this->assertSame('Draft title | Acme', $render['head']['title']);
     $this->assertSame('Draft description', $render['head']['description']);
     $this->assertSame(['keyphrase' => 'gardens', 'cornerstone' => TRUE], $render['overrides']);
     $this->assertStringEndsWith('/node/' . $node->id(), $render['url']);

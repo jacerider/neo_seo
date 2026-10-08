@@ -90,7 +90,7 @@ class HeadTagsTest extends NeoSeoKernelTestBase {
    * The <title> the theme would print.
    */
   protected function title(): ?string {
-    $variables = ['head_title' => ['title' => 'Core title', 'name' => 'Westwood']];
+    $variables = ['head_title' => ['title' => 'Core title', 'name' => 'Acme']];
     $this->container->get(NeoSeoHooks::class)->preprocessHtml($variables);
     return implode(' | ', $variables['head_title']);
   }
@@ -101,7 +101,7 @@ class HeadTagsTest extends NeoSeoKernelTestBase {
   public function testGlobalDefaults(): void {
     $tags = $this->head('entity.entity_test.canonical', ['entity_test' => $this->entity], '/entity_test/' . $this->entity->id());
 
-    $this->assertSame('Grid & growth | Westwood', $this->title(), 'Tokens resolve to plain text, entities decoded.');
+    $this->assertSame('Grid & growth | Acme', $this->title(), 'Tokens resolve to plain text, entities decoded.');
     $this->assertSame('Engineering the grid', $this->content($tags, 'neo_seo_description'));
     $canonical = $tags['neo_seo_canonical']['#attributes']['href'];
     $this->assertStringEndsWith('/entity_test/' . $this->entity->id(), $canonical);
@@ -109,7 +109,7 @@ class HeadTagsTest extends NeoSeoKernelTestBase {
     $this->assertSame('Grid & growth', $this->content($tags, 'neo_seo_og_title'));
     $this->assertSame('website', $this->content($tags, 'neo_seo_og_type'));
     $this->assertSame('en_US', $this->content($tags, 'neo_seo_og_locale'));
-    $this->assertSame('Westwood', $this->content($tags, 'neo_seo_og_site_name'));
+    $this->assertSame('Acme', $this->content($tags, 'neo_seo_og_site_name'));
     $this->assertSame('http://localhost/sites/default/files/share.png', $this->content($tags, 'neo_seo_og_image'), 'A relative image becomes absolute.');
     $this->assertSame('summary_large_image', $this->content($tags, 'neo_seo_twitter_card'));
     $this->assertArrayNotHasKey('neo_seo_robots', $tags, 'Empty robots prints nothing.');
@@ -140,7 +140,7 @@ class HeadTagsTest extends NeoSeoKernelTestBase {
     $memo = EntityTest::create(['type' => 'memo', 'name' => 'Memo']);
     $memo->save();
     $this->head('entity.entity_test.canonical', ['entity_test' => $memo], '/entity_test/' . $memo->id());
-    $this->assertSame('Memo | Westwood', $this->title());
+    $this->assertSame('Memo | Acme', $this->title());
   }
 
   /**
@@ -149,14 +149,14 @@ class HeadTagsTest extends NeoSeoKernelTestBase {
   public function testFrontLayersOnTopOfTheChain(): void {
     $this->setTemplates('front', ['title' => '[site:name]']);
     $tags = $this->head('user.login', [], '/user/login');
-    $this->assertSame('Westwood', $this->title());
+    $this->assertSame('Acme', $this->title());
     $this->assertSame('Engineering the grid', $this->content($tags, 'neo_seo_description'), 'The global description still applies on the front page.');
 
     // Without the front layer, the entity token resolves to nothing and its
     // separator goes with it.
     SeoDefaults::load('front')->delete();
     $this->head('user.login', [], '/user/login');
-    $this->assertSame('Westwood', $this->title());
+    $this->assertSame('Acme', $this->title());
   }
 
   /**
@@ -189,7 +189,7 @@ class HeadTagsTest extends NeoSeoKernelTestBase {
     $this->assertArrayHasKey('test_field', $this->container->get('plugin.manager.neo_seo_head_tag')->getFields());
     $this->setTemplates('global', ['test_field' => 'From [site:name]'] + SeoDefaults::load('global')->getValues());
     $tags = $this->head('user.login', [], '/user/login');
-    $this->assertSame('From Westwood', $this->content($tags, 'neo_seo_neo_seo_test'));
+    $this->assertSame('From Acme', $this->content($tags, 'neo_seo_neo_seo_test'));
   }
 
   /**
@@ -201,7 +201,7 @@ class HeadTagsTest extends NeoSeoKernelTestBase {
     $tags = $this->head('user.login', [], '/user/login');
     $this->assertArrayNotHasKey('neo_seo_description', $tags);
     $this->assertArrayHasKey('neo_seo_graph', $tags, 'The graph is not a head tag metatag prints.');
-    $this->assertSame('Core title | Westwood', $this->title(), 'The title is left alone.');
+    $this->assertSame('Core title | Acme', $this->title(), 'The title is left alone.');
 
     $this->config('neo_seo.settings')->set('head_alongside_metatag', TRUE)->save();
     $this->resetSettings();

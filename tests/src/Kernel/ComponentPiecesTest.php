@@ -66,7 +66,7 @@ class ComponentPiecesTest extends HybridFieldKernelTestBase {
       siteUrl: 'https://example.com/',
       canonicalUrl: 'https://example.com/video-page',
       langcode: 'en',
-      siteName: 'Westwood',
+      siteName: 'Acme',
       entity: $entity,
       title: 'Video page',
     );

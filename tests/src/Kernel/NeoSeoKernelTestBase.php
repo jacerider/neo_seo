@@ -44,7 +44,7 @@ abstract class NeoSeoKernelTestBase extends KernelTestBase {
     parent::setUp();
     $this->installEntitySchema('user');
     $this->installConfig(['system', 'neo_seo']);
-    $this->config('system.site')->set('name', 'Westwood')->save();
+    $this->config('system.site')->set('name', 'Acme')->save();
   }
 
   /**
@@ -55,9 +55,9 @@ abstract class NeoSeoKernelTestBase extends KernelTestBase {
       siteUrl: 'https://example.com/',
       canonicalUrl: $front ? 'https://example.com/' : 'https://example.com/about',
       langcode: 'en',
-      siteName: 'Westwood',
+      siteName: 'Acme',
       isFront: $front,
-      title: $front ? 'Westwood' : 'About us',
+      title: $front ? 'Acme' : 'About us',
     );
   }
 

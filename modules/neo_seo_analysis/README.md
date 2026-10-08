@@ -1,8 +1,8 @@
 # Neo | SEO Analysis
 
 Focus-keyphrase and readability analysis for the SEO panel. The engine is our own TypeScript, written
-from Yoast's published descriptions of its free checks; no Yoast code is used (ADR 0003 in the wps
-site). Thresholds follow Yoast's published guidance and all live in `src/js/engine/thresholds.ts`.
+from Yoast's published descriptions of its free checks; no Yoast code is used.
+Thresholds follow Yoast's published guidance and all live in `src/js/engine/thresholds.ts`.
 
 ## In the SEO panel
 

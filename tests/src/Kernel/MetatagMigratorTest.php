@@ -53,7 +53,7 @@ class MetatagMigratorTest extends NeoSeoKernelTestBase {
       'og_image_url' => '[neo:image]',
       'canonical_url' => '[current-page:url]',
       'og_type' => 'website',
-      'abstract' => 'Westwood',
+      'abstract' => 'Acme',
       'schema_organization_type' => 'Organization',
       'schema_organization_name' => '[site:name]',
       'schema_organization_telephone' => '[site:phone]',
@@ -61,7 +61,7 @@ class MetatagMigratorTest extends NeoSeoKernelTestBase {
       'schema_organization_address' => serialize([
         '@type' => 'PostalAddress',
         'streetAddress' => '[site:address:street_1]',
-        'addressLocality' => 'Plano',
+        'addressLocality' => 'Springfield',
       ]),
       'schema_organization_logo' => serialize(['@type' => 'ImageObject', 'url' => '[neo:logo]']),
       'schema_web_site_name' => '[site:name]',
@@ -125,7 +125,7 @@ class MetatagMigratorTest extends NeoSeoKernelTestBase {
     $this->assertSame('[site:name]', $plan['identity']['name']);
     $this->assertSame('[site:phone]', $plan['identity']['telephone']);
     $this->assertSame(['https://www.facebook.com/x', 'https://www.youtube.com/y'], $plan['identity']['same_as']);
-    $this->assertSame(['street' => '[site:address:street_1]', 'locality' => 'Plano'], $plan['identity']['address']);
+    $this->assertSame(['street' => '[site:address:street_1]', 'locality' => 'Springfield'], $plan['identity']['address']);
     $this->assertSame('unconverted', $this->outcome($plan, 'global', 'schema_organization_logo'));
     $this->assertSame('derived', $this->outcome($plan, 'global', 'schema_web_site_name'));
 

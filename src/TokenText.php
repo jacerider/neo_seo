@@ -12,7 +12,7 @@ final class TokenText {
   /**
    * Tidies the separators a token that resolved to nothing leaves behind.
    *
-   * "[node:title] | [site:name]" with no node is " | Westwood"; a street with
+   * "[node:title] | [site:name]" with no node is " | Acme"; a street with
    * no second line is "2805 Dallas Parkway, ". The separator is stranded at an
    * end, or doubled in the middle, and goes. Whitespace collapses to single
    * spaces.

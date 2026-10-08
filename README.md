@@ -1,29 +1,440 @@
 # Neo | SEO
 
-A connected schema.org graph, head tags and on-page SEO for Neo sites. It replaces `metatag`,
-`schema_metatag` and `neo_metatag`.
+Search and sharing for Neo sites: a connected schema.org graph, the head tags search engines and
+social networks read, per-page overrides with live previews, and content analysis in the editor.
+It replaces `metatag`, `schema_metatag` and `neo_metatag`.
 
-- **Schema graph** — one JSON-LD `@graph` per page, assembled from **graph pieces** (plugins), with
-  every `@id` generated from Yoast's conventions so the pieces link to each other.
-- **Head tags** — a curated, plugin-extensible set fed by token templates and per-page overrides.
-- **SEO panel** (`neo_seo_panel`) — Google and social previews in the edit form and in Alchemist.
-- **Analysis** (`neo_seo_analysis`) — focus-keyphrase and readability checks.
+- [What it does](#what-it-does)
+- [Requirements and install](#requirements-and-install)
+- [Setting up a site](#setting-up-a-site)
+- [The schema graph](#the-schema-graph)
+- [Head tags and default templates](#head-tags-and-default-templates)
+- [Per-page overrides](#per-page-overrides)
+- [Bundle mapping](#bundle-mapping)
+- [Views pages](#views-pages)
+- [Components that add to the graph](#components-that-add-to-the-graph)
+- [The SEO panel](#the-seo-panel-neo_seo_panel)
+- [Content analysis](#content-analysis-neo_seo_analysis)
+- [Validating structured data](#validating-structured-data)
+- [Moving a site off metatag](#moving-a-site-off-metatag)
+- [Extending](#extending)
+- [Permissions, routes and settings](#permissions-routes-and-settings)
+- [What it does not do](#what-it-does-not-do)
+- [Tests](#tests)
 
-Under construction. The design lives in the wps site's `.scratch/neo-seo/spec.md`.
+## What it does
+
+| | |
+|---|---|
+| **Schema graph** | One JSON-LD `@graph` per page: the site's Organization (or Person), WebSite, WebPage, primary image, breadcrumb, Article, authors and profile people, plus anything a module or component adds. Every piece links to the others by `@id`, so search engines read one connected description of the page rather than unrelated fragments. |
+| **Head tags** | Title, description, canonical, robots, Open Graph, X card and site verification codes, from token templates layered global → entity type → bundle → front/403/404. |
+| **Per-page overrides** | Editors can set a page's search title, description, share image, page type, article type, noindex, focus keyphrase and cornerstone flag. These are stored on the entity, revisioned and translatable. |
+| **SEO panel** | Google desktop and mobile previews, a Facebook/LinkedIn card and an X card, with live length and pixel-width feedback. Shown in the edit form sidebar and inside the Alchemist editor, where SEO edits are drafted with the layout. |
+| **Content analysis** | Yoast-style focus-keyphrase and readability checks run against the page as it will render, scored with traffic lights. Scores are advisory. |
+| **Tooling** | `drush neo-seo:validate` checks pages against schema.org and Google's rich-result rules. `drush neo-seo:migrate` converts a metatag setup and diffs the head before and after. |
+
+The package has three modules:
+
+- **`neo_seo`** — the graph, head tags, templates, overrides, bundle mapping, Views pages, component
+  pieces, draft rendering and the Drush commands. A site can run on this alone.
+- **`neo_seo_panel`** — the SEO panel in the edit form and the Alchemist editor.
+- **`neo_seo_analysis`** — content analysis inside the panel.
+
+## Requirements and install
+
+- Drupal 11.3+, `token`, `media`, `jacerider/neo`, `jacerider/neo_settings`.
+- `neo_alchemist` is optional. With it, components can add to the graph and the SEO panel appears
+  in the Alchemist editor.
+- `views` is optional. With it, Views pages get their own SEO settings.
+- Node 20+ wherever `drush neo-seo:validate` runs (the DDEV web container has it).
+
+```bash
+ddev composer require jacerider/neo_seo
+ddev drush en neo_seo neo_seo_panel neo_seo_analysis
+ddev npm run build:back        # the panel and analysis are back-scope assets
+```
+
+Installing never overwrites settings a site already has. The shipped default templates are optional
+config, so they only install where none exist.
+
+**While `metatag` is still enabled**, neo_seo prints its graph but leaves the head tags to metatag,
+so a page never gets two titles. Turn on *Print head tags while metatag is enabled* in the settings
+only to compare the two side by side. See [Moving a site off metatag](#moving-a-site-off-metatag).
+
+## Setting up a site
+
+Settings live at **Configuration → Neo → SEO** (`/admin/config/neo/seo`).
+
+1. **Site identity.** Say whether the site represents an organization or a person.
+   - Pick an organization type: Organization, Corporation, Professional service, Local business, NGO,
+     and others.
+   - Fill in the name, description, logo (an image media item), social profiles (one URL per line),
+     telephone, email and postal address.
+   - Every text field accepts tokens. A site that keeps its phone and address in `neo_site_settings`
+     can point at `[site:phone]` and `[site:address:*]`.
+2. **Per-page SEO.** Tick the content that gets per-page overrides (usually *Content* and
+   *Taxonomy term*). This adds a field to those entity types, and turning one off is refused while
+   it holds data.
+3. **Share image style.** Choose the image style share images and the graph's primary images are
+   served through. The default is `neo_social`, 1200×630. Its dimensions are what the head tags
+   report.
+4. **Verification.** Paste the content value of each search engine's verification meta tag. They
+   are printed on the front page only.
+5. **Default templates.** Use the *Default templates* tab (`/admin/config/neo/seo/defaults`). See
+   [Head tags and default templates](#head-tags-and-default-templates).
+6. **Bundle mapping.** Go to each content type's or vocabulary's edit form and open its **SEO**
+   section. See [Bundle mapping](#bundle-mapping).
+
+Then check the result with `ddev drush neo-seo:validate --insecure`.
+
+## The schema graph
+
+Every front-end page prints one `<script type="application/ld+json" class="neo-seo-graph">`
+holding one `@graph`. Admin pages and the Alchemist editor's own routes get none.
+
+The pieces, and when each appears:
+
+| Piece | `@id` | When |
+|---|---|---|
+| Site identity (Organization type or Person) | `{site}/#organization` | Every page |
+| Logo ImageObject | `{site}/#/schema/logo/image/` | When site identity has a logo |
+| WebSite | `{site}/#website` | Every page; `publisher` → site identity |
+| WebPage (+ page type) | the canonical URL | Every page; `isPartOf` → WebSite; `about` → site identity on the front page |
+| Primary ImageObject | `{canonical}#primaryimage` | When the page has an image |
+| BreadcrumbList | `{canonical}#breadcrumb` | Every page but the front page, built from the site's breadcrumb |
+| Article (+ article type) | `{canonical}#article` | When the bundle or editor makes the page an article |
+| Person | `{site}/#/schema/person/{uuid}` | The subject of a profile page, and each article author |
+| Component pieces | `{canonical}#{type}-{uuid}` | When a component on the page declares one |
+
+The `@id` suffixes are the ones Yoast uses, so tools that know Yoast's graph read this one too. A
+person keeps the same `@id` on their own profile page and as an author everywhere else, because the
+id is built from the entity's uuid, not its URL.
+
+**One image, everywhere.** A page's share image (`og:image`, `twitter:image`) and its primary image in
+the graph are always the same image. It is taken from the first of:
+
+1. the editor's override;
+2. the bundle's mapped image field;
+3. the image template (`[neo:image]` by default).
+
+Empty values are never emitted. A property with nothing in it is left out rather than printed
+empty. The sitelinks search box (`SearchAction`) is not emitted, because Google retired it.
+
+## Head tags and default templates
+
+neo_seo prints these tags:
+
+- the document **title**;
+- **description**;
+- **canonical**, which is always the WebPage `@id` and `og:url`;
+- **robots**, only when it has a value;
+- **Open Graph**: site name, type, URL, title, description, locale, image with width, height and
+  alt, and article published and modified times;
+- the **X card**: `summary_large_image` when there is an image;
+- **verification codes**.
+
+It removes core's duplicate canonical and shortlink and the Generator tag.
+
+The values come from **default templates**: token strings for each field (title, description,
+social title, Open Graph type, share image, robots), kept in sets that apply to:
+
+| Set | Applies to |
+|---|---|
+| `global` | Every page |
+| an entity type, e.g. `node` | Every page of that type |
+| a bundle, e.g. `node__article` | Every page of that bundle |
+| `front`, `403`, `404` | Those pages, on top of everything else |
+
+**The more specific set wins field by field, and only where it has a value.** A bundle set that only
+sets a title keeps every other field from the sets below it.
+
+Front, 403 and 404 sit on top of the chain rather than replacing it. Under metatag, a front-page set
+throws away everything the global and bundle sets say; here it doesn't.
+
+The shipped sets are:
+
+- `global`: title `[neo:title] | [site:name]`, description `[neo:description]`, image `[neo:image]`.
+- `front`: title `[site:name]`.
+- `403` and `404`: `noindex, follow`.
+
+Templates resolve to plain text. When a token resolves to nothing, its separator goes with it: a
+title template on a page without that token prints `Site name`, not `| Site name`.
+
+## Per-page overrides
+
+On the entity types turned on in settings, an **SEO** section appears in the edit form sidebar. It
+holds:
+
+| Field | Effect |
+|---|---|
+| Title, Description | Replace the templates for this page. Tokens are allowed. |
+| Share image | An image media item; replaces the mapped field and the template. |
+| Page type, Article type | Choose from the types the bundle allows. A type the bundle does not allow is ignored. |
+| Hide from search results | Prints `robots: noindex, follow`. It does not remove the page from a sitemap. |
+| Focus keyphrase, Cornerstone | Used by content analysis. |
+
+Overrides are stored in one base field, `neo_seo`. They are translatable and revisioned with the
+entity, and also available as tokens: `[neo-seo:title]`, `[neo-seo:description]`,
+`[neo-seo:keyphrase]`, `[neo-seo:page-type]`, `[neo-seo:article-type]`.
+
+Editing them takes the *Edit SEO overrides* permission.
+
+## Bundle mapping
+
+Each content type, vocabulary and media type form has an **SEO** section. The mapping is stored on
+the bundle as third-party settings, so it is exported with the bundle.
+
+| Setting | Meaning |
+|---|---|
+| Page type | WebPage, About page, Profile page, Contact page, Collection page, Item page, and others. |
+| Page types editors may choose instead | The other page types offered in the override. |
+| Article type | None, Article, Blog post, News article, Report, Technical article, and others. News, posts and reports are articles; most other pages are not. |
+| Article types editors may choose instead | The other article types offered in the override. |
+| Primary image | An image or media reference field. It feeds the share image and the primary image. |
+| Date published / Date modified | Timestamp or date fields; by default *created* and *changed*. A date-only field is published as a date, never an invented time. |
+| Authors | A reference to content whose own type is a **Profile page**. Each referenced, visible entity becomes an author of this page's Article. |
+| Job title, Social profiles | On a profile-page bundle: the fields for the Person's job title and `sameAs` links. |
+
+**People.** Any bundle mapped as a *Profile page* describes a person. Their page gets a Person as
+the WebPage's `mainEntity`. When another page names them in its Authors field, the same Person
+appears as that page's `author`. Unpublished or inaccessible people are left out.
+
+An article type also sets `og:type` to `article`, and a profile page sets it to `profile`, whatever
+the template says.
+
+A bundle config type other than node types, vocabularies and media types needs one line of config
+schema before the section appears:
+`{config prefix}.*.third_party.neo_seo: { type: neo_seo.bundle_mapping }`.
+
+## Views pages
+
+On sites with Views, every page display gets an **SEO** setting in the view's *Page settings*. It
+holds title, description and share image templates, plus a page type, e.g. *Collection page* for a
+listing or *Search results page* for a search.
+
+The templates can use `[view:*]` tokens, contextual arguments included. They sit above the global
+set and below front, 403 and 404. They are stored in the view's own config.
+
+## Components that add to the graph
+
+With `neo_alchemist`, a component can add itself to the page's graph by declaring a piece in its
+`.component.yml`. No PHP is needed:
+
+```yaml
+thirdPartySettings:
+  neo_seo:
+    pieces:
+      - type: VideoObject
+        properties:
+          name: title            # a prop name…
+          contentUrl: video.src  # …then keys into its resolved value
+          thumbnailUrl: video.poster
+```
+
+- **How values are read:** properties are read from the prop's resolved value, so bindings to
+  entity fields work.
+- **What is skipped:** unpublished instances, and ones the visitor cannot see.
+- **Output:** one node per instance, `isPartOf` the page.
+- **VideoObject checks:** a VideoObject must have a name, a thumbnail, an upload date and either a
+  content or an embed URL. The upload date falls back to the page's published date and the name to
+  the page title. A node still missing something is left out and logged once, never emitted
+  invalid.
+
+The neo-component skill has the full reference.
+
+## The SEO panel (`neo_seo_panel`)
+
+Enabling the module turns the SEO section into a panel. Nothing in any form display changes, and
+uninstalling puts the plain section back.
+
+- **Previews:** Google desktop, Google mobile (with favicon and breadcrumb-style URL),
+  Facebook/LinkedIn and X. They are drawn at each network's real width and scaled to fit.
+- **Live feedback:** title and description lengths are measured in characters and in pixels against
+  Google's cut-off: 600px for a title, 920px for a description.
+- **What the previews show:** the head the page will print, not the raw field. They are refreshed
+  from a **draft render**, the page built from the form's current values without saving, so tokens
+  and templates resolve exactly as they will on the live page.
+
+In the **Alchemist editor** the same panel opens from the editor's bottom bar. SEO edits there are
+**drafted with the layout**:
+
+- they reach the page only when the layout is published;
+- Revert and Reset discard them;
+- the live page is untouched until then.
+
+## Content analysis (`neo_seo_analysis`)
+
+Adds an **Analysis** section to the panel, in both the edit form and the Alchemist editor.
+
+- **SEO checks** against one focus keyphrase: the keyphrase in the title, description, URL, H1,
+  introduction, subheadings and image alt text; keyphrase density; title and description length;
+  text length; internal and outbound links; and whether the keyphrase is already used on another
+  page.
+- **Readability** (English only): Flesch reading ease, sentence and paragraph length, subheading
+  spacing, passive voice, transition words, and repeated sentence openings. Other languages get the
+  SEO checks only.
+- **Cornerstone** pages are held to stricter thresholds.
+- **Where it runs:** in a Web Worker, against the draft render. Typing does not freeze the form.
+- **Show:** in Alchemist, *Show* marks an assessment's text in the preview.
+
+Scores are stored with the overrides when the page is saved or published. The admin content list
+can show *SEO* and *Readability* columns (Views handler `neo_seo_score`; a page that was never
+analysed shows "–") and filter by *Cornerstone*. **Scores never block a save.**
+
+The engine is original TypeScript written from Yoast's published descriptions of its free checks.
+No Yoast code is used. See `modules/neo_seo_analysis/README.md` for the engine's contract and
+thresholds.
 
 ## Validating structured data
 
 ```bash
-ddev exec npm ci --prefix web/modules/contrib/neo_seo/tools/validate   # once
+ddev exec npm ci --prefix web/modules/contrib/neo_seo/tools/validate   # once per environment
 ddev drush neo-seo:validate --insecure                                 # a sample of every kind of page
 ddev drush neo-seo:validate --insecure --url=/about --warnings         # one page, with warnings
 ```
 
-It fetches the front page, the newest published pages of every bundle with SEO, every public
-Views page and a not-found page, then checks each one's JSON-LD: every `{"@id"}` reference must
-resolve inside its graph, and `@adobe/structured-data-validator` applies schema.org and Google
-rich-result rules. It exits non-zero on any error. `--insecure` skips TLS checks for local sites
-with self-signed certificates. The schema.org vocabulary is downloaded to the temporary directory
-and refreshed monthly.
+It fetches pages over HTTP:
 
-The reference check is tested on its own: `node --test tools/validate/lib.test.mjs`.
+- the front page;
+- the newest published pages of every bundle with SEO (`--per-bundle`, default 2);
+- every public Views page;
+- a page that does not exist.
+
+Each page's JSON-LD is then checked two ways:
+
+1. every `{"@id"}` reference must resolve inside its own graph;
+2. `@adobe/structured-data-validator` applies schema.org's rules and Google's rich-result rules.
+
+The command exits non-zero on any error, so it can gate a deploy. `--insecure` skips TLS checks for
+local sites with self-signed certificates. The schema.org vocabulary is downloaded to the temporary
+directory and refreshed monthly.
+
+## Moving a site off metatag
+
+```bash
+ddev drush neo-seo:migrate --dry-run --insecure --report=../seo-diff.md
+```
+
+The migration does three things, and never overwrites a value neo_seo already has:
+
+- **metatag defaults → default templates.** The set ids match: `global`, `front`, `node`,
+  `node__article` and so on.
+- **schema_metatag → bundle mappings and site identity.**
+- **metatag field values → per-page overrides.**
+
+Every metatag value is reported as one of:
+
+- *converted*;
+- *derived* — neo_seo works it out itself;
+- *dropped* on purpose;
+- *unconverted* — someone has to decide. Typically that means a logo to pick, or a specialist
+  schema type that needs a graph piece in code.
+
+It then fetches a sample of pages twice — as visitors see them, and as neo_seo will print them
+(through a short-lived, uncacheable diff mode) — and writes a Markdown report comparing head tags and
+graph nodes page by page.
+
+`--dry-run` keeps the configuration only for as long as the diff takes, then restores it exactly,
+and copies no content. Even so, run it on a copy of the site, because for those seconds the
+converted configuration is live.
+
+Nothing is uninstalled. Once the report reads right:
+
+1. Run without `--dry-run`.
+2. Uninstall `neo_metatag`, `schema_metatag` and its submodules, and `metatag`.
+3. Remove the metatag fields.
+4. Validate.
+5. Check `git status config/` before exporting.
+
+## Extending
+
+### A graph piece
+
+Add a plugin under `src/Plugin/GraphPiece/` in any module. Use it for specialist types such as
+JobPosting, Event or Product, which a site's own module understands better than a generic mapping
+could:
+
+```php
+#[GraphPiece(id: 'my_event', label: new TranslatableMarkup('Event'), weight: -20)]
+class Event extends GraphPieceBase {
+
+  public function isNeeded(PageContext $context): bool {
+    return $context->entity?->bundle() === 'event';
+  }
+
+  public function generate(PageContext $context): array {
+    $values = $this->headValues->resolve($context);
+    return [[
+      '@type' => 'Event',
+      '@id' => $this->ids->pageScoped($context, 'event'),
+      'name' => $context->title,
+      'description' => $values->get('description'),
+      'organizer' => SchemaIds::ref($this->ids->siteIdentity($context)),
+      'mainEntityOfPage' => SchemaIds::ref($this->ids->webPage($context)),
+    ]];
+  }
+
+}
+```
+
+- Build every `@id` through `SchemaIds`, never by hand. That is what guarantees references land on
+  real nodes.
+- Read the page's title, description, image, types and dates from `$this->headValues`, so the graph
+  and the head tags agree.
+- Record anything you read with `$context->addCacheableDependency()`.
+- Empty values are pruned for you.
+
+`hook_neo_seo_graph_alter(array &$nodes, PageContext $context)` sees the whole graph last.
+`hook_neo_seo_graph_piece_info_alter()` alters or removes pieces. See `neo_seo.api.php`.
+
+### A head tag
+
+Add a plugin under `src/Plugin/HeadTag/` extending `HeadTagBase`. Its `build(HeadValues $values)`
+returns `html_head` attachments; `$this->meta($name, $content)` builds a meta tag. A tag that
+declares `fields:` in its attribute gets those fields in every default template set and in the
+template form.
+
+### The SEO panel
+
+`hook_neo_seo_panel_alter(array &$panel, ContentEntityInterface $entity, string $host)` adds
+libraries and config to the panel. `Drupal.neoSeoPanel.extend()` hooks into it in the browser.
+Content analysis is built this way. See `modules/neo_seo_panel/neo_seo_panel.api.php`.
+
+## Permissions, routes and settings
+
+| Permission | Allows |
+|---|---|
+| `administer neo_seo` | Settings, default templates, bundle mapping. |
+| `edit neo_seo overrides` | Changing a page's per-page SEO; the keyphrases list. |
+
+| Route | |
+|---|---|
+| `/admin/config/neo/seo` | Settings |
+| `/admin/config/neo/seo/defaults` | Default templates |
+| `GET /neo-seo/draft/{entity_type}/{id}` | A page's draft render as JSON, with its Alchemist drafts applied (update access). Used by the panel. |
+| `GET /neo-seo/keyphrases` | Other pages' focus keyphrases, for analysis (`edit neo_seo overrides`). |
+
+| Config | |
+|---|---|
+| `neo_seo.settings` | Site identity, verification codes, per-page entity types, share image style, *print alongside metatag*. |
+| `neo_seo.defaults.*` | Default template sets. |
+| `{bundle config}.third_party.neo_seo` | Bundle mapping. |
+| `views.view.*` display extender `neo_seo` | Views page settings. |
+
+## What it does not do
+
+- **Sitemaps, redirects, URL aliases, robots.txt and breadcrumb building** stay with their own
+  modules (`simple_sitemap`, `redirect`, `pathauto` and the breadcrumb builders). neo_seo reads the
+  breadcrumb; it does not make one.
+- **hreflang** is left to core and content translation.
+- **FAQ and HowTo.** Google no longer shows either rich result, so neo_seo offers neither.
+- **More than one focus keyphrase, word forms, synonyms, and readability in languages other than
+  English.**
+
+## Tests
+
+```bash
+ddev phpunit web/modules/contrib/neo_seo/tests                          # kernel and unit
+node --test 'modules/neo_seo_analysis/tests/js/*.test.ts'               # analysis engine (package root)
+node --test tools/validate/lib.test.mjs                                 # graph reference check
+```

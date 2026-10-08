@@ -325,7 +325,7 @@ class MetatagMigrator {
     // A whole group with no generic piece is one decision, so one line.
     $type = (string) ($tags[$group . '_type'] ?? $group);
     $plan['report'][] = $this->line($set, $group . '_*', $type, 'unconverted', sprintf(
-      '%d tags: no generic %s piece. It is covered only if a graph piece plugin in code emits it (wps: wps_job_posting for JobPosting).',
+      '%d tags: no generic %s piece. It is covered only if a graph piece plugin in code emits it.',
       count($tags),
       $type,
     ));

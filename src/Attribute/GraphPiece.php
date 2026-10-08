@@ -11,7 +11,7 @@ use Drupal\Core\StringTranslation\TranslatableMarkup;
  * Declares a graph piece: one contributor to a page's schema.org @graph.
  *
  * Pieces are discovered under `Plugin/GraphPiece` in any module, so a site
- * module adds schema (wps's JobPosting) without touching neo_seo.
+ * module adds schema (a JobPosting, say) without touching neo_seo.
  */
 #[\Attribute(\Attribute::TARGET_CLASS)]
 final class GraphPiece extends Plugin {
