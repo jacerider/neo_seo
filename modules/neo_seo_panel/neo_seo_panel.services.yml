@@ -1,0 +1,9 @@
+parameters:
+  # Every hook lives on a class under src/Hook.
+  neo_seo_panel.skip_procedural_hook_scan: true
+
+services:
+  neo_seo_panel.builder:
+    class: Drupal\neo_seo_panel\PanelBuilder
+    autowire: true
+  Drupal\neo_seo_panel\PanelBuilder: '@neo_seo_panel.builder'

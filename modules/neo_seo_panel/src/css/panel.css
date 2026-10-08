@@ -1,0 +1,362 @@
+/**
+ * Neo | SEO Panel.
+ *
+ * The panel chrome follows neo_back's tokens. The previews deliberately do
+ * not: they copy the fonts, sizes and colours of the real search result and
+ * share cards, because their job is to look like those, not like the admin.
+ */
+
+.neo-seo-panel,
+.neo-seo-panel__sections,
+.neo-seo-meter {
+  --neo-seo-good: rgb(var(--color-success-600, 22 163 74));
+  --neo-seo-ok: rgb(var(--color-warning-500, 234 179 8));
+  --neo-seo-problem: rgb(var(--color-alert-600, 220 38 38));
+}
+
+.neo-seo-panel {
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 1rem;
+}
+
+.neo-seo-panel__card {
+  border: 1px solid rgb(var(--color-base-200, 229 231 235));
+  border-radius: 0.5rem;
+  background: rgb(var(--color-base-0, 255 255 255));
+  overflow: hidden;
+}
+
+.neo-seo-panel__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.625rem 0.75rem 0.25rem;
+}
+
+/* One line, so a changing status never moves the tabs under a pointer. */
+.neo-seo-panel__head .neo-seo-panel__status {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neo-seo-panel__heading {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.neo-seo-panel__status,
+.neo-seo-panel__schema {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: rgb(var(--color-base-500, 107 114 128));
+}
+
+.neo-seo-panel__status.is-error {
+  color: var(--neo-seo-problem);
+}
+
+.neo-seo-panel__schema {
+  padding: 0 0.75rem 0.625rem;
+}
+
+.neo-seo-panel__tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem 0;
+  border-bottom: 1px solid rgb(var(--color-base-200, 229 231 235));
+}
+
+.neo-seo-panel__tab {
+  padding: 0.375rem 0.5rem;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--color-base-600, 75 85 99));
+  cursor: pointer;
+}
+
+.neo-seo-panel__tab:hover {
+  color: rgb(var(--color-base-900, 17 24 39));
+}
+
+.neo-seo-panel__tab[aria-selected="true"] {
+  border-bottom-color: rgb(var(--color-primary-500, 59 130 246));
+  color: rgb(var(--color-base-900, 17 24 39));
+}
+
+.neo-seo-panel__tab:focus-visible {
+  outline: 2px solid rgb(var(--color-primary-500, 59 130 246));
+  outline-offset: -2px;
+}
+
+.neo-seo-panel__previews {
+  padding: 0.75rem;
+  background: rgb(var(--color-base-50, 249 250 251));
+}
+
+.neo-seo-panel__frame {
+  position: relative;
+  overflow: hidden;
+}
+
+.neo-seo-panel__stage {
+  /* Out of flow, so its real width never widens the panel; fit() sets the
+     frame's height to the scaled preview's. */
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+}
+
+.neo-seo-panel__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.neo-seo-panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Length feedback under the title and description. */
+.neo-seo-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: rgb(var(--color-base-600, 75 85 99));
+}
+
+.neo-seo-meter__track {
+  display: block;
+  height: 0.25rem;
+  border-radius: 9999px;
+  background: rgb(var(--color-base-200, 229 231 235));
+  overflow: hidden;
+}
+
+.neo-seo-meter__bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: rgb(var(--color-base-400, 156 163 175));
+  transition: width 0.2s ease;
+}
+
+.neo-seo-meter[data-band="good"] .neo-seo-meter__bar { background: var(--neo-seo-good); }
+.neo-seo-meter[data-band="ok"] .neo-seo-meter__bar { background: var(--neo-seo-ok); }
+.neo-seo-meter[data-band="problem"] .neo-seo-meter__bar { background: var(--neo-seo-problem); }
+
+/* Google: desktop and mobile results. */
+.neo-seo-g {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #4d5156;
+  font-family: Arial, sans-serif;
+  text-align: left;
+}
+
+.neo-seo-g__site {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.375rem;
+}
+
+.neo-seo-g__favicon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #ecedef;
+  border-radius: 50%;
+  background: #f1f3f4;
+}
+
+.neo-seo-g__favicon img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.neo-seo-g__source {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.neo-seo-g__name {
+  font-size: 14px;
+  line-height: 20px;
+  color: #202124;
+}
+
+.neo-seo-g__url {
+  font-size: 12px;
+  line-height: 18px;
+  color: #4d5156;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neo-seo-g__title {
+  font-size: 20px;
+  line-height: 26px;
+  color: #1a0dab;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.neo-seo-g__desc {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 22px;
+  color: #4d5156;
+  word-wrap: break-word;
+}
+
+.neo-seo-g--mobile {
+  border: 1px solid #ecedef;
+  box-shadow: 0 1px 6px rgb(32 33 36 / 0.18);
+}
+
+.neo-seo-g--mobile .neo-seo-g__title {
+  font-size: 18px;
+  line-height: 24px;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.neo-seo-g--mobile .neo-seo-g__desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.neo-seo-preview__note {
+  margin: 0.5rem 0 0;
+  padding: 0.375rem 0.5rem;
+  border-radius: 0.25rem;
+  background: #fef3c7;
+  color: #78350f;
+  font-size: 13px;
+}
+
+/* Facebook and LinkedIn: the Open Graph card. */
+.neo-seo-fb {
+  border: 1px solid #dadde1;
+  background: #fff;
+  font-family: Helvetica, Arial, sans-serif;
+  text-align: left;
+}
+
+.neo-seo-fb__image,
+.neo-seo-x__image {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1.91 / 1;
+  background: #e4e6eb;
+  color: #65676b;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+.neo-seo-fb__image img,
+.neo-seo-x__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.neo-seo-fb__body {
+  padding: 10px 12px;
+  border-top: 1px solid #dadde1;
+  background: #f2f3f5;
+}
+
+.neo-seo-fb__host {
+  font-size: 12px;
+  line-height: 16px;
+  color: #606770;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neo-seo-fb__title {
+  margin-top: 3px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 20px;
+  color: #1d2129;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.neo-seo-fb__desc {
+  margin-top: 3px;
+  font-size: 14px;
+  line-height: 20px;
+  color: #606770;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* X: the summary_large_image card. */
+.neo-seo-x {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  text-align: left;
+}
+
+.neo-seo-x__image {
+  aspect-ratio: 2 / 1;
+  border: 1px solid #cfd9de;
+  border-radius: 16px;
+}
+
+.neo-seo-x__title {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  max-width: calc(100% - 24px);
+  padding: 0 6px;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 0.77);
+  color: #fff;
+  font-size: 13px;
+  line-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neo-seo-x__from {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 16px;
+  color: #536471;
+}

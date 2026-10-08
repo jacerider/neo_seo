@@ -1,0 +1,342 @@
+/**
+ * The SEO panel: previews and length feedback over the overrides controls.
+ *
+ * It knows its host only through NeoSeoPanelHost — never the edit form or the
+ * Alchemist editor — so one widget serves both. It asks the host for a draft
+ * render whenever something that changes the page changes, on a debounce and
+ * one at a time, and draws the previews from the render's head values: what
+ * the page's head will print, template plus unsaved override.
+ */
+
+import { debounce, h, uniqueId } from './dom';
+import { cut, DESCRIPTION_FONT, DESCRIPTION_LIMIT, TITLE_FONT, TITLE_LIMIT, width } from './measure';
+import { fit, PREVIEWS, type PreviewData, type PreviewKind } from './previews';
+
+/** Overrides that change nothing the draft render shows. */
+const RENDERLESS: NeoSeoOverrideKey[] = ['keyphrase', 'cornerstone', 'seo_score', 'readability_score'];
+
+/** How long typing must pause before the page is rendered again. */
+const OVERRIDE_WAIT = 600;
+const CONTENT_WAIT = 1500;
+
+type Band = 'good' | 'ok' | 'problem' | 'none';
+
+interface Meter {
+  element: HTMLElement;
+  bar: HTMLElement;
+  text: HTMLElement;
+}
+
+export class SeoPanel {
+
+  protected render: NeoSeoDraftRender | null = null;
+  protected rendering = false;
+  protected again = false;
+  protected readonly renderListeners: Array<(render: NeoSeoDraftRender) => void> = [];
+  protected readonly mountedExtensions = new Set<string>();
+  protected readonly stages = new Map<PreviewKind['id'], HTMLElement>();
+  protected readonly meters: Partial<Record<'title' | 'description', Meter>> = {};
+  protected status!: HTMLElement;
+  protected sections!: HTMLElement;
+  protected schema!: HTMLElement;
+  protected readonly renderSoon = debounce(() => this.refresh(), OVERRIDE_WAIT);
+  protected readonly renderLater = debounce(() => this.refresh(), CONTENT_WAIT);
+
+  protected readonly root: HTMLElement;
+  protected readonly host: NeoSeoPanelHost;
+  protected readonly config: NeoSeoPanelConfig;
+
+  constructor(root: HTMLElement, host: NeoSeoPanelHost, config: NeoSeoPanelConfig) {
+    this.root = root;
+    this.host = host;
+    this.config = config;
+    this.build();
+    this.host.onChange((change) => this.changed(change));
+    // After every behavior has attached: the host's own wiring (Drupal's AJAX
+    // on the edit form) may attach after the panel does.
+    window.setTimeout(() => this.refresh(), 0);
+  }
+
+  /**
+   * Mounts an extension: it gets the host, a section and every render.
+   */
+  extend(extension: NeoSeoPanelExtension): void {
+    if (this.mountedExtensions.has(extension.id)) {
+      return;
+    }
+    this.mountedExtensions.add(extension.id);
+    try {
+      extension.mount({
+        host: this.host,
+        config: this.config,
+        section: (id, title) => this.section(id, title),
+        latest: () => this.render,
+        onRender: (callback) => {
+          this.renderListeners.push(callback);
+        },
+      });
+    }
+    catch (e) {
+      console.error(e);
+    }
+  }
+
+  protected build(): void {
+    const tabsId = uniqueId('neo-seo-previews');
+    const tablist = h('div', {
+      class: 'neo-seo-panel__tabs',
+      role: 'tablist',
+      'aria-label': Drupal.t('Preview'),
+    });
+    const panels = h('div', { class: 'neo-seo-panel__previews' });
+    PREVIEWS.forEach((kind, index) => {
+      const tabId = `${tabsId}-${kind.id}-tab`;
+      const panelId = `${tabsId}-${kind.id}`;
+      const tab = h('button', {
+        type: 'button',
+        role: 'tab',
+        id: tabId,
+        class: 'neo-seo-panel__tab',
+        'aria-controls': panelId,
+        'aria-selected': index === 0 ? 'true' : 'false',
+        tabindex: index === 0 ? '0' : '-1',
+        title: kind.name,
+      }, [kind.label]);
+      const stage = h('div', { class: 'neo-seo-panel__stage' });
+      const frame = h('div', { class: 'neo-seo-panel__frame' }, [stage]);
+      const panel = h('div', {
+        role: 'tabpanel',
+        id: panelId,
+        class: 'neo-seo-panel__preview',
+        'aria-label': kind.name,
+      }, [frame]);
+      panel.hidden = index !== 0;
+      tablist.append(tab);
+      panels.append(panel);
+      this.stages.set(kind.id, stage);
+      fit(frame, stage, kind.width);
+    });
+    tablist.addEventListener('click', (event) => {
+      const tab = (event.target as Element).closest<HTMLElement>('[role="tab"]');
+      if (tab) {
+        this.select(tablist, tab);
+      }
+    });
+    tablist.addEventListener('keydown', (event) => {
+      const tabs = Array.from(tablist.querySelectorAll<HTMLElement>('[role="tab"]'));
+      const current = tabs.indexOf(document.activeElement as HTMLElement);
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (current >= 0 && step) {
+        event.preventDefault();
+        const next = tabs[(current + step + tabs.length) % tabs.length];
+        this.select(tablist, next);
+        next.focus();
+      }
+    });
+
+    this.status = h('p', { class: 'neo-seo-panel__status', role: 'status', 'aria-live': 'polite' });
+    this.schema = h('p', { class: 'neo-seo-panel__schema' });
+    const heading = h('h3', { class: 'neo-seo-panel__heading' }, [Drupal.t('Search and share previews')]);
+    this.root.replaceChildren(
+      h('section', { class: 'neo-seo-panel__card', 'aria-label': Drupal.t('Search and share previews') }, [
+        h('div', { class: 'neo-seo-panel__head' }, [heading, this.status]),
+        tablist,
+        panels,
+        this.schema,
+      ]),
+    );
+
+    this.meters.title = this.meter('title');
+    this.meters.description = this.meter('description');
+
+    // Extension sections follow the controls.
+    this.sections = h('div', { class: 'neo-seo-panel__sections' });
+    this.root.parentElement?.append(this.sections);
+    this.setStatus(Drupal.t('Rendering preview…'));
+  }
+
+  protected select(tablist: HTMLElement, selected: HTMLElement): void {
+    tablist.querySelectorAll<HTMLElement>('[role="tab"]').forEach((tab) => {
+      const active = tab === selected;
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      tab.tabIndex = active ? 0 : -1;
+      const panel = document.getElementById(tab.getAttribute('aria-controls') ?? '');
+      if (panel) {
+        panel.hidden = !active;
+      }
+    });
+  }
+
+  /**
+   * A length meter under the title or description control.
+   */
+  protected meter(key: 'title' | 'description'): Meter | undefined {
+    const control = this.host.control(key);
+    if (!control) {
+      return undefined;
+    }
+    const id = uniqueId(`neo-seo-meter-${key}`);
+    const bar = h('span', { class: 'neo-seo-meter__bar' });
+    const text = h('span', { class: 'neo-seo-meter__text' });
+    const element = h('div', { class: 'neo-seo-meter', id }, [
+      h('span', { class: 'neo-seo-meter__track', 'aria-hidden': 'true' }, [bar]),
+      text,
+    ]);
+    control.append(element);
+    const field = control.querySelector('input, textarea');
+    if (field) {
+      const describedBy = field.getAttribute('aria-describedby');
+      field.setAttribute('aria-describedby', describedBy ? `${describedBy} ${id}` : id);
+    }
+    return { element, bar, text };
+  }
+
+  protected section(id: string, title: string): HTMLElement {
+    const body = h('div', { class: 'neo-seo-panel__section-body' });
+    const headingId = uniqueId(`neo-seo-section-${id}`);
+    this.sections.append(h('section', {
+      class: `neo-seo-panel__section neo-seo-panel__section--${id}`,
+      'aria-labelledby': headingId,
+    }, [
+      h('h3', { class: 'neo-seo-panel__heading', id: headingId }, [title]),
+      body,
+    ]));
+    return body;
+  }
+
+  protected changed(change: NeoSeoHostChange): void {
+    if (change.source === 'override') {
+      if (change.key && RENDERLESS.includes(change.key)) {
+        return;
+      }
+      // Typed text needs no server to be previewed; the render catches up.
+      this.draw();
+      this.setStatus(Drupal.t('Updating preview…'));
+      this.renderLater.cancel();
+      this.renderSoon();
+    }
+    else {
+      this.renderLater();
+    }
+  }
+
+  /**
+   * Renders the page now, or again as soon as the render in flight returns.
+   */
+  protected async refresh(): Promise<void> {
+    if (this.rendering) {
+      this.again = true;
+      return;
+    }
+    this.rendering = true;
+    this.again = false;
+    try {
+      this.render = await this.host.render();
+      this.draw();
+      this.setStatus(Drupal.t('Preview of the page as it will be saved.'));
+      const render = this.render;
+      this.renderListeners.forEach((listener) => {
+        try {
+          listener(render);
+        }
+        catch (e) {
+          console.error(e);
+        }
+      });
+    }
+    catch (e) {
+      console.error(e);
+      this.setStatus(Drupal.t('The preview could not be updated.'), true);
+    }
+    finally {
+      this.rendering = false;
+      if (this.again) {
+        this.refresh();
+      }
+    }
+  }
+
+  protected setStatus(message: string, error = false): void {
+    this.status.textContent = message;
+    this.status.classList.toggle('is-error', error);
+  }
+
+  /**
+   * What the previews show: the render, with typed text laid over it until
+   * the next render arrives. Text with tokens waits for the server.
+   */
+  protected data(): PreviewData | null {
+    if (!this.render) {
+      return null;
+    }
+    const head = this.render.head;
+    const values = this.host.read();
+    const typed = (value: string, rendered: string) => value.trim() && !value.includes('[') ? value.trim() : rendered;
+    return {
+      title: typed(values.title, head.title),
+      description: typed(values.description, head.description),
+      socialTitle: head.social_title || head.title,
+      url: head.canonical || this.render.url,
+      siteName: head.site_name,
+      favicon: this.config.favicon,
+      image: head.image,
+      noindex: values.noindex || /noindex/i.test(head.robots),
+    };
+  }
+
+  protected draw(): void {
+    const data = this.data();
+    if (!data || !this.render) {
+      return;
+    }
+    PREVIEWS.forEach((kind) => {
+      this.stages.get(kind.id)?.replaceChildren(kind.draw(data));
+    });
+    const values = this.host.read();
+    this.measure('title', data.title, !values.title.trim());
+    this.measure('description', data.description, !values.description.trim());
+    const head = this.render.head;
+    this.schema.textContent = head.article_type && head.article_type !== 'None'
+      ? Drupal.t('Schema: @page with @article', { '@page': head.page_type, '@article': head.article_type })
+      : Drupal.t('Schema: @page', { '@page': head.page_type });
+  }
+
+  /**
+   * Live length feedback: characters, and pixels against Google's cut.
+   */
+  protected measure(key: 'title' | 'description', text: string, fromTemplate: boolean): void {
+    const meter = this.meters[key];
+    if (!meter) {
+      return;
+    }
+    const font = key === 'title' ? TITLE_FONT : DESCRIPTION_FONT;
+    const limit = key === 'title' ? TITLE_LIMIT : DESCRIPTION_LIMIT;
+    const pixels = Math.round(width(text, font));
+    const chars = text.length;
+    let band: Band;
+    let verdict: string;
+    if (!chars) {
+      band = 'problem';
+      verdict = key === 'title' ? Drupal.t('No title.') : Drupal.t('No description: search engines will pick some text from the page.');
+    }
+    else if (pixels > limit) {
+      band = 'problem';
+      verdict = Drupal.t('Too long: Google cuts it after about @n characters.', {
+        '@n': String(cut(text, font, limit).text.length - 4),
+      });
+    }
+    else if (key === 'title' ? pixels < limit * 0.5 : chars < 120) {
+      band = 'ok';
+      verdict = Drupal.t('Short: there is room for more.');
+    }
+    else {
+      band = 'good';
+      verdict = Drupal.t('Good length.');
+    }
+    meter.element.dataset.band = band;
+    meter.bar.style.width = `${Math.min(100, Math.round((pixels / limit) * 100))}%`;
+    const source = fromTemplate ? Drupal.t('From the template.') + ' ' : '';
+    meter.text.textContent = `${source}${Drupal.formatPlural(chars, '1 character', '@count characters')} · ${pixels} / ${limit} px. ${verdict}`;
+  }
+
+}

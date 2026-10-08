@@ -51,6 +51,11 @@ class SeoOverridesItem extends FieldItemBase {
   ];
 
   /**
+   * The scores content analysis stores beside the overrides.
+   */
+  public const SCORES = ['seo_score', 'readability_score'];
+
+  /**
    * {@inheritdoc}
    */
   public static function propertyDefinitions(FieldStorageDefinitionInterface $field_definition) {
@@ -62,8 +67,14 @@ class SeoOverridesItem extends FieldItemBase {
     $properties['article_type'] = DataDefinition::create('string')->setLabel(new TranslatableMarkup('Article type'));
     $properties['noindex'] = DataDefinition::create('boolean')->setLabel(new TranslatableMarkup('Hide from search results'));
     $properties['cornerstone'] = DataDefinition::create('boolean')->setLabel(new TranslatableMarkup('Cornerstone content'));
-    $properties['seo_score'] = DataDefinition::create('integer')->setLabel(new TranslatableMarkup('SEO score'));
-    $properties['readability_score'] = DataDefinition::create('integer')->setLabel(new TranslatableMarkup('Readability score'));
+    // Written by content analysis: advisory, so a score is a 0–100 integer or
+    // nothing, and never a reason to refuse a save.
+    $properties['seo_score'] = DataDefinition::create('integer')
+      ->setLabel(new TranslatableMarkup('SEO score'))
+      ->addConstraint('Range', ['min' => 0, 'max' => 100]);
+    $properties['readability_score'] = DataDefinition::create('integer')
+      ->setLabel(new TranslatableMarkup('Readability score'))
+      ->addConstraint('Range', ['min' => 0, 'max' => 100]);
     return $properties;
   }
 

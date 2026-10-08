@@ -1,0 +1,9 @@
+name: 'Neo | SEO Panel'
+type: module
+neo: true
+description: 'Search and share previews for the SEO overrides, in the edit form and the Alchemist editor.'
+package: Neo
+version: 0.0.0
+core_version_requirement: ^11.3
+dependencies:
+  - neo_seo:neo_seo

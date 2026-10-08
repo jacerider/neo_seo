@@ -11,7 +11,9 @@ use Drupal\Core\Field\WidgetBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_seo\Mapping\BundleMappingRepository;
+use Drupal\neo_seo\Plugin\Field\FieldType\SeoOverridesItem;
 use Drupal\neo_seo\Schema\SchemaTypes;
+use Drupal\neo_seo\SeoOverrides;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -116,10 +118,14 @@ class SeoOverridesWidget extends WidgetBase {
       '#description' => $this->t('One of the site’s most important pages. Analysis holds it to a higher standard.'),
       '#default_value' => (bool) $item->cornerstone,
     ];
-    // The scores are written by analysis, not typed; carry them through so
-    // saving the form does not wipe them.
-    foreach (['seo_score', 'readability_score'] as $score) {
-      $element[$score] = ['#type' => 'value', '#value' => $item->{$score}];
+    // The scores are written by analysis (neo_seo_analysis), not typed. Hidden
+    // inputs, so the panel can set them before a save and a save without the
+    // panel carries the stored ones through.
+    foreach (SeoOverridesItem::SCORES as $score) {
+      $element[$score] = [
+        '#type' => 'hidden',
+        '#default_value' => $item->{$score} === NULL ? '' : (string) $item->{$score},
+      ];
     }
     return $element;
   }
@@ -135,6 +141,12 @@ class SeoOverridesWidget extends WidgetBase {
       }
       $value['noindex'] = (bool) ($value['noindex'] ?? FALSE);
       $value['cornerstone'] = (bool) ($value['cornerstone'] ?? FALSE);
+      // Scores are advisory: one that is not a 0–100 integer is dropped, never
+      // reported as an error that would stop the save.
+      foreach (SeoOverridesItem::SCORES as $score) {
+        $clean = SeoOverrides::score($value[$score] ?? NULL);
+        $value[$score] = $clean === FALSE ? NULL : $clean;
+      }
     }
     return $values;
   }

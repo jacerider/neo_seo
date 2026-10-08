@@ -41,6 +41,20 @@ final class SeoOverrides {
   }
 
   /**
+   * A score as stored: an integer 0–100, NULL for none, FALSE if invalid.
+   */
+  public static function score(mixed $value): int|null|false {
+    if ($value === NULL || $value === '') {
+      return NULL;
+    }
+    if (is_int($value) || (is_string($value) && preg_match('/^\d{1,3}$/', $value))) {
+      $value = (int) $value;
+      return $value >= 0 && $value <= 100 ? $value : FALSE;
+    }
+    return FALSE;
+  }
+
+  /**
    * An entity's overrides, with nothing set as NULL.
    *
    * @param \Drupal\Core\Entity\FieldableEntityInterface|null $entity

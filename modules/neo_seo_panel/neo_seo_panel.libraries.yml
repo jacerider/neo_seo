@@ -1,0 +1,16 @@
+# The SEO panel: previews and length feedback over the SEO overrides controls,
+# mounted against a host (the edit form, or the Alchemist editor).
+panel:
+  version: VERSION
+  neo: { scope: back }
+  css:
+    component:
+      src/css/panel.css: {}
+  js:
+    src/js/panel.ts: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+    - core/once
+    - core/jquery
+    - core/drupal.ajax
