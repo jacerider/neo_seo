@@ -13,3 +13,10 @@ identity:
     region: ''
     postal_code: ''
     country: ''
+verification:
+  google: ''
+  bing: ''
+  yandex: ''
+  pinterest: ''
+  facebook: ''
+head_alongside_metatag: false

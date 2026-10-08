@@ -42,3 +42,22 @@ services:
       - '@entity.repository'
       - '@file_url_generator'
   Drupal\neo_seo\SiteIdentity\SiteIdentityResolver: '@neo_seo.site_identity'
+
+  plugin.manager.neo_seo_head_tag:
+    class: Drupal\neo_seo\Head\HeadTagPluginManager
+    parent: default_plugin_manager
+  Drupal\neo_seo\Head\HeadTagPluginManager: '@plugin.manager.neo_seo_head_tag'
+
+  neo_seo.head_values:
+    class: Drupal\neo_seo\Head\HeadValuesResolver
+    autowire: true
+  Drupal\neo_seo\Head\HeadValuesResolver: '@neo_seo.head_values'
+
+  neo_seo.head_gate:
+    class: Drupal\neo_seo\Head\HeadGate
+    arguments:
+      - '@router.admin_context'
+      - '@current_route_match'
+      - '@module_handler'
+      - '@neo_seo.settings'
+  Drupal\neo_seo\Head\HeadGate: '@neo_seo.head_gate'

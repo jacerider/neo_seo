@@ -1,0 +1,5 @@
+entity.neo_seo_defaults.collection:
+  title: 'Default templates'
+  route_name: entity.neo_seo_defaults.collection
+  base_route: neo.settings.plugin.neo_seo.config
+  weight: 10

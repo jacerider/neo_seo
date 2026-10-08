@@ -142,6 +142,35 @@ class SeoSettings extends SettingsBase {
         '#default_value' => $identity['address'][$key] ?? '',
       ];
     }
+    $verification = $this->getValue('verification') ?: [];
+    $form['verification'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Site verification'),
+      '#description' => $this->t('The code from each service’s verification meta tag — the content value only. Printed on the front page.'),
+      '#open' => !empty(array_filter($verification)),
+      '#tree' => TRUE,
+    ];
+    $services = [
+      'google' => $this->t('Google Search Console'),
+      'bing' => $this->t('Bing Webmaster Tools'),
+      'yandex' => $this->t('Yandex Webmaster'),
+      'pinterest' => $this->t('Pinterest'),
+      'facebook' => $this->t('Facebook domain verification'),
+    ];
+    foreach ($services as $key => $label) {
+      $form['verification'][$key] = [
+        '#type' => 'textfield',
+        '#title' => $label,
+        '#default_value' => $verification[$key] ?? '',
+      ];
+    }
+    $form['head_alongside_metatag'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Print head tags while metatag is enabled'),
+      '#description' => $this->t('neo_seo stays out of the head while the metatag module is enabled, so a page never gets two titles. Turn this on only to compare the two before switching over.'),
+      '#default_value' => (bool) $this->getValue('head_alongside_metatag'),
+      '#access' => $this->moduleHandler->moduleExists('metatag'),
+    ];
     if ($this->moduleHandler->moduleExists('token')) {
       $form['identity']['tokens'] = [
         '#theme' => 'token_tree_link',
@@ -163,6 +192,7 @@ class SeoSettings extends SettingsBase {
     $media = $mediaId ? $this->entityRepository->getActive('media', $mediaId) : NULL;
     $form_state->setValue(['identity', 'logo'], $media ? $media->uuid() : '');
     $form_state->unsetValue(['identity', 'tokens']);
+    $form_state->setValue('head_alongside_metatag', (bool) $form_state->getValue('head_alongside_metatag'));
   }
 
 }

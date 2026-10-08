@@ -57,3 +57,46 @@ neo_seo:
               type: string
             country:
               type: string
+    verification:
+      type: mapping
+      label: 'Site verification codes'
+      mapping:
+        google:
+          type: string
+          label: 'Google'
+        bing:
+          type: string
+          label: 'Bing'
+        yandex:
+          type: string
+          label: 'Yandex'
+        pinterest:
+          type: string
+          label: 'Pinterest'
+        facebook:
+          type: string
+          label: 'Facebook'
+    head_alongside_metatag:
+      type: boolean
+      label: 'Print head tags even while metatag is enabled'
+
+neo_seo.defaults.*:
+  type: config_entity
+  label: 'SEO default templates'
+  mapping:
+    id:
+      type: machine_name
+      label: 'ID'
+      constraints:
+        Regex:
+          pattern: '/^[a-z0-9_]+$/'
+          message: "The %value machine name is not valid."
+    label:
+      type: required_label
+      label: 'Label'
+    values:
+      type: sequence
+      label: 'Templates, keyed by field'
+      sequence:
+        type: string
+        label: 'Template (tokens allowed)'

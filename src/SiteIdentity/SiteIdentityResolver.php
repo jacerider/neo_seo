@@ -10,6 +10,7 @@ use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Utility\Token;
 use Drupal\media\MediaInterface;
 use Drupal\neo_seo\Graph\PageContext;
+use Drupal\neo_seo\TokenText;
 use Drupal\neo_settings\SettingsRepository;
 
 /**
@@ -85,7 +86,7 @@ class SiteIdentityResolver {
    *
    * A token that resolves to nothing can strand its separator — the comma in
    * "[site:address:street_1], [site:address:street_2]" when there is no second
-   * line — so separators left at either end, or doubled, are tidied away.
+   * line — so the result is tidied.
    */
   protected function replace(string $value, PageContext $context): string {
     if ($value === '' || !str_contains($value, '[')) {
@@ -94,8 +95,7 @@ class SiteIdentityResolver {
     $bubbleable = new BubbleableMetadata();
     $replaced = $this->token->replacePlain($value, [], ['clear' => TRUE], $bubbleable);
     $context->addCacheableDependency($bubbleable);
-    $replaced = preg_replace('/\s*,(\s*,)+/', ',', $replaced);
-    return trim($replaced, " \t\n\r\0\x0B,");
+    return TokenText::tidy($replaced);
   }
 
   /**

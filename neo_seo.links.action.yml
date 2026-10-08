@@ -1,0 +1,5 @@
+entity.neo_seo_defaults.add_form:
+  title: 'Add default templates'
+  route_name: entity.neo_seo_defaults.add_form
+  appears_on:
+    - entity.neo_seo_defaults.collection

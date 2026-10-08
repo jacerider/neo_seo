@@ -1,0 +1,12 @@
+langcode: en
+status: true
+dependencies: {  }
+id: global
+label: Global
+values:
+  title: '[neo:title] | [site:name]'
+  description: '[neo:description]'
+  social_title: '[neo:title]'
+  og_type: website
+  image: '[neo:image]'
+  robots: ''

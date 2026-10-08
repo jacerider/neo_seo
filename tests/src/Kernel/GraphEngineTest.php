@@ -4,15 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\neo_seo\Kernel;
 
-use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
-use Symfony\Component\HttpFoundation\Session\Session;
-use Symfony\Component\HttpFoundation\InputBag;
 use PHPUnit\Framework\ExpectationFailedException;
-use Drupal\Core\Routing\RouteObjectInterface;
 use Drupal\entity_test\Entity\EntityTest;
 use Drupal\neo_seo\Hook\NeoSeoHooks;
 use PHPUnit\Framework\Attributes\Group;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * The graph engine: one connected @graph per page.
@@ -140,10 +135,12 @@ class GraphEngineTest extends NeoSeoKernelTestBase {
     $attachments = ['#attached' => []];
     $this->container->get(NeoSeoHooks::class)->pageAttachments($attachments);
 
-    $head = $attachments['#attached']['html_head'] ?? [];
-    $this->assertCount(1, $head);
-    [$element, $key] = $head[0];
-    $this->assertSame('neo_seo_graph', $key);
+    $graphs = array_values(array_filter(
+      $attachments['#attached']['html_head'] ?? [],
+      static fn(array $item): bool => $item[1] === 'neo_seo_graph',
+    ));
+    $this->assertCount(1, $graphs, 'One graph script.');
+    [$element] = $graphs[0];
     $this->assertSame('application/ld+json', $element['#attributes']['type']);
     $document = json_decode((string) $element['#value'], TRUE, 512, JSON_THROW_ON_ERROR);
     $this->assertGraphReferencesResolve($document);
@@ -155,24 +152,6 @@ class GraphEngineTest extends NeoSeoKernelTestBase {
     $attachments = ['#attached' => []];
     $this->container->get(NeoSeoHooks::class)->pageAttachments($attachments);
     $this->assertSame([], $attachments['#attached'], 'An admin route gets no graph.');
-  }
-
-  /**
-   * Makes a route the current one.
-   */
-  protected function pushRoute(string $name, array $parameters, string $path): void {
-    $route = $this->container->get('router.route_provider')->getRouteByName($name);
-    $request = Request::create($path);
-    $request->attributes->add($parameters);
-    $request->attributes->set(RouteObjectInterface::ROUTE_NAME, $name);
-    $request->attributes->set(RouteObjectInterface::ROUTE_OBJECT, $route);
-    $request->attributes->set('_raw_variables', new InputBag(array_map(
-      static fn($value) => is_object($value) && method_exists($value, 'id') ? $value->id() : $value,
-      $parameters,
-    )));
-    $request->setSession(new Session(new MockArraySessionStorage()));
-    $this->container->get('request_stack')->push($request);
-    $this->container->get('current_route_match')->resetRouteMatch();
   }
 
 }
