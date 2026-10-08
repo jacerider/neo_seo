@@ -10,6 +10,7 @@
  */
 
 import { createContext } from './context.ts';
+import { analyzeReadability } from './readability/index.ts';
 import { analyzeSeo } from './seo/index.ts';
 import type { AnalysisInput, AnalysisResult } from './types.ts';
 
@@ -21,7 +22,7 @@ export function analyze(input: AnalysisInput): AnalysisResult {
   const ctx = createContext(normalizeInput(input));
   return {
     seo: analyzeSeo(ctx),
-    readability: { available: false, score: 0, assessments: [], message: 'Readability analysis is not available yet.' },
+    readability: analyzeReadability(ctx),
   };
 }
 
