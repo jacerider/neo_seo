@@ -7,12 +7,15 @@ namespace Drupal\neo_seo\Hook;
 use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Hook\Attribute\Hook;
+use Drupal\Core\Hook\Order\Order;
+use Drupal\Core\PageCache\ResponsePolicy\KillSwitch;
 use Drupal\Core\Render\Markup;
 use Drupal\neo_seo\Graph\GraphBuilder;
 use Drupal\neo_seo\Graph\PageContextFactory;
 use Drupal\neo_seo\Head\HeadGate;
 use Drupal\neo_seo\Head\HeadTagPluginManager;
 use Drupal\neo_seo\Head\HeadValuesResolver;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
  * Puts the page's schema graph and head tags on it.
@@ -32,6 +35,8 @@ class NeoSeoHooks {
    *   The head values resolver.
    * @param \Drupal\neo_seo\Head\HeadTagPluginManager $headTagManager
    *   The head tag plugin manager.
+   * @param \Drupal\Core\PageCache\ResponsePolicy\KillSwitch $pageCacheKillSwitch
+   *   The page cache kill switch, so a diff render is never cached.
    */
   public function __construct(
     protected PageContextFactory $pageContextFactory,
@@ -39,6 +44,8 @@ class NeoSeoHooks {
     protected HeadGate $headGate,
     protected HeadValuesResolver $headValues,
     protected HeadTagPluginManager $headTagManager,
+    #[Autowire(service: 'page_cache_kill_switch')]
+    protected KillSwitch $pageCacheKillSwitch,
   ) {}
 
   /**
@@ -70,7 +77,7 @@ class NeoSeoHooks {
         [
           '#type' => 'html_tag',
           '#tag' => 'script',
-          '#attributes' => ['type' => 'application/ld+json'],
+          '#attributes' => ['type' => 'application/ld+json', 'class' => ['neo-seo-graph']],
           // JSON_HEX_TAG encodes < and >, so no value in the graph can close
           // the script element early; that is what makes Markup safe here.
           '#value' => Markup::create(json_encode(
@@ -91,18 +98,43 @@ class NeoSeoHooks {
   /**
    * Implements hook_page_attachments_alter().
    *
-   * Drops the Generator meta tag core adds to every page.
+   * Drops the Generator meta tag core adds to every page. On a migration diff
+   * request it also drops everything metatag and schema_metatag attached, so
+   * the page shows only what it will after the switch — which is why this runs
+   * last, after schema_metatag has assembled its script.
    */
-  #[Hook('page_attachments_alter')]
+  #[Hook('page_attachments_alter', order: Order::Last)]
   public function pageAttachmentsAlter(array &$attachments): void {
     if (!$this->headGate->ownsHead()) {
       return;
     }
+    $drop = ['system_meta_generator'];
+    if ($this->headGate->isDiff()) {
+      $drop = [...$drop, 'schema_metatag', ...$this->metatagKeys()];
+      $this->pageCacheKillSwitch->trigger();
+      $attachments['#cache']['max-age'] = 0;
+    }
+    // Metatag keys a tag with several values by delta: og_image_0, og_image_1.
+    $pattern = '/^(' . implode('|', array_map('preg_quote', $drop)) . ')(_\d+)?$/';
     foreach ($attachments['#attached']['html_head'] ?? [] as $key => $value) {
-      if (($value[1] ?? NULL) === 'system_meta_generator') {
+      if (preg_match($pattern, (string) ($value[1] ?? ''))) {
         unset($attachments['#attached']['html_head'][$key]);
       }
     }
+  }
+
+  /**
+   * The html_head keys metatag attaches its tags under: its tag plugin ids.
+   *
+   * @return string[]
+   *   The keys, empty without metatag.
+   */
+  protected function metatagKeys(): array {
+    $container = \Drupal::getContainer();
+    if (!$container->has('plugin.manager.metatag.tag')) {
+      return [];
+    }
+    return array_keys($container->get('plugin.manager.metatag.tag')->getDefinitions());
   }
 
   /**

@@ -173,6 +173,21 @@ class SeoSettings extends SettingsBase {
       '#default_value' => $this->getValue('override_entity_types') ?: [],
     ];
 
+    $styles = [];
+    if ($this->entityTypeManager->hasDefinition('image_style')) {
+      foreach ($this->entityTypeManager->getStorage('image_style')->loadMultiple() as $id => $style) {
+        $styles[$id] = $style->label();
+      }
+    }
+    $form['share_image_style'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Share image style'),
+      '#description' => $this->t('Images shown when a page is shared, and the graph’s primary images, are served through this style. 1200×630 suits every network.'),
+      '#options' => $styles,
+      '#empty_option' => $this->t('- Original image -'),
+      '#default_value' => $this->getValue('share_image_style'),
+    ];
+
     $verification = $this->getValue('verification') ?: [];
     $form['verification'] = [
       '#type' => 'details',

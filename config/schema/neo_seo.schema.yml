@@ -79,6 +79,9 @@ neo_seo:
     head_alongside_metatag:
       type: boolean
       label: 'Print head tags even while metatag is enabled'
+    share_image_style:
+      type: string
+      label: 'Image style share images are served through'
     override_entity_types:
       type: sequence
       label: 'Entity types that get the SEO overrides field'

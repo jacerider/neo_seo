@@ -75,11 +75,15 @@ class StructuredDataValidator {
    *   Label => site-relative path.
    * @param bool $verify
    *   Whether to verify TLS certificates.
+   * @param array<string, string> $headers
+   *   Extra request headers.
+   * @param array<string, string> $query
+   *   Extra query parameters, such as a page-cache buster.
    *
    * @return array<string, array{url: string, status: int, html: string}>
    *   Label => the fetched page.
    */
-  public function fetch(array $paths, bool $verify = TRUE): array {
+  public function fetch(array $paths, bool $verify = TRUE, array $headers = [], array $query = []): array {
     $base = rtrim(Url::fromRoute('<front>', [], ['absolute' => TRUE])->toString(), '/');
     $pages = [];
     foreach ($paths as $label => $path) {
@@ -89,7 +93,8 @@ class StructuredDataValidator {
           'http_errors' => FALSE,
           'verify' => $verify,
           'timeout' => 60,
-          'headers' => ['Accept' => 'text/html'],
+          'headers' => ['Accept' => 'text/html'] + $headers,
+          'query' => $query,
         ]);
         $pages[$label] = [
           'url' => $url,

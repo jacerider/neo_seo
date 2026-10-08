@@ -21,3 +21,4 @@ verification:
   facebook: ''
 head_alongside_metatag: false
 override_entity_types: []
+share_image_style: neo_social

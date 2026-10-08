@@ -48,6 +48,7 @@ services:
       - '@entity_type.manager'
       - '@entity.repository'
       - '@file_url_generator'
+      - '@config.factory'
   Drupal\neo_seo\MediaImage: '@neo_seo.media_image'
 
   plugin.manager.neo_seo_head_tag:
@@ -67,6 +68,7 @@ services:
       - '@current_route_match'
       - '@module_handler'
       - '@neo_seo.settings'
+      - '@neo_seo.diff_mode'
   Drupal\neo_seo\Head\HeadGate: '@neo_seo.head_gate'
 
   logger.channel.neo_seo:
@@ -90,7 +92,7 @@ services:
 
   neo_seo.bundle_mapping:
     class: Drupal\neo_seo\Mapping\BundleMappingRepository
-    arguments: ['@entity_type.manager', '@neo_seo.media_image', '@file_url_generator']
+    arguments: ['@entity_type.manager', '@neo_seo.media_image']
   Drupal\neo_seo\Mapping\BundleMappingRepository: '@neo_seo.bundle_mapping'
 
   neo_seo.breadcrumb_trail:
@@ -122,3 +124,18 @@ services:
     class: Drupal\neo_seo\Alchemist\ComponentPieceCollector
     arguments: ['@module_handler', '@logger.channel.neo_seo']
   Drupal\neo_seo\Alchemist\ComponentPieceCollector: '@neo_seo.component_pieces'
+
+  neo_seo.diff_mode:
+    class: Drupal\neo_seo\Migration\DiffMode
+    arguments: ['@state', '@request_stack', '@datetime.time']
+  Drupal\neo_seo\Migration\DiffMode: '@neo_seo.diff_mode'
+
+  neo_seo.metatag_migrator:
+    class: Drupal\neo_seo\Migration\MetatagMigrator
+    arguments: ['@entity_type.manager', '@entity_field.manager', '@config.factory', '@neo_seo.bundle_mapping']
+  Drupal\neo_seo\Migration\MetatagMigrator: '@neo_seo.metatag_migrator'
+
+  neo_seo.head_diff:
+    class: Drupal\neo_seo\Migration\HeadDiff
+    arguments: ['@neo_seo.structured_data_validator', '@neo_seo.diff_mode']
+  Drupal\neo_seo\Migration\HeadDiff: '@neo_seo.head_diff'

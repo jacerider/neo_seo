@@ -8,6 +8,7 @@ use Drupal\Core\Form\FormState;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\file\Entity\File;
+use Drupal\image\Entity\ImageStyle;
 use Drupal\media\Entity\Media;
 use Drupal\neo_seo\Entity\SeoDefaults;
 use Drupal\neo_seo\Hook\BundleMappingHooks;
@@ -355,6 +356,35 @@ class BundleMappingTest extends NeoSeoKernelTestBase {
       'article_type' => 'Article',
       'image_field' => 'field_media',
     ], NodeType::load('insight')->getThirdPartySettings('neo_seo'), 'Defaults are not stored, and the mapping exports with the bundle.');
+  }
+
+  /**
+   * Share images are served through the share image style, at its size.
+   */
+  public function testShareImageStyle(): void {
+    $style = ImageStyle::create(['name' => 'neo_social', 'label' => 'Social']);
+    $style->addImageEffect([
+      'id' => 'image_scale_and_crop',
+      'data' => ['width' => 60, 'height' => 30, 'anchor' => 'center-center'],
+      'weight' => 0,
+    ]);
+    $style->save();
+    $this->config('neo_seo.settings')->set('share_image_style', 'neo_social')->save();
+    $this->map(['image_field' => 'field_media']);
+    $node = $this->insight(['field_media' => $this->image('styled', 120, 80)->id()]);
+
+    [$document, $tags] = $this->page($node);
+    $this->assertStringContainsString('/styles/neo_social/', $tags['neo_seo_og_image']);
+    $this->assertSame('60', $tags['neo_seo_og_image_width']);
+    $this->assertSame('30', $tags['neo_seo_og_image_height']);
+    $image = $this->assertGraphNode($document, $tags['neo_seo_canonical'] . '#primaryimage');
+    $this->assertSame($tags['neo_seo_og_image'], $image['contentUrl']);
+
+    // With no style set, the original.
+    $this->config('neo_seo.settings')->set('share_image_style', '')->save();
+    [, $tags] = $this->page($this->insight(['field_media' => $this->image('plain', 120, 80)->id()]));
+    $this->assertStringNotContainsString('/styles/', $tags['neo_seo_og_image']);
+    $this->assertSame('120', $tags['neo_seo_og_image_width']);
   }
 
 }

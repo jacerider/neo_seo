@@ -133,7 +133,7 @@ class HeadValuesResolver {
 
     // The share image and the graph's primary image are one image: the
     // editor's, else the bundle's image field, else the template.
-    $image = $overrides['image'] ? $this->mediaImage->resolve((int) $overrides['image'], $context) : NULL;
+    $image = $overrides['image'] ? $this->mediaImage->resolve((int) $overrides['image'], $context, TRUE) : NULL;
     $image ??= $this->mapping->image($context);
     if (!$image && isset($templates['image'])) {
       $image = $this->image($templates['image'], $data, $context);

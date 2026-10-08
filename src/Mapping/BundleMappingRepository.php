@@ -9,7 +9,6 @@ use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Field\FieldItemListInterface;
-use Drupal\Core\File\FileUrlGeneratorInterface;
 use Drupal\media\MediaInterface;
 use Drupal\neo_seo\Graph\PageContext;
 use Drupal\neo_seo\MediaImage;
@@ -27,13 +26,10 @@ class BundleMappingRepository {
    *   The entity type manager.
    * @param \Drupal\neo_seo\MediaImage $mediaImage
    *   The media image helper.
-   * @param \Drupal\Core\File\FileUrlGeneratorInterface $fileUrlGenerator
-   *   The file URL generator, for plain image fields.
    */
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
     protected MediaImage $mediaImage,
-    protected FileUrlGeneratorInterface $fileUrlGenerator,
   ) {}
 
   /**
@@ -98,17 +94,19 @@ class BundleMappingRepository {
     foreach ($items ?? [] as $item) {
       $target = $item->entity ?? NULL;
       if ($target instanceof MediaInterface) {
-        if ($image = $this->mediaImage->resolve((int) $target->id(), $context)) {
+        if ($image = $this->mediaImage->resolve((int) $target->id(), $context, TRUE)) {
           return $image;
         }
       }
       elseif ($target && method_exists($target, 'getFileUri')) {
         $context->addCacheableDependency($target);
         $alt = trim((string) ($item->alt ?? ''));
-        return [
-          'url' => $this->fileUrlGenerator->generateAbsoluteString($target->getFileUri()),
-          'width' => isset($item->width) ? (int) $item->width : NULL,
-          'height' => isset($item->height) ? (int) $item->height : NULL,
+        return $this->mediaImage->file(
+          $target->getFileUri(),
+          isset($item->width) ? (int) $item->width : NULL,
+          isset($item->height) ? (int) $item->height : NULL,
+          $context,
+        ) + [
           'alt' => $alt !== '' ? $alt : NULL,
           'caption' => $alt,
         ];
