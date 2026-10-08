@@ -1,0 +1,15 @@
+identity:
+  type: organization
+  organization_type: Organization
+  name: '[site:name]'
+  description: '[site:slogan]'
+  logo: ''
+  same_as: []
+  telephone: ''
+  email: ''
+  address:
+    street: ''
+    locality: ''
+    region: ''
+    postal_code: ''
+    country: ''

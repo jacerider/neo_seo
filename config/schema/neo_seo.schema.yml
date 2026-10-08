@@ -1,0 +1,59 @@
+neo_seo.settings:
+  type: neo_seo
+  mapping:
+    _core:
+      # This only exists for merging configuration; it's not required.
+      requiredKey: false
+      type: _core_config_info
+
+neo_settings.settings.neo_seo:
+  type: neo_seo
+
+neo_seo:
+  type: mapping
+  label: 'Neo SEO settings'
+  mapping:
+    identity:
+      type: mapping
+      label: 'Site identity'
+      mapping:
+        type:
+          type: string
+          label: 'What the site represents: organization or person'
+        organization_type:
+          type: string
+          label: 'schema.org Organization type'
+        name:
+          type: string
+          label: 'Name (tokens allowed)'
+        description:
+          type: string
+          label: 'Description (tokens allowed)'
+        logo:
+          type: string
+          label: 'Logo or image media UUID'
+        same_as:
+          type: sequence
+          label: 'Social profile URLs (tokens allowed)'
+          sequence:
+            type: string
+        telephone:
+          type: string
+          label: 'Telephone (tokens allowed)'
+        email:
+          type: string
+          label: 'Email (tokens allowed)'
+        address:
+          type: mapping
+          label: 'Postal address (tokens allowed)'
+          mapping:
+            street:
+              type: string
+            locality:
+              type: string
+            region:
+              type: string
+            postal_code:
+              type: string
+            country:
+              type: string

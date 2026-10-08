@@ -1,0 +1,4 @@
+administer neo_seo:
+  title: 'Administer Neo SEO'
+  description: 'Configure site identity, default templates and schema mapping.'
+  restrict access: true

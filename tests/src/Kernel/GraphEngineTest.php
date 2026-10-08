@@ -10,11 +10,7 @@ use Symfony\Component\HttpFoundation\InputBag;
 use PHPUnit\Framework\ExpectationFailedException;
 use Drupal\Core\Routing\RouteObjectInterface;
 use Drupal\entity_test\Entity\EntityTest;
-use Drupal\KernelTests\KernelTestBase;
-use Drupal\neo_seo\Graph\GraphBuilder;
-use Drupal\neo_seo\Graph\PageContext;
 use Drupal\neo_seo\Hook\NeoSeoHooks;
-use Drupal\Tests\neo_seo\Traits\GraphAssertionsTrait;
 use PHPUnit\Framework\Attributes\Group;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -22,50 +18,20 @@ use Symfony\Component\HttpFoundation\Request;
  * The graph engine: one connected @graph per page.
  */
 #[Group('neo_seo')]
-class GraphEngineTest extends KernelTestBase {
-
-  use GraphAssertionsTrait;
+class GraphEngineTest extends NeoSeoKernelTestBase {
 
   /**
    * {@inheritdoc}
    */
-  protected static $modules = [
-    'system',
-    'user',
-    'entity_test',
-    'neo_seo',
-    'neo_seo_test',
-  ];
+  protected static $modules = ['entity_test'];
 
   /**
    * {@inheritdoc}
    */
   protected function setUp(): void {
     parent::setUp();
-    $this->installEntitySchema('user');
     $this->installEntitySchema('entity_test');
-    $this->config('system.site')->set('name', 'Westwood')->set('page.front', '/user/login')->save();
-  }
-
-  /**
-   * A page context built by hand.
-   */
-  protected function context(bool $front = FALSE): PageContext {
-    return new PageContext(
-      siteUrl: 'https://example.com/',
-      canonicalUrl: $front ? 'https://example.com/' : 'https://example.com/about',
-      langcode: 'en',
-      siteName: 'Westwood',
-      isFront: $front,
-      title: $front ? 'Westwood' : 'About us',
-    );
-  }
-
-  /**
-   * Builds the document for a context.
-   */
-  protected function build(PageContext $context): array {
-    return $this->container->get(GraphBuilder::class)->build($context);
+    $this->config('system.site')->set('page.front', '/user/login')->save();
   }
 
   /**

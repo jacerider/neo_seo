@@ -28,3 +28,17 @@ services:
       - '@title_resolver'
       - '@renderer'
   Drupal\neo_seo\Graph\PageContextFactory: '@neo_seo.page_context_factory'
+
+  neo_seo.settings:
+    class: Drupal\neo_settings\SettingsRepository
+    parent: neo_settings.repository
+    arguments: ['neo_seo']
+
+  neo_seo.site_identity:
+    class: Drupal\neo_seo\SiteIdentity\SiteIdentityResolver
+    arguments:
+      - '@neo_seo.settings'
+      - '@token'
+      - '@entity.repository'
+      - '@file_url_generator'
+  Drupal\neo_seo\SiteIdentity\SiteIdentityResolver: '@neo_seo.site_identity'

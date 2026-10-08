@@ -7,5 +7,7 @@ version: 0.0.0
 core_version_requirement: ^11.3
 dependencies:
   - drupal:system
+  - drupal:media
   - token:token
   - neo:neo
+  - neo_settings:neo_settings
