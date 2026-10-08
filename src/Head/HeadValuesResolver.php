@@ -23,8 +23,9 @@ use Drupal\token\TokenEntityMapperInterface;
  * The layers, lowest precedence first: global → entity type → bundle (or a
  * Views page's own settings), then front, then 403 or 404. A more specific
  * layer wins field by field, and only where it has a value — so a bundle that
- * sets only a title keeps everything else from the layers below it. Front, 403 and 404 sit on top of that chain
- * rather than replacing it, which is the trap metatag's defaults have.
+ * sets only a title keeps everything else from the layers below it. Front,
+ * 403 and 404 sit on top of that chain rather than replacing it, which is the
+ * trap metatag's defaults have.
  *
  * An editor's SEO overrides for the page sit above every layer.
  */

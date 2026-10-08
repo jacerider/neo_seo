@@ -1,0 +1,25 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'SEO video fixture'
+description: 'A video with plain string props that declares a VideoObject.'
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    title:
+      type: string
+      title: Title
+    video_url:
+      type: string
+      title: Video URL
+    poster:
+      type: string
+      title: Poster URL
+thirdPartySettings:
+  neo_seo:
+    pieces:
+      - type: VideoObject
+        properties:
+          name: title
+          contentUrl: video_url
+          thumbnailUrl: poster

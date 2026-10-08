@@ -1,0 +1,7 @@
+name: 'Neo | SEO Alchemist test'
+type: module
+description: 'A component that declares a schema piece, for neo_seo tests.'
+package: Testing
+dependencies:
+  - neo_seo:neo_seo
+  - neo_alchemist:neo_alchemist

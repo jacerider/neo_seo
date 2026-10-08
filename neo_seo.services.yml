@@ -117,3 +117,8 @@ services:
     class: Drupal\neo_seo\ViewsSeo
     arguments: ['@entity_type.manager', '@module_handler']
   Drupal\neo_seo\ViewsSeo: '@neo_seo.views_seo'
+
+  neo_seo.component_pieces:
+    class: Drupal\neo_seo\Alchemist\ComponentPieceCollector
+    arguments: ['@module_handler', '@logger.channel.neo_seo']
+  Drupal\neo_seo\Alchemist\ComponentPieceCollector: '@neo_seo.component_pieces'
