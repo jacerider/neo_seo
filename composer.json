@@ -1,0 +1,24 @@
+{
+  "name": "jacerider/neo_seo",
+  "description": "A connected schema.org graph, head tags and on-page SEO for Neo sites.",
+  "type": "drupal-module",
+  "license": "proprietary",
+  "homepage": "https://github.com/jacerider/neo_seo",
+  "authors": [
+    {
+      "name": "Cyle Carlson (JaceRider)",
+      "email": "jacerider@gmail.com",
+      "role": "Maintainer"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/jacerider/neo_seo/issues",
+    "source": "https://github.com/jacerider/neo_seo"
+  },
+  "minimum-stability": "dev",
+  "require": {
+    "drupal/core": "^11.3",
+    "drupal/token": "^1",
+    "jacerider/neo": "^1"
+  }
+}

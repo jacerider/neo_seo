@@ -1,0 +1,11 @@
+name: 'Neo | SEO'
+type: module
+neo: true
+description: 'A connected schema.org graph, head tags and on-page SEO for Neo sites.'
+package: Neo
+version: 0.0.0
+core_version_requirement: ^11.3
+dependencies:
+  - drupal:system
+  - token:token
+  - neo:neo
