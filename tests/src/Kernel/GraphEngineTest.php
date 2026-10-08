@@ -33,13 +33,15 @@ class GraphEngineTest extends NeoSeoKernelTestBase {
    * The core pieces link up, with Yoast's ids.
    */
   public function testCorePiecesAreConnected(): void {
-    $document = $this->build($this->context());
+    $context = $this->context();
+    $document = $this->build($context);
 
     $this->assertSame('https://schema.org', $document['@context']);
     $this->assertSame([
       'https://example.com/#organization',
       'https://example.com/#website',
       'https://example.com/about',
+      'https://example.com/about#breadcrumb',
     ], $this->graphIds($document));
     $this->assertGraphReferencesResolve($document);
 
@@ -49,7 +51,8 @@ class GraphEngineTest extends NeoSeoKernelTestBase {
 
     $page = $this->assertGraphNode($document, 'https://example.com/about');
     $this->assertSame('WebPage', $page['@type']);
-    $this->assertSame('About us', $page['name']);
+    $this->assertSame($this->container->get('neo_seo.head_values')->resolve($context)->get('title'), $page['name'], 'The WebPage is named by its head title, as Yoast does.');
+    $this->assertSame(['@id' => 'https://example.com/about#breadcrumb'], $page['breadcrumb']);
     $this->assertSame(['@id' => 'https://example.com/#website'], $page['isPartOf']);
     $this->assertSame('en', $page['inLanguage']);
     $this->assertArrayNotHasKey('about', $page, 'Only the front page is about the site identity.');

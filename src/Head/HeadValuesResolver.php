@@ -10,6 +10,7 @@ use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Utility\Token;
 use Drupal\neo_seo\Entity\SeoDefaultsInterface;
 use Drupal\neo_seo\Graph\PageContext;
+use Drupal\neo_seo\Mapping\BundleMappingRepository;
 use Drupal\neo_seo\MediaImage;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo\TokenText;
@@ -48,6 +49,8 @@ class HeadValuesResolver {
    *   The head tag plugin manager, for the field list.
    * @param \Drupal\neo_seo\MediaImage $mediaImage
    *   The media image helper, for an overridden share image.
+   * @param \Drupal\neo_seo\Mapping\BundleMappingRepository $mapping
+   *   The bundle mapping repository.
    */
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
@@ -55,6 +58,7 @@ class HeadValuesResolver {
     protected TokenEntityMapperInterface $tokenEntityMapper,
     protected HeadTagPluginManager $headTagManager,
     protected MediaImage $mediaImage,
+    protected BundleMappingRepository $mapping,
   ) {
     $this->resolved = new \WeakMap();
   }
@@ -106,7 +110,10 @@ class HeadValuesResolver {
       $fields[$field] = isset($templates[$field]) ? $this->replace($templates[$field], $data, $context) : '';
     }
 
+    // The share image and the graph's primary image are one image: the
+    // editor's, else the bundle's image field, else the template.
     $image = $overrides['image'] ? $this->mediaImage->resolve((int) $overrides['image'], $context) : NULL;
+    $image ??= $this->mapping->image($context);
     if (!$image && isset($templates['image'])) {
       $image = $this->image($templates['image'], $data, $context);
     }
@@ -116,6 +123,10 @@ class HeadValuesResolver {
       $fields,
       $image ? array_intersect_key($image, array_flip(['url', 'width', 'height', 'alt'])) : NULL,
       array_map(static fn(SeoDefaultsInterface $defaults): string => (string) $defaults->id(), $layers),
+      $this->mapping->pageType($context),
+      $this->mapping->articleType($context),
+      $context->entity ? $this->mapping->datePublished($context) : NULL,
+      $context->entity ? $this->mapping->dateModified($context) : NULL,
     );
   }
 

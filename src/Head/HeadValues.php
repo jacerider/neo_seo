@@ -26,13 +26,32 @@ final class HeadValues {
    *   The share image, if any.
    * @param string[] $layers
    *   The ids of the defaults that applied, lowest precedence first.
+   * @param string $pageType
+   *   The page's schema.org page type.
+   * @param string $articleType
+   *   The page's article type, or 'None'.
+   * @param string|null $datePublished
+   *   When the page's entity was published, ISO 8601.
+   * @param string|null $dateModified
+   *   When the page's entity was last modified, ISO 8601.
    */
   public function __construct(
     public readonly PageContext $context,
     private readonly array $fields,
     private readonly ?array $image = NULL,
     public readonly array $layers = [],
+    public readonly string $pageType = 'WebPage',
+    public readonly string $articleType = 'None',
+    public readonly ?string $datePublished = NULL,
+    public readonly ?string $dateModified = NULL,
   ) {}
+
+  /**
+   * Whether the page carries an Article.
+   */
+  public function isArticle(): bool {
+    return $this->articleType !== 'None';
+  }
 
   /**
    * A resolved field, '' when it is not set.

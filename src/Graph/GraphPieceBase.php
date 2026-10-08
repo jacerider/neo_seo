@@ -6,6 +6,7 @@ namespace Drupal\neo_seo\Graph;
 
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Plugin\PluginBase;
+use Drupal\neo_seo\Head\HeadValuesResolver;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -27,12 +28,16 @@ abstract class GraphPieceBase extends PluginBase implements GraphPieceInterface,
    *   The plugin definition.
    * @param \Drupal\neo_seo\Graph\SchemaIds $ids
    *   The id service.
+   * @param \Drupal\neo_seo\Head\HeadValuesResolver $headValues
+   *   The head values resolver: the page's title, description, image, types
+   *   and dates, shared with the head tags so the two never disagree.
    */
   public function __construct(
     array $configuration,
     $plugin_id,
     $plugin_definition,
     protected SchemaIds $ids,
+    protected HeadValuesResolver $headValues,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
   }
@@ -46,6 +51,7 @@ abstract class GraphPieceBase extends PluginBase implements GraphPieceInterface,
       $plugin_id,
       $plugin_definition,
       $container->get('neo_seo.schema_ids'),
+      $container->get('neo_seo.head_values'),
     );
   }
 

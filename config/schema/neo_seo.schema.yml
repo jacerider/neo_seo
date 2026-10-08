@@ -105,3 +105,45 @@ neo_seo.defaults.*:
       sequence:
         type: string
         label: 'Template (tokens allowed)'
+
+neo_seo.bundle_mapping:
+  type: mapping
+  label: 'SEO bundle mapping'
+  mapping:
+    page_type:
+      type: string
+      label: 'Page type'
+    page_types:
+      type: sequence
+      label: 'Page types editors may choose'
+      sequence:
+        type: string
+    article_type:
+      type: string
+      label: 'Article type'
+    article_types:
+      type: sequence
+      label: 'Article types editors may choose'
+      sequence:
+        type: string
+    image_field:
+      type: string
+      label: 'Primary image field'
+    published_field:
+      type: string
+      label: 'Date published field'
+    modified_field:
+      type: string
+      label: 'Date modified field'
+    author_field:
+      type: string
+      label: 'Authors field'
+
+node.type.*.third_party.neo_seo:
+  type: neo_seo.bundle_mapping
+
+taxonomy.vocabulary.*.third_party.neo_seo:
+  type: neo_seo.bundle_mapping
+
+media.type.*.third_party.neo_seo:
+  type: neo_seo.bundle_mapping

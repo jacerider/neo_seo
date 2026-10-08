@@ -10,6 +10,7 @@ use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\neo_seo\Mapping\BundleMappingRepository;
 use Drupal\neo_seo\Schema\SchemaTypes;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -32,11 +33,17 @@ class SeoOverridesWidget extends WidgetBase {
   protected EntityTypeManagerInterface $entityTypeManager;
 
   /**
+   * The bundle mapping repository, for the types an editor may choose.
+   */
+  protected BundleMappingRepository $mapping;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
     $instance = parent::create($container, $configuration, $plugin_id, $plugin_definition);
     $instance->entityTypeManager = $container->get('entity_type.manager');
+    $instance->mapping = $container->get('neo_seo.bundle_mapping');
     return $instance;
   }
 
@@ -46,6 +53,8 @@ class SeoOverridesWidget extends WidgetBase {
   public function formElement(FieldItemListInterface $items, $delta, array $element, array &$form, FormStateInterface $form_state) {
     /** @var \Drupal\neo_seo\Plugin\Field\FieldType\SeoOverridesItem $item */
     $item = $items[$delta];
+    $entity = $items->getEntity();
+    $mapping = $this->mapping->forBundle($entity->getEntityTypeId(), $entity->bundle());
     $element += [
       '#type' => 'details',
       '#open' => !$items->isEmpty(),
@@ -83,16 +92,18 @@ class SeoOverridesWidget extends WidgetBase {
     $element['page_type'] = [
       '#type' => 'select',
       '#title' => $this->t('Page type'),
-      '#options' => SchemaTypes::pageTypes(),
-      '#empty_option' => $this->t('- Default -'),
+      '#options' => array_intersect_key(SchemaTypes::pageTypes(), array_flip($mapping->allowedPageTypes())),
+      '#empty_option' => $this->t('- Default (@type) -', ['@type' => SchemaTypes::pageTypes()[$mapping->pageType]]),
       '#default_value' => $item->page_type,
+      '#access' => count($mapping->allowedPageTypes()) > 1,
     ];
     $element['article_type'] = [
       '#type' => 'select',
       '#title' => $this->t('Article type'),
-      '#options' => SchemaTypes::articleTypes(),
-      '#empty_option' => $this->t('- Default -'),
+      '#options' => array_intersect_key(SchemaTypes::articleTypes(), array_flip($mapping->allowedArticleTypes())),
+      '#empty_option' => $this->t('- Default (@type) -', ['@type' => SchemaTypes::articleTypes()[$mapping->articleType]]),
       '#default_value' => $item->article_type,
+      '#access' => count($mapping->allowedArticleTypes()) > 1,
     ];
     $element['noindex'] = [
       '#type' => 'checkbox',

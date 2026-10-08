@@ -87,3 +87,13 @@ services:
     arguments: ['@neo_seo.overrides_storage']
     tags:
       - { name: event_subscriber }
+
+  neo_seo.bundle_mapping:
+    class: Drupal\neo_seo\Mapping\BundleMappingRepository
+    arguments: ['@entity_type.manager', '@neo_seo.media_image', '@file_url_generator']
+  Drupal\neo_seo\Mapping\BundleMappingRepository: '@neo_seo.bundle_mapping'
+
+  neo_seo.breadcrumb_trail:
+    class: Drupal\neo_seo\Graph\BreadcrumbTrail
+    arguments: ['@breadcrumb', '@current_route_match']
+  Drupal\neo_seo\Graph\BreadcrumbTrail: '@neo_seo.breadcrumb_trail'

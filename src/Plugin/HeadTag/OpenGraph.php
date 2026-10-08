@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\neo_seo\Plugin\HeadTag;
 
-use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_seo\Attribute\HeadTag;
 use Drupal\neo_seo\Head\HeadTagBase;
@@ -30,7 +29,13 @@ class OpenGraph extends HeadTagBase {
    */
   public function build(HeadValues $values): array {
     $context = $values->context;
-    $type = $values->get('og_type') ?: 'website';
+    // An article is an article and a profile is a profile, whatever the
+    // template says; every other page takes the template's type.
+    $type = match (TRUE) {
+      $values->isArticle() => 'article',
+      $values->pageType === 'ProfilePage' => 'profile',
+      default => $values->get('og_type') ?: 'website',
+    };
     $tags = array_merge(
       $this->meta('og:site_name', $context->siteName, 'property'),
       $this->meta('og:type', $type, 'property'),
@@ -48,14 +53,12 @@ class OpenGraph extends HeadTagBase {
         $this->meta('og:image:alt', $image['alt'], 'property'),
       );
     }
-    $entity = $context->entity;
-    if ($type === 'article' && $entity) {
-      if ($entity->hasField('created') && !$entity->get('created')->isEmpty()) {
-        $tags = array_merge($tags, $this->meta('article:published_time', date('c', (int) $entity->get('created')->value), 'property'));
-      }
-      if ($entity instanceof EntityChangedInterface) {
-        $tags = array_merge($tags, $this->meta('article:modified_time', date('c', $entity->getChangedTime()), 'property'));
-      }
+    if ($type === 'article') {
+      $tags = array_merge(
+        $tags,
+        $this->meta('article:published_time', $values->datePublished, 'property'),
+        $this->meta('article:modified_time', $values->dateModified, 'property'),
+      );
     }
     return $tags;
   }
