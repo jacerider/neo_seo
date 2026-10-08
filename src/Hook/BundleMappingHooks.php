@@ -144,6 +144,34 @@ class BundleMappingHooks {
       '#default_value' => $mapping->modifiedField,
       '#access' => !$bundleEntity->isNew(),
     ];
+    $form['neo_seo']['author_field'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Authors'),
+      '#options' => $fieldOptions(['entity_reference']),
+      '#empty_option' => $this->t('- None: the publisher only -'),
+      '#default_value' => $mapping->authorField,
+      '#description' => $this->t('A reference to content whose own type is a profile page. Each becomes an author of this page’s article.'),
+      '#access' => !$bundleEntity->isNew(),
+    ];
+    $profileState = ['visible' => [':input[name="neo_seo[page_type]"]' => ['value' => 'ProfilePage']]];
+    $form['neo_seo']['job_title_field'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Job title'),
+      '#options' => $fieldOptions(['string', 'text', 'list_string']),
+      '#empty_option' => $this->t('- None -'),
+      '#default_value' => $mapping->jobTitleField,
+      '#states' => $profileState,
+      '#access' => !$bundleEntity->isNew(),
+    ];
+    $form['neo_seo']['same_as_field'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Social profiles'),
+      '#options' => $fieldOptions(['link']),
+      '#empty_option' => $this->t('- None -'),
+      '#default_value' => $mapping->sameAsField,
+      '#states' => $profileState,
+      '#access' => !$bundleEntity->isNew(),
+    ];
     $form['#entity_builders'][] = [static::class, 'buildBundleEntity'];
   }
 

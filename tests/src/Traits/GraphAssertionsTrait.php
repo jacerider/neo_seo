@@ -37,7 +37,7 @@ trait GraphAssertionsTrait {
       }
     };
     foreach ($document['@graph'] as $index => $node) {
-      $walk($node, (string) ($node['@type'] ?? $index));
+      $walk($node, implode('+', (array) ($node['@type'] ?? $index)));
     }
     $this->assertSame([], $dangling, 'Every @id reference resolves to a node in the graph.');
   }

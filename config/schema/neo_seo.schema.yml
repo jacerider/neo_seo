@@ -138,6 +138,12 @@ neo_seo.bundle_mapping:
     author_field:
       type: string
       label: 'Authors field'
+    job_title_field:
+      type: string
+      label: 'Job title field (person bundles)'
+    same_as_field:
+      type: string
+      label: 'Social profiles field (person bundles)'
 
 node.type.*.third_party.neo_seo:
   type: neo_seo.bundle_mapping

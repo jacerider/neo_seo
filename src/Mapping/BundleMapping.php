@@ -26,6 +26,8 @@ final class BundleMapping {
     'published_field' => '',
     'modified_field' => '',
     'author_field' => '',
+    'job_title_field' => '',
+    'same_as_field' => '',
   ];
 
   /**
@@ -47,6 +49,10 @@ final class BundleMapping {
    *   The field that supplies the date modified, or '' for `changed`.
    * @param string $authorField
    *   The reference field whose targets are the authors, or ''.
+   * @param string $jobTitleField
+   *   On a person bundle, the field that supplies the job title, or ''.
+   * @param string $sameAsField
+   *   On a person bundle, the link field of their social profiles, or ''.
    */
   public function __construct(
     public readonly string $pageType = 'WebPage',
@@ -57,6 +63,8 @@ final class BundleMapping {
     public readonly string $publishedField = '',
     public readonly string $modifiedField = '',
     public readonly string $authorField = '',
+    public readonly string $jobTitleField = '',
+    public readonly string $sameAsField = '',
   ) {}
 
   /**
@@ -78,6 +86,8 @@ final class BundleMapping {
       publishedField: (string) $settings['published_field'],
       modifiedField: (string) $settings['modified_field'],
       authorField: (string) $settings['author_field'],
+      jobTitleField: (string) $settings['job_title_field'],
+      sameAsField: (string) $settings['same_as_field'],
     );
   }
 

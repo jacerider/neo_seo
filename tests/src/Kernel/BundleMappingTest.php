@@ -32,7 +32,7 @@ class BundleMappingTest extends NeoSeoKernelTestBase {
   /**
    * {@inheritdoc}
    */
-  protected static $modules = ['node', 'text', 'filter', 'datetime'];
+  protected static $modules = ['node', 'text', 'filter', 'datetime', 'link'];
 
   /**
    * The insight content type.
@@ -79,6 +79,42 @@ class BundleMappingTest extends NeoSeoKernelTestBase {
     ])->save();
 
     $this->mediaTypeId = $mediaType->id();
+
+    // People: a profile-page bundle, and a reference to it on insights.
+    $person = NodeType::create(['type' => 'person', 'name' => 'Person']);
+    $person->setThirdPartySetting('neo_seo', 'page_type', 'ProfilePage')
+      ->setThirdPartySetting('neo_seo', 'job_title_field', 'field_job_title')
+      ->setThirdPartySetting('neo_seo', 'same_as_field', 'field_linkedin')
+      ->save();
+    foreach (['field_job_title' => 'string', 'field_linkedin' => 'link'] as $name => $type) {
+      FieldStorageConfig::create(['field_name' => $name, 'entity_type' => 'node', 'type' => $type])->save();
+      FieldConfig::create(['field_name' => $name, 'entity_type' => 'node', 'bundle' => 'person'])->save();
+    }
+    FieldStorageConfig::create([
+      'field_name' => 'field_related_people',
+      'entity_type' => 'node',
+      'type' => 'entity_reference',
+      'cardinality' => -1,
+      'settings' => ['target_type' => 'node'],
+    ])->save();
+    FieldConfig::create(['field_name' => 'field_related_people', 'entity_type' => 'node', 'bundle' => 'insight'])->save();
+    $this->installSchema('system', ['sequences']);
+    $this->setUpCurrentUser([], ['access content']);
+  }
+
+  /**
+   * Creates a person.
+   */
+  protected function person(string $name, bool $published = TRUE): NodeInterface {
+    $node = Node::create([
+      'type' => 'person',
+      'title' => $name,
+      'status' => $published,
+      'field_job_title' => 'Engineer',
+      'field_linkedin' => ['uri' => 'https://www.linkedin.com/in/' . strtolower($name)],
+    ]);
+    $node->save();
+    return $node;
   }
 
   /**
@@ -235,25 +271,73 @@ class BundleMappingTest extends NeoSeoKernelTestBase {
   }
 
   /**
-   * A profile page is og:type profile.
+   * A profile page is about its person, under the person's own id.
    */
   public function testProfilePage(): void {
-    $this->map(['page_type' => 'ProfilePage']);
-    [$document, $tags] = $this->page($this->insight());
-    $this->assertSame(['WebPage', 'ProfilePage'], $this->assertGraphNode($document, $tags['neo_seo_canonical'])['@type']);
+    $ada = $this->person('Ada');
+    [$document, $tags] = $this->page($ada);
+    $this->assertGraphReferencesResolve($document);
+    $page = $this->assertGraphNode($document, $tags['neo_seo_canonical']);
+    $this->assertSame(['WebPage', 'ProfilePage'], $page['@type']);
     $this->assertSame('profile', $tags['neo_seo_og_type']);
+
+    $id = 'http://localhost/#/schema/person/' . $ada->uuid();
+    $this->assertSame(['@id' => $id], $page['mainEntity']);
+    $person = $this->assertGraphNode($document, $id);
+    $this->assertSame('Person', $person['@type']);
+    $this->assertSame('Ada', $person['name']);
+    $this->assertSame('Engineer', $person['jobTitle']);
+    $this->assertSame(['https://www.linkedin.com/in/ada'], $person['sameAs']);
+    $this->assertSame($tags['neo_seo_canonical'], $person['url']);
+    $this->assertSame(['@id' => 'http://localhost/#organization'], $person['worksFor']);
+  }
+
+  /**
+   * Authors are people, under the same ids as on their own pages.
+   */
+  public function testAuthors(): void {
+    $this->map(['article_type' => 'Article', 'author_field' => 'field_related_people']);
+    $ada = $this->person('Ada');
+    $grace = $this->person('Grace');
+    $hidden = $this->person('Hidden', FALSE);
+    $node = $this->insight(['field_related_people' => [$ada->id(), $grace->id(), $hidden->id(), $ada->id()]]);
+
+    [$document, $tags] = $this->page($node);
+    $this->assertGraphReferencesResolve($document);
+    $article = $this->assertGraphNode($document, $tags['neo_seo_canonical'] . '#article');
+    $this->assertSame([
+      ['@id' => 'http://localhost/#/schema/person/' . $ada->uuid()],
+      ['@id' => 'http://localhost/#/schema/person/' . $grace->uuid()],
+    ], $article['author'], 'Visible people, once each, in field order.');
+    $this->assertGraphNode($document, 'http://localhost/#/schema/person/' . $grace->uuid());
+    $this->assertNotContains('http://localhost/#/schema/person/' . $hidden->uuid(), $this->graphIds($document), 'An unpublished person is left out.');
+
+    // The same person on their own page has the same id.
+    [$profile] = $this->page($ada);
+    $this->assertGraphNode($profile, 'http://localhost/#/schema/person/' . $ada->uuid());
+  }
+
+  /**
+   * Without authors the Article has only its publisher.
+   */
+  public function testNoAuthors(): void {
+    $this->map(['article_type' => 'Article', 'author_field' => 'field_related_people']);
+    [$document, $tags] = $this->page($this->insight());
+    $article = $this->assertGraphNode($document, $tags['neo_seo_canonical'] . '#article');
+    $this->assertArrayNotHasKey('author', $article);
+    $this->assertArrayHasKey('publisher', $article);
   }
 
   /**
    * The bundle form shows the section and stores only what differs.
    */
   public function testBundleForm(): void {
-    $this->installSchema('system', ['sequences']);
     $this->setUpCurrentUser([], ['administer content types', 'administer neo_seo']);
     $form = $this->container->get('entity.form_builder')->getForm($this->insight, 'edit');
     $this->assertArrayHasKey('neo_seo', $form);
     $this->assertArrayHasKey('field_media', $form['neo_seo']['image_field']['#options']);
     $this->assertArrayHasKey('field_date', $form['neo_seo']['published_field']['#options']);
+    $this->assertArrayHasKey('field_related_people', $form['neo_seo']['author_field']['#options']);
 
     $formState = (new FormState())->setValue('neo_seo', [
       'page_type' => 'WebPage',

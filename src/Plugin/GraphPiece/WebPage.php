@@ -9,6 +9,7 @@ use Drupal\neo_seo\Attribute\GraphPiece;
 use Drupal\neo_seo\Graph\BreadcrumbTrail;
 use Drupal\neo_seo\Graph\GraphPieceBase;
 use Drupal\neo_seo\Graph\PageContext;
+use Drupal\neo_seo\Graph\People;
 use Drupal\neo_seo\Graph\SchemaIds;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -28,11 +29,17 @@ class WebPage extends GraphPieceBase {
   protected BreadcrumbTrail $breadcrumbTrail;
 
   /**
+   * The people service, for a profile page's main entity.
+   */
+  protected People $people;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
     $instance = parent::create($container, $configuration, $plugin_id, $plugin_definition);
     $instance->breadcrumbTrail = $container->get('neo_seo.breadcrumb_trail');
+    $instance->people = $container->get('neo_seo.people');
     return $instance;
   }
 
@@ -42,6 +49,7 @@ class WebPage extends GraphPieceBase {
   public function generate(PageContext $context): array {
     $values = $this->headValues->resolve($context);
     $image = $values->image();
+    $profile = $values->pageType === 'ProfilePage' ? $this->people->profile($context) : NULL;
     return [
       [
         '@type' => $values->pageType === 'WebPage' ? 'WebPage' : ['WebPage', $values->pageType],
@@ -51,6 +59,7 @@ class WebPage extends GraphPieceBase {
         'description' => $values->get('description'),
         'isPartOf' => SchemaIds::ref($this->ids->website($context)),
         'about' => $context->isFront ? SchemaIds::ref($this->ids->siteIdentity($context)) : NULL,
+        'mainEntity' => $profile ? SchemaIds::ref($this->people->id($context, $profile)) : NULL,
         'primaryImageOfPage' => $image ? SchemaIds::ref($this->ids->primaryImage($context)) : NULL,
         'image' => $image ? SchemaIds::ref($this->ids->primaryImage($context)) : NULL,
         'thumbnailUrl' => $image['url'] ?? NULL,

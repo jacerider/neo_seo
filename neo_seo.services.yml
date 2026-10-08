@@ -97,3 +97,8 @@ services:
     class: Drupal\neo_seo\Graph\BreadcrumbTrail
     arguments: ['@breadcrumb', '@current_route_match']
   Drupal\neo_seo\Graph\BreadcrumbTrail: '@neo_seo.breadcrumb_trail'
+
+  neo_seo.people:
+    class: Drupal\neo_seo\Graph\People
+    arguments: ['@neo_seo.bundle_mapping', '@neo_seo.schema_ids', '@neo_seo.media_image', '@entity.repository']
+  Drupal\neo_seo\Graph\People: '@neo_seo.people'
