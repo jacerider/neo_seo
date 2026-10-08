@@ -1,0 +1,6 @@
+name: 'Neo | SEO test'
+type: module
+description: 'Fixtures for neo_seo tests.'
+package: Testing
+dependencies:
+  - neo_seo:neo_seo

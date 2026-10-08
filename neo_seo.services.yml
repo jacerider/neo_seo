@@ -1,0 +1,30 @@
+parameters:
+  # Every hook lives on a class under src/Hook.
+  neo_seo.skip_procedural_hook_scan: true
+
+services:
+  plugin.manager.neo_seo_graph_piece:
+    class: Drupal\neo_seo\Graph\GraphPiecePluginManager
+    parent: default_plugin_manager
+  Drupal\neo_seo\Graph\GraphPiecePluginManager: '@plugin.manager.neo_seo_graph_piece'
+
+  neo_seo.schema_ids:
+    class: Drupal\neo_seo\Graph\SchemaIds
+  Drupal\neo_seo\Graph\SchemaIds: '@neo_seo.schema_ids'
+
+  neo_seo.graph_builder:
+    class: Drupal\neo_seo\Graph\GraphBuilder
+    autowire: true
+  Drupal\neo_seo\Graph\GraphBuilder: '@neo_seo.graph_builder'
+
+  neo_seo.page_context_factory:
+    class: Drupal\neo_seo\Graph\PageContextFactory
+    arguments:
+      - '@current_route_match'
+      - '@request_stack'
+      - '@path.matcher'
+      - '@language_manager'
+      - '@config.factory'
+      - '@title_resolver'
+      - '@renderer'
+  Drupal\neo_seo\Graph\PageContextFactory: '@neo_seo.page_context_factory'
