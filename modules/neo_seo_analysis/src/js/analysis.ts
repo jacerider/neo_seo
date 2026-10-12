@@ -210,6 +210,8 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     readonly element: HTMLElement;
     protected readonly host: NeoSeoPanelHost;
     protected readonly onMissing: () => void;
+    /** Called after a Fix went somewhere. */
+    onFixed: (result: NeoSeoFixResult) => void = () => {};
     readonly seo: HTMLElement;
     readonly readability: HTMLElement;
     protected highlighted: HTMLButtonElement | null = null;
@@ -276,6 +278,23 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         }, [Drupal.t('Show')]);
         button.addEventListener('click', () => this.toggleHighlight(button, highlights));
         item.append(button);
+      }
+      if (assessment.band !== 'good' && this.host.fix && this.host.canFix?.(assessment.id, highlights)) {
+        const fix = h('button', {
+          type: 'button',
+          class: 'neo-seo-analysis__mark neo-seo-analysis__fix',
+          'aria-label': Drupal.t('Go to the field that fixes this: @message', { '@message': assessment.message }),
+        }, [Drupal.t('Fix')]);
+        fix.addEventListener('click', () => {
+          const result = this.host.fix?.(assessment.id, highlights) ?? null;
+          if (result) {
+            this.onFixed(result);
+          }
+          else {
+            this.onMissing();
+          }
+        });
+        item.append(fix);
       }
       return item;
     }
@@ -422,6 +441,19 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     };
     select('seo');
     body.replaceChildren(panes.seo, panes.readability, status);
+    // A Fix that went to the panel or the canvas leaves the dropdown; one that
+    // went to the keyphrase field, which lives in it, keeps it open.
+    results.onFixed = (result) => {
+      if (result !== 'field') {
+        dropdown.close();
+        return;
+      }
+      window.setTimeout(() => {
+        if (!dropdown.element.contains(document.activeElement)) {
+          dropdown.close();
+        }
+      }, 120);
+    };
     dropdown.onToggle((open, trigger) => {
       if (!open) {
         results.clearHighlight();

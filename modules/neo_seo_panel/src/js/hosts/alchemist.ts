@@ -125,6 +125,71 @@ export class AlchemistHost implements NeoSeoPanelHost {
     return highlightInPreviews(targets);
   }
 
+  /**
+   * Takes the editor to where an assessment is fixed.
+   *
+   * An SEO field (title, description, keyphrase) is focused where it lives:
+   * the panel, or wherever the keyphrase control was moved. Anything else is
+   * looked for in the canvas: the first highlight found there names its
+   * component (the nearest [data-component-uuid]), and the editor opens that
+   * component's form at the field holding it — located by the component's
+   * own preview, through the same map its click-to-field uses. A component
+   * with nothing locatable is only selected.
+   */
+  fix(id: string, highlights: NeoSeoHighlight[]): NeoSeoFixResult {
+    const field = FIELD_FIXES[id];
+    if (field) {
+      return this.focusControl(field) ? 'field' : null;
+    }
+    const editor = Drupal.neoAlchemist?.editor;
+    if (!editor) {
+      return null;
+    }
+    for (const doc of previewDocuments()) {
+      for (const target of highlights) {
+        const element = findTargets(doc, target)[0];
+        const component = element?.closest<HTMLElement>('[data-component-uuid]');
+        const uuid = component?.dataset.componentUuid;
+        if (!element || !uuid) {
+          continue;
+        }
+        const prop = element.closest<HTMLElement>('[data-neo-prop]')?.dataset.neoProp;
+        const locate = locateFor(element);
+        const focused = prop
+          ? editor.focus({ uuid, prop })
+          : editor.focus(locate ? { uuid, locate } : { uuid });
+        if (focused) {
+          return prop || locate ? 'component-field' : 'component';
+        }
+      }
+    }
+    return null;
+  }
+
+  canFix(id: string, highlights: NeoSeoHighlight[]): boolean {
+    return !!FIELD_FIXES[id] || highlights.length > 0;
+  }
+
+  /**
+   * Focuses an SEO control, opening the panel when the control lives there.
+   */
+  protected focusControl(key: NeoSeoOverrideKey): boolean {
+    const input = controls.input(this.scope, key);
+    if (!input) {
+      return false;
+    }
+    const panel = input.closest<HTMLElement>('[data-alchemist-sidepanel]');
+    if (panel && panel.style.display === 'none') {
+      document.querySelector<HTMLElement>(`.neo-alchemist--sidepanel-toggle[data-alchemist-sidepanel="${panel.dataset.alchemistSidepanel}"]`)?.click();
+    }
+    // After the panel has had a frame to show and mount.
+    window.setTimeout(() => {
+      input.scrollIntoView({ block: 'center' });
+      input.focus();
+    }, 50);
+    return true;
+  }
+
   protected notify(change: NeoSeoHostChange): void {
     this.listeners.forEach((listener) => {
       try {
@@ -169,6 +234,43 @@ export class AlchemistHost implements NeoSeoPanelHost {
 
 const MARK = 'data-neo-seo-highlight';
 
+/** Assessments fixed in an SEO field rather than on the page. */
+const FIELD_FIXES: Record<string, NeoSeoOverrideKey> = {
+  keyphraseInTitle: 'title',
+  titleWidth: 'title',
+  keyphraseInDescription: 'description',
+  metaDescriptionLength: 'description',
+  keyphraseMissing: 'keyphrase',
+  keyphraseLength: 'keyphrase',
+  previouslyUsedKeyphrase: 'keyphrase',
+};
+
+/** The documents of the preview frames on show. */
+function previewDocuments(): Document[] {
+  return Object.values(Drupal.neoAlchemist?.iframes ?? {})
+    .filter((frame): frame is HTMLIFrameElement => !!frame && frame.offsetParent !== null)
+    .map((frame) => frame.contentDocument)
+    .filter((doc): doc is Document => !!doc?.body);
+}
+
+/**
+ * What the component's edit preview should look for to find this element's
+ * field: its tag, plus its src, href or text.
+ */
+function locateFor(element: Element): NeoAlchemistLocate | null {
+  const tag = element.tagName.toLowerCase();
+  if (tag === 'img') {
+    const src = element.getAttribute('src');
+    return src ? { tag, src } : null;
+  }
+  if (tag === 'a') {
+    const href = element.getAttribute('href');
+    return href ? { tag, href } : null;
+  }
+  const text = normalize(element.textContent);
+  return text ? { tag, text: text.slice(0, 200) } : null;
+}
+
 /**
  * Marks highlight targets in the editor's preview frames: the smallest element
  * holding each target is outlined, and the first is scrolled into view.
@@ -203,6 +305,15 @@ function highlightInPreviews(targets: NeoSeoHighlight[] | null): boolean {
   return first !== null;
 }
 
+function pathOf(src: string): string {
+  try {
+    return new URL(src, window.location.href).pathname;
+  }
+  catch {
+    return '';
+  }
+}
+
 function normalize(text: string | null | undefined): string {
   return (text ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
@@ -213,11 +324,14 @@ function findTargets(doc: Document, target: NeoSeoHighlight): Element[] {
       const text = normalize(target.text);
       return Array.from(doc.querySelectorAll(`h${target.level}`)).filter((element) => normalize(element.textContent) === text);
     }
-    case 'image':
+    case 'image': {
+      // By path: the canvas and the draft render may differ in host or query.
+      const path = pathOf(target.src);
       return Array.from(doc.querySelectorAll('img')).filter((image) => {
         const src = image.getAttribute('src') ?? '';
-        return src === target.src || (target.src !== '' && image.src.endsWith(target.src));
+        return src === target.src || (path !== '' && pathOf(src) === path);
       });
+    }
     case 'link':
       return Array.from(doc.querySelectorAll('a')).filter((link) => link.getAttribute('href') === target.href);
     default: {

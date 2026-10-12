@@ -51,6 +51,11 @@ type NeoSeoHighlight =
   | { kind: 'image'; src: string; alt: string | null }
   | { kind: 'link'; href: string; text: string };
 
+/**
+ * Where a fix went: an SEO field, a component's field, or only the component.
+ */
+type NeoSeoFixResult = 'field' | 'component-field' | 'component' | null;
+
 /** Why a host reports a change. */
 interface NeoSeoHostChange {
   /**
@@ -88,6 +93,14 @@ interface NeoSeoPanelHost {
   onChange(callback: (change: NeoSeoHostChange) => void): void;
   /** Marks text in the host's page preview; false when the host has none. */
   highlight?(targets: NeoSeoHighlight[] | null): boolean;
+  /**
+   * Goes to where an assessment is fixed (Alchemist): an SEO field, or the
+   * component (and its field) a highlight is found in. Null when nothing was
+   * found.
+   */
+  fix?(id: string, highlights: NeoSeoHighlight[]): NeoSeoFixResult;
+  /** Whether fix() has anywhere to go for this assessment. */
+  canFix?(id: string, highlights: NeoSeoHighlight[]): boolean;
 }
 
 /** The panel's browser config: the mount element's data-neo-seo-panel JSON. */
