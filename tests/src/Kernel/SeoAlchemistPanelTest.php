@@ -157,6 +157,36 @@ class SeoAlchemistPanelTest extends HybridFieldKernelTestBase {
   }
 
   /**
+   * The Save confirmation gets a hidden place for the SEO summary.
+   *
+   * Only with analysis, and only for an editor who may see the SEO panel.
+   */
+  public function testSaveConfirmationSummaryMount(): void {
+    $item = $this->item($this->createTestEntity());
+    $this->assertArrayNotHasKey('neo_seo_summary', $this->publishForm($item), 'No analysis, no summary.');
+
+    $this->enableModules(['neo_seo_analysis']);
+    $form = $this->publishForm($item);
+    $this->assertArrayHasKey('neo_seo_summary', $form);
+    $mount = $form['neo_seo_summary'];
+    $this->assertSame('hidden', $mount['#attributes']['hidden'], 'Hidden until the editor fills it.');
+    $this->assertArrayHasKey('data-neo-seo-save-summary', $mount['#attributes']);
+    $this->assertContains('neo_seo_analysis/panel', $mount['#attached']['library']);
+    $this->assertSame('html_tag', $mount['#type'], 'Markup, not an input: nothing is submitted.');
+    $this->assertArrayHasKey('submit', $form['actions'], 'The confirmation keeps its own actions.');
+
+    $this->setCurrentUser($this->createUser(['administer entity_test content', 'view test entity']));
+    $this->assertArrayNotHasKey('neo_seo_summary', $this->publishForm($item), 'Not for an editor who cannot see SEO.');
+  }
+
+  /**
+   * The Alchemist Save confirmation, as its route builds it.
+   */
+  protected function publishForm(ComponentTreeItem $item): array {
+    return $this->container->get('entity.form_builder')->getForm($item->getEntity(), 'alchemist_publish', ['fieldItem' => $item]);
+  }
+
+  /**
    * Publishes the way the publish form does.
    */
   protected function publish(ComponentTreeItem $item): void {

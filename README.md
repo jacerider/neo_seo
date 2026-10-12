@@ -283,6 +283,10 @@ Adds content analysis to the panel:
   keyphrase the SEO pill reads *SEO – set keyphrase*. Clicking a pill opens a dropdown with what
   the scores mean, the keyphrase and cornerstone fields (drafted like every SEO field) and the
   assessments.
+- **Save confirmation (Alchemist):** the Save dialog shows the same two scores, the top three
+  problems and a warning when the page is set to hide from search (drafted or saved). Text only and
+  advice only: the dialog saves, cancels and focuses exactly as before, and nothing shows until the
+  first analysis has run.
 
 - **SEO checks** against one focus keyphrase: the keyphrase in the title, description, URL, H1,
   introduction, subheadings and image alt text; keyphrase density; title and description length;

@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\neo_seo_analysis\Hook;
 
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\EntityFormInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Hook\Attribute\Hook;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Url;
+use Drupal\neo_seo\SeoOverrides;
 
 /**
  * Adds content analysis to the SEO panel.
@@ -15,6 +19,45 @@ use Drupal\Core\Url;
 class AnalysisHooks {
 
   use StringTranslationTrait;
+
+  /**
+   * Implements hook_form_alter().
+   *
+   * The Alchemist Save confirmation (the entity form operation
+   * `alchemist_publish`, whatever the entity type) gets an empty, labelled
+   * place for an SEO summary, which the badge's script fills from the
+   * analysis it already holds when the confirmation opens. Advice only: no
+   * field, no validation, nothing that touches the save. Only for an editor
+   * who can see the SEO panel; without an analysis it stays hidden.
+   */
+  #[Hook('form_alter')]
+  public function formAlter(array &$form, FormStateInterface $form_state, string $form_id): void {
+    $formObject = $form_state->getFormObject();
+    if (!$formObject instanceof EntityFormInterface || $formObject->getOperation() !== 'alchemist_publish') {
+      return;
+    }
+    $entity = $formObject->getEntity();
+    if (!$entity instanceof ContentEntityInterface || !$entity->hasField(SeoOverrides::FIELD)) {
+      return;
+    }
+    $access = $entity->get(SeoOverrides::FIELD)->access('edit', NULL, TRUE);
+    CacheableMetadata::createFromRenderArray($form)->addCacheableDependency($access)->applyTo($form);
+    if (!$access->isAllowed()) {
+      return;
+    }
+    $form['neo_seo_summary'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'section',
+      '#attributes' => [
+        'class' => ['neo-seo-save-summary'],
+        'data-neo-seo-save-summary' => '',
+        'aria-label' => (string) $this->t('SEO summary'),
+        'hidden' => 'hidden',
+      ],
+      '#weight' => 90,
+      '#attached' => ['library' => ['neo_seo_analysis/panel']],
+    ];
+  }
 
   /**
    * Implements hook_neo_seo_panel_badge_alter().

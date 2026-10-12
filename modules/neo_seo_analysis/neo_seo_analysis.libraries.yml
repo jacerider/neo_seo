@@ -10,4 +10,5 @@ panel:
     src/js/analysis.ts: {}
   dependencies:
     - core/drupal
+    - core/once
     - neo_seo_panel/panel

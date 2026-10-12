@@ -590,8 +590,13 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         status.textContent = Drupal.t('Analysis is not available in this browser.');
       }
     });
+    badgeState = { editor, result: null, keyphraseMissing: false };
     analyzer.onResult((result, values) => {
       results.draw(result);
+      if (badgeState) {
+        badgeState.result = result;
+        badgeState.keyphraseMissing = values.keyphrase.trim() === '';
+      }
       setPill(pills.seo, result.seo.score, values.keyphrase.trim() === '');
       setPill(pills.readability, result.readability.available ? result.readability.score : null);
       setUpdating(false);
@@ -613,6 +618,83 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       analyzer.analyze();
     }
   }
+
+  /**
+   * What the top bar badge last showed, for the Save confirmation's summary.
+   */
+  let badgeState: {
+    editor: NeoSeoEditor;
+    result: AnalysisResult | null;
+    keyphraseMissing: boolean;
+  } | null = null;
+
+  /**
+   * Fills the Save confirmation's SEO summary (neo_seo_analysis' form_alter
+   * puts an empty, hidden place for it there) from the analysis the badge
+   * already holds: the two scores as the badge shows them, the top three
+   * problems, and a warning when the page is set to hide from search — the
+   * drafted setting, not only the saved one. Advice only: it adds nothing
+   * to submit and is left hidden until the first analysis has run.
+   */
+  function fillSaveSummary(mount: HTMLElement): void {
+    const state = badgeState;
+    if (!state?.result) {
+      return;
+    }
+    const { result, editor } = state;
+    const scores = h('p', { class: 'neo-seo-save-summary__scores' });
+    const score = (label: string, value: number | null, missing: string) => {
+      const band = value === null ? 'none' : scoreBand(value);
+      return h('span', { class: 'neo-seo-save-summary__score', 'data-band': band }, [
+        h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
+        `${label} `,
+        h('strong', {}, [value === null ? missing : String(value)]),
+        value === null ? null : h('span', { class: 'visually-hidden' }, [` / 100, ${bandLabel(band as Band)}`]),
+      ]);
+    };
+    scores.append(
+      score(Drupal.t('SEO'), state.keyphraseMissing ? null : result.seo.score, Drupal.t('– no focus keyphrase')),
+      score(Drupal.t('Readability'), result.readability.available ? result.readability.score : null, '–'),
+    );
+
+    const children: Node[] = [h('h3', { class: 'neo-seo-save-summary__title' }, [Drupal.t('SEO check')]), scores];
+    const render = editor.latest();
+    if (editor.host.read().noindex || /noindex/i.test(render?.head.robots ?? '')) {
+      children.push(h('p', { class: 'neo-seo-save-summary__warning', role: 'note' }, [
+        Drupal.t('This page is set to hide from search results: search engines will not list it.'),
+      ]));
+    }
+    // Worst first: problems from every check, SEO before structure before
+    // readability, the first three.
+    const problems = [
+      ...result.seo.assessments,
+      ...result.structure.headings,
+      ...result.structure.images,
+      ...result.readability.assessments,
+    ].filter((assessment) => assessment.band === 'problem').slice(0, 3);
+    if (problems.length) {
+      const list = h('ul', { class: 'neo-seo-save-summary__problems' });
+      problems.forEach((assessment) => list.append(h('li', {}, [assessment.message])));
+      children.push(h('p', { class: 'neo-seo-save-summary__label' }, [Drupal.t('Top problems:')]), list);
+    }
+    else {
+      children.push(h('p', { class: 'neo-seo-save-summary__label' }, [Drupal.t('No problems found.')]));
+    }
+    // Text only, on purpose: nothing in it can take focus, so the
+    // confirmation opens, focuses and submits exactly as it did without it.
+    // The full list (with Show and Fix) is one click away in the top bar.
+    children.push(h('p', { class: 'neo-seo-save-summary__note' }, [
+      Drupal.t('Advice only: saving works the same either way. The SEO and Read buttons in the top bar list every check.'),
+    ]));
+    mount.replaceChildren(...children);
+    mount.hidden = false;
+  }
+
+  Drupal.behaviors.neoSeoSaveSummary = {
+    attach(context: HTMLElement) {
+      once('neo-seo-save-summary', '[data-neo-seo-save-summary]', context).forEach(fillSaveSummary);
+    },
+  };
 
   Drupal.neoSeoPanel?.extend({
     id: 'analysis',
