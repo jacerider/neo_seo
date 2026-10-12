@@ -11,6 +11,7 @@
 import { debounce, h, uniqueId } from './dom';
 import { cut, DESCRIPTION_FONT, DESCRIPTION_LIMIT, TITLE_FONT, TITLE_LIMIT, width } from './measure';
 import { fit, PREVIEWS, type PreviewData, type PreviewKind } from './previews';
+import { suggestDescription, type SuggestBlock } from './suggest';
 
 /** Overrides that change nothing the draft render shows. */
 const RENDERLESS: NeoSeoOverrideKey[] = ['keyphrase', 'cornerstone', 'seo_score', 'readability_score'];
@@ -36,6 +37,10 @@ export class SeoPanel {
   protected readonly mountedExtensions = new Set<string>();
   protected readonly stages = new Map<PreviewKind['id'], HTMLElement>();
   protected readonly meters: Partial<Record<'title' | 'description', Meter>> = {};
+  protected suggestion: { element: HTMLElement; text: HTMLElement } | null = null;
+  /** The render the paragraphs below were read from. */
+  protected suggestFrom: NeoSeoDraftRender | null = null;
+  protected suggestBlocks: SuggestBlock[] = [];
   protected status!: HTMLElement;
   protected sections!: HTMLElement;
   protected schema!: HTMLElement;
@@ -171,6 +176,7 @@ export class SeoPanel {
 
     this.meters.title = this.meter('title');
     this.meters.description = this.meter('description');
+    this.suggestion = this.suggestBox();
 
     // Extension sections follow the controls.
     this.sections = h('div', { class: 'neo-seo-panel__sections' });
@@ -212,6 +218,57 @@ export class SeoPanel {
       field.setAttribute('aria-describedby', describedBy ? `${describedBy} ${id}` : id);
     }
     return { element, bar, text };
+  }
+
+  /**
+   * The suggested description under the description field: shown while the
+   * description comes from the template, filled into the field on request.
+   */
+  protected suggestBox(): { element: HTMLElement; text: HTMLElement } | null {
+    const control = this.host.control('description');
+    if (!control) {
+      return null;
+    }
+    const text = h('p', { class: 'neo-seo-suggest__text' });
+    const use = h('button', { type: 'button', class: 'neo-seo-suggest__use btn btn-xs btn-outline' }, [Drupal.t('Use this')]);
+    const element = h('div', {
+      class: 'neo-seo-suggest',
+      role: 'group',
+      'aria-label': Drupal.t('Suggested description'),
+    }, [
+      h('p', { class: 'neo-seo-suggest__label' }, [Drupal.t('Suggested from the page’s opening text:')]),
+      text,
+      use,
+    ]);
+    element.hidden = true;
+    use.addEventListener('click', () => {
+      // Into the field as if typed: the editor takes it from there.
+      this.host.write({ description: text.textContent ?? '' });
+      const field = control.querySelector<HTMLTextAreaElement>('textarea');
+      field?.focus();
+    });
+    control.append(element);
+    return { element, text };
+  }
+
+  protected suggest(values: NeoSeoOverrides): void {
+    if (!this.suggestion) {
+      return;
+    }
+    const render = this.render;
+    if (render && render !== this.suggestFrom) {
+      this.suggestFrom = render;
+      this.suggestBlocks = paragraphsOf(render.html);
+    }
+    const suggestion = render && !values.description.trim()
+      ? suggestDescription(this.suggestBlocks, {
+        keyphrase: values.keyphrase,
+        measure: (text) => width(text, DESCRIPTION_FONT),
+        limit: DESCRIPTION_LIMIT,
+      })
+      : null;
+    this.suggestion.text.textContent = suggestion ?? '';
+    this.suggestion.element.hidden = !suggestion;
   }
 
   protected section(id: string, title: string): HTMLElement {
@@ -326,6 +383,7 @@ export class SeoPanel {
     const values = this.host.read();
     this.measure('title', data.title, !values.title.trim());
     this.measure('description', data.description, !values.description.trim());
+    this.suggest(values);
     const head = this.render.head;
     this.schema.textContent = head.article_type && head.article_type !== 'None'
       ? Drupal.t('Schema: @page with @article', { '@page': head.page_type, '@article': head.article_type })
@@ -370,4 +428,20 @@ export class SeoPanel {
     meter.text.textContent = `${source}${Drupal.formatPlural(chars, '1 character', '@count characters')} · ${pixels} / ${limit} px. ${verdict}`;
   }
 
+}
+
+/**
+ * The page's paragraphs, in order, for the suggested description: page
+ * chrome (navigation, header, footer, asides, forms) left out, and each with
+ * the share of its text that is link text.
+ */
+function paragraphsOf(html: string): SuggestBlock[] {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  return Array.from(doc.querySelectorAll('p, blockquote'))
+    .filter((element) => !element.closest('nav, header, footer, aside, form, [role="navigation"]'))
+    .map((element) => {
+      const text = (element.textContent ?? '').replace(/\s+/g, ' ').trim();
+      const linked = Array.from(element.querySelectorAll('a')).reduce((sum, a) => sum + (a.textContent ?? '').trim().length, 0);
+      return { text, linkRatio: text ? linked / text.length : 1 };
+    });
 }

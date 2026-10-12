@@ -256,6 +256,11 @@ uninstalling puts the plain section back.
   and templates resolve exactly as they will on the live page.
 - **Help:** focus keyphrase, cornerstone, page and article type and "Hide from search results" each
   carry a one-line hint and a *What's this?* expander, in both the edit form and Alchemist.
+- **Suggested description:** while the description comes from the template, a suggestion sits under
+  the field: whole sentences from the page's first substantial paragraph (a sentence holding the
+  focus keyphrase preferred), as many as fit Google's 920px, cut only at a word. *Use this* copies
+  it into the field to edit; nothing is applied on its own. Extractive only, no AI. Tests:
+  `node --test 'modules/neo_seo_panel/tests/js/*.test.ts'`.
 
 In the **Alchemist editor** the same panel opens from the editor's bottom bar. SEO edits there are
 **drafted with the layout**:

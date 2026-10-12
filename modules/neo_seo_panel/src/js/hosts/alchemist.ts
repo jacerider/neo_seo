@@ -90,7 +90,11 @@ export class AlchemistHost implements NeoSeoPanelHost {
       this.computed = { ...this.computed, ...values };
     }
     else {
-      (Object.keys(values) as NeoSeoOverrideKey[]).forEach((key) => this.touched.add(key));
+      // An editor's write, like typing: drafted, and heard by the panel.
+      (Object.keys(values) as NeoSeoOverrideKey[]).forEach((key) => {
+        this.touched.add(key);
+        this.notify({ source: 'override', key });
+      });
     }
     this.writeSoon();
   }
