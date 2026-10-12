@@ -68,6 +68,7 @@ analyze({
 }) → {
   seo:         { score, assessments },
   readability: { available, score, assessments, message? },
+  structure:   { outline, headings, images },   // not scored
 }
 
 Assessment = { id, band: 'good' | 'ok' | 'problem', message, highlights? }
@@ -87,6 +88,11 @@ Highlight  = { kind: 'sentence' | 'paragraph', text }
 - **Matching** is case- and diacritic-insensitive and whole-word, with no stemming. "All keyphrase
   words in any order" ignores English function words; title position uses the exact phrase.
 - **Messages** are English strings.
+- **Structure** is reported beside the scores, never in them: `outline` lists every heading in
+  order (`{level, text, issue?}`, issue `extraH1` or `skippedLevel`); `headings` holds `singleH1`
+  (none or several H1s is a problem) and `headingLevels` (a skipped level is ok-band; not run with
+  fewer than two headings); `images` holds `imageAltText` (missing, empty, or file-name alt text;
+  not run without images).
 
 ## Layout
 
@@ -102,6 +108,7 @@ src/js/engine/
   score.ts        overall score
   context.ts      per-run shared state
   seo/            keyphrase, length and link assessments
+  structure/      heading outline and image alt text (not scored)
   readability/    Flesch, structure, passive voice, flow
 tests/js/         node:test suites
 ```

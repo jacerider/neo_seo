@@ -20,7 +20,7 @@
  * manifest. Inline, the worker starts from a Blob URL with nothing to resolve.
  */
 
-import type { AnalysisInput, AnalysisResult, Assessment, Band } from './engine/types.ts';
+import type { AnalysisInput, AnalysisResult, Assessment, Band, OutlineHeading } from './engine/types.ts';
 import AnalysisWorker from './analysis.worker?worker&inline';
 
 (function (Drupal): void {
@@ -214,6 +214,10 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     onFixed: (result: NeoSeoFixResult) => void = () => {};
     readonly seo: HTMLElement;
     readonly readability: HTMLElement;
+    /** The heading outline and its checks. */
+    readonly outline: HTMLElement;
+    /** The image alt text check. */
+    readonly images: HTMLElement;
     protected highlighted: HTMLButtonElement | null = null;
 
     constructor(host: NeoSeoPanelHost, onMissing: () => void) {
@@ -221,7 +225,9 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       this.onMissing = onMissing;
       this.seo = h('div', { class: 'neo-seo-analysis__group' });
       this.readability = h('div', { class: 'neo-seo-analysis__group' });
-      this.element = h('div', { class: 'neo-seo-analysis__results' }, [this.seo, this.readability]);
+      this.outline = h('div', { class: 'neo-seo-analysis__group' });
+      this.images = h('div', { class: 'neo-seo-analysis__group' });
+      this.element = h('div', { class: 'neo-seo-analysis__results' }, [this.seo, this.outline, this.images, this.readability]);
     }
 
     draw(result: AnalysisResult): void {
@@ -234,6 +240,77 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         result.readability.assessments,
         result.readability.available ? null : (result.readability.message ?? Drupal.t('Readability is analysed for English only.')),
       );
+      this.structure(result);
+    }
+
+    /**
+     * The heading outline (its checks, then the headings as an indented tree,
+     * flagged where they break it) and the image alt text check. Not scored.
+     */
+    protected structure(result: AnalysisResult): void {
+      const { outline, headings, images } = result.structure;
+      const list = h('ul', { class: 'neo-seo-analysis__list' });
+      [...headings].sort((a, b) => ORDER[a.band] - ORDER[b.band]).forEach((assessment) => list.append(this.item(assessment)));
+      const tree = h('ol', { class: 'neo-seo-analysis__outline', 'aria-label': Drupal.t('Headings on the page, in order') });
+      outline.forEach((heading) => tree.append(this.outlineItem(heading)));
+      this.outline.replaceChildren(
+        h('h4', { class: 'neo-seo-analysis__heading' }, [Drupal.t('Heading outline')]),
+        list,
+        outline.length ? tree : h('p', { class: 'neo-seo-analysis__note' }, [Drupal.t('The page has no headings.')]),
+      );
+      if (!images.length) {
+        this.images.replaceChildren(
+          h('h4', { class: 'neo-seo-analysis__heading' }, [Drupal.t('Image alt text')]),
+          h('p', { class: 'neo-seo-analysis__note' }, [Drupal.t('The page has no images.')]),
+        );
+        return;
+      }
+      const imageList = h('ul', { class: 'neo-seo-analysis__list' });
+      images.forEach((assessment) => imageList.append(this.item(assessment)));
+      this.images.replaceChildren(h('h4', { class: 'neo-seo-analysis__heading' }, [Drupal.t('Image alt text')]), imageList);
+    }
+
+    /**
+     * One heading of the outline. Where the host can take the editor to it
+     * (Alchemist), it is a button that does.
+     */
+    protected outlineItem(heading: OutlineHeading): HTMLElement {
+      const label = [
+        h('span', { class: 'neo-seo-analysis__level' }, [`H${heading.level}`]),
+        h('span', { class: 'neo-seo-analysis__outline-text' }, [heading.text]),
+        heading.issue
+          ? h('span', { class: 'neo-seo-analysis__issue' }, [
+            heading.issue === 'extraH1' ? Drupal.t('second H1') : Drupal.t('skips a level'),
+          ])
+          : null,
+      ];
+      const item = h('li', {
+        class: 'neo-seo-analysis__outline-item',
+        'data-level': String(heading.level),
+        'data-issue': heading.issue ?? '',
+      });
+      const target: NeoSeoHighlight[] = [{ kind: 'heading', level: heading.level, text: heading.text }];
+      if (this.host.fix && this.host.canFix?.('outline', target)) {
+        const button = h('button', {
+          type: 'button',
+          class: 'neo-seo-analysis__outline-link',
+          'aria-label': Drupal.t('Go to heading: @text', { '@text': heading.text }),
+        }, label);
+        button.addEventListener('click', () => {
+          const result = this.host.fix?.('outline', target) ?? null;
+          if (result) {
+            this.onFixed(result);
+          }
+          else {
+            this.onMissing();
+          }
+        });
+        item.append(button);
+      }
+      else {
+        label.forEach((part) => part && item.append(part));
+      }
+      return item;
     }
 
     protected group(target: HTMLElement, title: string, score: number, assessments: Assessment[], unavailable: string | null): void {
@@ -406,7 +483,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       seo: {
         label: Drupal.t('SEO'),
         help: Drupal.t('SEO: how well the page is set up to be found for its focus keyphrase. Green 70+, orange 40–69, red below. It is advice: it never stops you saving.'),
-        content: [fields, results.seo],
+        content: [fields, results.seo, results.outline, results.images],
       },
       readability: {
         label: Drupal.t('Readability'),

@@ -12,10 +12,12 @@
 import { createContext } from './context.ts';
 import { analyzeReadability } from './readability/index.ts';
 import { analyzeSeo } from './seo/index.ts';
+import { analyzeStructure } from './structure/index.ts';
 import type { AnalysisInput, AnalysisResult } from './types.ts';
 
 export type {
-  AnalysisInput, AnalysisResult, Assessment, Band, Highlight, ReadabilityResult, SeoResult,
+  AnalysisInput, AnalysisResult, Assessment, Band, Highlight, OutlineHeading, ReadabilityResult, SeoResult,
+  StructureResult,
 } from './types.ts';
 
 export function analyze(input: AnalysisInput): AnalysisResult {
@@ -23,6 +25,7 @@ export function analyze(input: AnalysisInput): AnalysisResult {
   return {
     seo: analyzeSeo(ctx),
     readability: analyzeReadability(ctx),
+    structure: analyzeStructure(ctx),
   };
 }
 

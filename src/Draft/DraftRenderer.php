@@ -73,7 +73,8 @@ class DraftRenderer {
    *   The entity, carrying the unsaved values. It is marked as a preview.
    *
    * @return array{html: string, url: string, language: string, head: array, overrides: array}
-   *   The rendered body HTML, the page URL and language, the resolved head
+   *   The rendered body HTML (led by the title as an H1 unless the entity
+   *   renders an H1 of its own), the page URL and language, the resolved head
    *   values (title, description, social title, robots, canonical, image,
    *   page type, article type), and the overrides the draft carries.
    */
@@ -86,7 +87,12 @@ class DraftRenderer {
     // A draft must neither be served from the render cache nor written to it.
     unset($build['#cache']['keys']);
     $html = $this->inFrontTheme(fn() => (string) $this->renderer->renderInIsolation($build));
-    $html = '<h1>' . Html::escape((string) $entity->label()) . '</h1>' . $html;
+    // The page's main heading: the title, as the page template prints it —
+    // unless the rendered entity prints its own (a hero, a profile), which is
+    // then the page's one H1 and must not be doubled.
+    if (!preg_match('/<h1[\s>]/i', $html)) {
+      $html = '<h1>' . Html::escape((string) $entity->label()) . '</h1>' . $html;
+    }
 
     $overrides = SeoOverrides::of($entity);
     return [

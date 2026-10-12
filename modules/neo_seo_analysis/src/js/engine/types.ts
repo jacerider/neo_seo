@@ -65,7 +65,28 @@ export interface ReadabilityResult {
   message?: string;
 }
 
+/** One heading of the page outline, flagged when it breaks the outline. */
+export interface OutlineHeading {
+  level: number;
+  text: string;
+  /** An H1 after the first, or a heading more than one level below the last. */
+  issue?: 'extraH1' | 'skippedLevel';
+}
+
+/**
+ * The page's structure: its heading outline and image alt text. Advisory and
+ * not scored: neither result's score includes these.
+ */
+export interface StructureResult {
+  outline: OutlineHeading[];
+  /** singleH1, headingLevels (not run with fewer than two headings). */
+  headings: Assessment[];
+  /** imageAltText (not run without images). */
+  images: Assessment[];
+}
+
 export interface AnalysisResult {
   seo: SeoResult;
   readability: ReadabilityResult;
+  structure: StructureResult;
 }

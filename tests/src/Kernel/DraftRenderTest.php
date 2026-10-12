@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_seo\Kernel;
 
 use Drupal\Core\Form\FormState;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\filter\Entity\FilterFormat;
 use Drupal\neo_seo\Entity\SeoDefaults;
 use Drupal\neo_seo\Hook\DraftRenderHooks;
 use Drupal\neo_seo\SeoOverrides;
@@ -146,6 +149,30 @@ class DraftRenderTest extends NeoSeoKernelTestBase {
     $other->setTriggeringElement(['#name' => 'op', '#limit_validation_errors' => FALSE]);
     DraftRenderHooks::afterBuild($form, $other);
     $this->assertFalse($other->getTriggeringElement()['#limit_validation_errors']);
+  }
+
+  /**
+   * A page that prints its own H1 gets no second one from the title.
+   */
+  public function testOwnH1IsNotDoubled(): void {
+    FilterFormat::create(['format' => 'raw', 'name' => 'Raw', 'filters' => []])->save();
+    FieldStorageConfig::create(['field_name' => 'body', 'entity_type' => 'node', 'type' => 'text_long'])->save();
+    FieldConfig::create(['field_name' => 'body', 'entity_type' => 'node', 'bundle' => 'page', 'label' => 'Body'])->save();
+    $this->container->get('entity_display.repository')->getViewDisplay('node', 'page', 'full')
+      ->setComponent('body', ['type' => 'text_default', 'label' => 'hidden'])
+      ->save();
+    $node = Node::create([
+      'type' => 'page',
+      'title' => 'Acme anvils',
+      'body' => ['value' => '<h1>Anvils for every coyote</h1><p>Text.</p>', 'format' => 'raw'],
+    ]);
+    $node->save();
+
+    $render = $this->container->get('neo_seo.draft_renderer')->render($this->container->get('neo_seo.draft_renderer')->freshCopy($node));
+
+    $this->assertSame(1, substr_count($render['html'], '<h1'), 'One H1.');
+    $this->assertStringContainsString('<h1>Anvils for every coyote</h1>', $render['html'], 'The page\'s own H1 is kept.');
+    $this->assertStringNotContainsString('<h1>Acme anvils</h1>', $render['html']);
   }
 
 }
