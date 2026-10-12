@@ -361,40 +361,6 @@
   color: #536471;
 }
 
-/* Help under a field: a one-line hint and a "What's this?" expander. */
-.neo-seo-field > .form--item {
-  margin-bottom: 0.25rem;
-}
-
-.neo-seo-help {
-  margin-bottom: 0.75rem;
-  font-size: 0.75rem;
-  line-height: 1.4;
-  color: rgb(var(--color-base-600, 75 85 99));
-}
-
-.neo-seo-help__hint {
-  margin: 0;
-}
-
-.neo-seo-help__more > summary {
-  display: inline-block;
-  margin-top: 0.125rem;
-  color: rgb(var(--color-primary-600, 37 99 235));
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.neo-seo-help__more > summary:focus-visible {
-  outline: 2px solid rgb(var(--color-primary-500, 59 130 246));
-  outline-offset: 2px;
-}
-
-.neo-seo-help__more > p {
-  margin: 0.25rem 0 0;
-}
-
 /*
  * The Alchemist panel: as dense as Layers beside it (0.75rem sides, tight
  * gaps). The form's own margins are the edit form's, not a floating panel's.

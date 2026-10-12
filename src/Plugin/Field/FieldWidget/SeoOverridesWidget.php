@@ -167,6 +167,7 @@ class SeoOverridesWidget extends WidgetBase {
    */
   protected function help(array &$element, TranslatableMarkup $hint, TranslatableMarkup $more): void {
     $id = Html::getUniqueId('neo-seo-help');
+    $element['#attached']['library'][] = 'neo_seo/help';
     $element['#attributes']['aria-describedby'] = $id;
     $element['#prefix'] = Markup::create('<div class="neo-seo-field">');
     $element['#suffix'] = Markup::create(
