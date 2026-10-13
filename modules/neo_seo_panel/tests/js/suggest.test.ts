@@ -80,6 +80,17 @@ describe('suggested description', () => {
     assert.equal(suggestDescription([], { measure }), null);
     assert.equal(suggestDescription([{ text: 'Too short to say much.' }], { measure }), null);
   });
+
+  test('a block of short lines, such as an address, is not prose', () => {
+    const address = 'Headquarters\nSpringfield, Oregon\n742 Evergreen Terrace, Suite 150\nSpringfield, OR 97477\n555-0100';
+    assert.equal(suggestDescription([{ text: address }], { measure }), null);
+    assert.match(suggestDescription([{ text: address }, { text: INTRO }], { measure }) ?? '', /^Acme makes anvils/);
+  });
+
+  test('prose broken by a line break reads as one paragraph', () => {
+    const broken = 'Acme makes anvils for every kind of coyote.\nOur anvils are forged in small batches.';
+    assert.equal(suggestDescription([{ text: broken }], { measure }), 'Acme makes anvils for every kind of coyote. Our anvils are forged in small batches.');
+  });
 });
 
 describe('sentences', () => {

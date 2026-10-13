@@ -468,16 +468,39 @@ export class SeoPanel {
 }
 
 /**
+ * Whether the page hides an element, as far as its markup says: parsed
+ * without the stylesheet, a fallback message the page only shows when its
+ * map fails reads like any other paragraph. A `hidden` utility class counts
+ * unless a breakpoint shows the element again (`hidden lg:block`).
+ */
+function hiddenIn(element: Element): boolean {
+  if (element.closest('[hidden], [aria-hidden="true"], noscript, template, .sr-only, .visually-hidden')) {
+    return true;
+  }
+  for (let node: Element | null = element; node; node = node.parentElement) {
+    const classes = Array.from(node.classList);
+    if (classes.includes('hidden') && !classes.some((name) => /^[\w-]+:(block|inline|inline-block|flex|inline-flex|grid|inline-grid|table|flow-root|contents|list-item)$/.test(name))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * The page's paragraphs, in order, for the suggested description: page
- * chrome (navigation, header, footer, asides, forms) left out, and each with
- * the share of its text that is link text.
+ * chrome (navigation, header, footer, asides, forms) and hidden text left out, and each with
+ * the share of its text that is link text. Line breaks are kept as newlines.
  */
 function paragraphsOf(html: string): SuggestBlock[] {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   return Array.from(doc.querySelectorAll('p, blockquote'))
     .filter((element) => !element.closest('nav, header, footer, aside, form, [role="navigation"]'))
+    .filter((element) => !hiddenIn(element))
     .map((element) => {
-      const text = (element.textContent ?? '').replace(/\s+/g, ' ').trim();
+      // A <br> is a line break, not nothing: "Springfield<br>742 Evergreen
+      // Terrace" would otherwise read "Springfield742".
+      element.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
+      const text = (element.textContent ?? '').replace(/[^\S\n]+/g, ' ').trim();
       const linked = Array.from(element.querySelectorAll('a')).reduce((sum, a) => sum + (a.textContent ?? '').trim().length, 0);
       return { text, linkRatio: text ? linked / text.length : 1 };
     });

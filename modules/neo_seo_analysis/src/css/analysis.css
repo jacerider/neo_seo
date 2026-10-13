@@ -163,10 +163,13 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* No keyphrase: the text greyed within the button's own colour. */
-.neo-seo-pill[data-missing="true"] .neo-seo-pill__label,
-.neo-seo-pill[data-missing="true"] .neo-seo-pill__value {
+/* No keyphrase: the label greyed within the button's own colour. */
+.neo-seo-pill[data-missing="true"] .neo-seo-pill__label {
   opacity: 0.75;
+}
+
+.neo-seo-pill__value[hidden] {
+  display: none;
 }
 
 /* Re-analysing: the last score stays, dimmed, beside a small spinner. */
@@ -176,7 +179,7 @@
 }
 
 /* The active (primary) ground leaves no room for dimmed text: there the
-   spinner and the "set keyphrase" wording carry the state alone. */
+   spinner and the grey dot carry the state alone. */
 .neo-seo-pill.is-active .neo-seo-pill__label,
 .neo-seo-pill.is-active .neo-seo-pill__value {
   opacity: 1;

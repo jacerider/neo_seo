@@ -10,6 +10,7 @@
 
 /** A paragraph of the page, in document order. */
 export interface SuggestBlock {
+  /** Its text; a line break (a <br>) is a newline. */
   text: string;
   /** Share of the text that is link text, 0–1: navigation reads as all links. */
   linkRatio?: number;
@@ -26,6 +27,27 @@ export interface SuggestOptions {
   minWords?: number;
   /** How many substantial paragraphs count as the opening. */
   opening?: number;
+  /**
+   * Fewer words a line than this, on average, is a block of lines (an
+   * address, contact details), not prose.
+   */
+  minLineWords?: number;
+}
+
+/**
+ * A block's prose, on one line; '' when it is a block of short lines — an
+ * address reads "Headquarters / Springfield / 742 Evergreen Terrace", and run
+ * together it is no sentence.
+ */
+function proseOf(text: string, minLineWords: number): string {
+  const lines = text.split('\n').map((line) => line.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  if (lines.length > 1) {
+    const words = lines.reduce((sum, line) => sum + wordsOf(line).length, 0);
+    if (words / lines.length < minLineWords) {
+      return '';
+    }
+  }
+  return lines.join(' ');
 }
 
 /** Words of a text, lowercased, without diacritics or punctuation. */
@@ -88,10 +110,11 @@ function cutAtWord(text: string, fits: (candidate: string) => boolean): string {
 export function suggestDescription(blocks: SuggestBlock[], options: SuggestOptions): string | null {
   const limit = options.limit ?? 920;
   const minWords = options.minWords ?? 8;
+  const minLineWords = options.minLineWords ?? 6;
   const fits = (text: string) => options.measure(text) <= limit;
   const paragraphs = blocks
     .filter((block) => (block.linkRatio ?? 0) < 0.5)
-    .map((block) => block.text.replace(/\s+/g, ' ').trim())
+    .map((block) => proseOf(block.text, minLineWords))
     .filter((text) => wordsOf(text).length >= minWords)
     .slice(0, options.opening ?? 3);
   if (!paragraphs.length) {

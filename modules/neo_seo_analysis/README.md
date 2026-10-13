@@ -13,7 +13,7 @@ Enabling the module (it requires `neo_seo_panel`) adds analysis to both SEO pane
   keyphrase and cornerstone controls move into it, and every draft render is analysed.
 - **Alchemist** — the SEO panel's top bar badge (`hook_neo_seo_panel_badge_alter()` +
   `Drupal.neoSeoPanel.extendBadge()`): two pills, `● SEO 80` / `● Read 64` (green 70+, orange
-  40–69, red below; grey "SEO – set keyphrase" without a keyphrase, which opens the dropdown on the
+  40–69, red below; grey dot and no score without a keyphrase, which opens the dropdown on the
   keyphrase field). They are scored from editor load off the editor's shared draft render, refreshed
   after every layout or SEO draft change whether or not the panel was opened, and dimmed with a
   spinner while that happens. The dropdown holds the score help, the keyphrase and cornerstone

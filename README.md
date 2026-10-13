@@ -293,7 +293,7 @@ Adds content analysis to the panel:
   toggle and the assessments.
 - **Alchemist editor:** two score pills in the editor's top bar, `● SEO 80` and `● Read 64` (green
   70+, orange 40–69, red below), scored from editor load and dimmed while they update. Without a
-  keyphrase the SEO pill reads *SEO – set keyphrase*. Clicking a pill opens its view of a dropdown:
+  keyphrase the SEO pill shows a grey dot and no score. Clicking a pill opens its view of a dropdown:
   SEO (760px) puts the keyphrase and cornerstone fields (drafted like every SEO field), the image
   alt text check and the heading outline beside the assessments, in one column where there is less
   room; Read (520px) lists the readability assessments. *Edit search & social* opens the panel.

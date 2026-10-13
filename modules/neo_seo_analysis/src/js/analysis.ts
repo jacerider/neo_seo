@@ -682,13 +682,14 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       if (!pill) {
         return;
       }
-      const value = pill.querySelector('.neo-seo-pill__value');
+      const value = pill.querySelector<HTMLElement>('.neo-seo-pill__value');
       pill.dataset.missing = missing ? 'true' : 'false';
+      if (value) {
+        value.hidden = missing;
+      }
+      // No keyphrase: the grey dot and the label alone; the tooltip says why.
       if (missing) {
         pill.dataset.band = 'none';
-        if (value) {
-          value.textContent = Drupal.t('– set keyphrase');
-        }
         pill.title = Drupal.t('No focus keyphrase: set one to score the page.');
         return;
       }
