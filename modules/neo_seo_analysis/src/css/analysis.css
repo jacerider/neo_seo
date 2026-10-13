@@ -422,6 +422,37 @@
   margin-top: 0.375rem;
 }
 
+/* The dropdown's last line: the analysis status, and the way to the fields. */
+.neo-seo-analysis__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.neo-seo-analysis__panel-link {
+  flex: none;
+}
+
+/* The Search & social panel's scores row, each score opening its checks. */
+.neo-seo-panel-scores {
+  --neo-seo-good: rgb(var(--color-success-600, 22 163 74));
+  --neo-seo-ok: rgb(var(--color-warning-500, 234 179 8));
+  --neo-seo-problem: rgb(var(--color-alert-600, 220 38 38));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.75rem;
+}
+
+.neo-seo-panel-scores__label {
+  margin-right: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--color-base-600, 75 85 99));
+}
+
 /* The SEO summary in the Alchemist Save confirmation. */
 .neo-seo-save-summary {
   --neo-seo-good: rgb(var(--color-success-600, 22 163 74));

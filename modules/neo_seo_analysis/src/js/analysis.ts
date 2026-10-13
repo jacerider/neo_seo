@@ -636,6 +636,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         content: [results.readability],
       },
     };
+    let current: Side = 'seo';
     // No tabs: the pills are the switch. The open pill's side is shown; the
     // other pill swaps it; the open pill again closes (neo_alchemist).
     const panes = {} as Record<Side, HTMLElement>;
@@ -659,12 +660,26 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       if (side !== 'seo') {
         results.clearHighlight();
       }
+      current = side;
       dropdown.element.setAttribute('aria-label', sides[side].label);
       // Optional: a neo_alchemist without setSize() keeps its one width.
       dropdown.setSize?.(sides[side].size);
     };
     select('seo');
-    body.replaceChildren(panes.seo, panes.readability, status);
+    // The SEO fields themselves — title, description, share image — are in the
+    // Search & social panel: one click there from the checks about them.
+    const footer = h('div', { class: 'neo-seo-analysis__footer' }, [status]);
+    if (host.showPanel) {
+      const edit = h('button', { type: 'button', class: 'btn btn-xs btn-outline neo-seo-analysis__panel-link' }, [
+        Drupal.t('Edit search & social'),
+      ]);
+      edit.addEventListener('click', () => {
+        dropdown.close();
+        host.showPanel?.();
+      });
+      footer.append(edit);
+    }
+    body.replaceChildren(panes.seo, panes.readability, footer);
     // A Fix that went to the panel or the canvas leaves the dropdown; one that
     // went to the keyphrase field, which lives in it, keeps it open.
     results.onFixed = (result) => {
@@ -689,6 +704,12 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       }
       select(trigger?.dataset.neoSeoScore === 'readability' ? 'readability' : 'seo');
     });
+
+    openChecks = (side) => {
+      if (!dropdown.isOpen() || current !== side) {
+        pills[side]?.click();
+      }
+    };
 
     const keyphraseInput = () => fields.querySelector<HTMLInputElement>('[name="neo_seo[0][keyphrase]"]');
     // No keyphrase: the SEO pill asks for one and opens straight onto it.
@@ -746,6 +767,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       }
       setPill(pills.seo, result.seo.score, values.keyphrase.trim() === '');
       setPill(pills.readability, result.readability.available ? result.readability.score : null);
+      scoreListeners.forEach((listener) => listener());
       setUpdating(false);
       status.textContent = values.cornerstone
         ? Drupal.t('Analysed as cornerstone content, against stricter thresholds.')
@@ -764,6 +786,56 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     if (editor.latest()) {
       analyzer.analyze();
     }
+  }
+
+  /** Opens the badge's dropdown on a view; set once the badge is mounted. */
+  let openChecks: ((side: 'seo' | 'readability') => void) | null = null;
+
+  /** Called after the badge shows new scores. */
+  const scoreListeners: Array<() => void> = [];
+
+  /**
+   * The Search & social panel's scores row: the two scores as the top bar
+   * shows them, each opening its checks there. The panel is where the page's
+   * search listing is edited, the checks are how well it scores — each points
+   * to the other.
+   */
+  function mountScores(context: NeoSeoPanelContext): void {
+    const row = h('div', { class: 'neo-seo-panel-scores', role: 'group', 'aria-label': Drupal.t('Scores') }, [
+      h('span', { class: 'neo-seo-panel-scores__label' }, [Drupal.t('Scores')]),
+    ]);
+    const buttons = (['seo', 'readability'] as const).map((side) => {
+      const value = h('span', { class: 'neo-seo-pill__value' }, ['–']);
+      const button = h('button', {
+        type: 'button',
+        class: 'neo-seo-pill btn btn-xs btn-outline',
+        'data-band': 'none',
+      }, [
+        h('span', { class: 'neo-seo-pill__dot', 'aria-hidden': 'true' }),
+        h('span', { class: 'neo-seo-pill__label' }, [side === 'seo' ? Drupal.t('SEO') : Drupal.t('Read')]),
+        value,
+      ]);
+      button.setAttribute('aria-label', side === 'seo' ? Drupal.t('Show the SEO checks') : Drupal.t('Show the readability checks'));
+      button.addEventListener('click', () => openChecks?.(side));
+      row.append(button);
+      return { side, button, value };
+    });
+    const update = () => {
+      const state = badgeState;
+      if (!state?.result) {
+        return;
+      }
+      buttons.forEach(({ side, button, value }) => {
+        const score = side === 'seo'
+          ? (state.keyphraseMissing ? null : state.result!.seo.score)
+          : (state.result!.readability.available ? state.result!.readability.score : null);
+        button.dataset.band = score === null ? 'none' : scoreBand(score);
+        value.textContent = score === null ? '–' : String(score);
+      });
+    };
+    scoreListeners.push(update);
+    update();
+    context.top(row);
   }
 
   /**
@@ -846,9 +918,13 @@ import AnalysisWorker from './analysis.worker?worker&inline';
   Drupal.neoSeoPanel?.extend({
     id: 'analysis',
     mount(context) {
-      // In Alchemist the analysis lives in the top bar badge.
+      // In Alchemist the analysis lives in the top bar badge; the panel shows
+      // its scores and opens it.
       if (context.host.kind === 'form') {
         mountSection(context);
+      }
+      else {
+        mountScores(context);
       }
     },
   });

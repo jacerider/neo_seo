@@ -255,16 +255,19 @@ uninstalling puts the plain section back.
 - **What the previews show:** the head the page will print, not the raw field. They are refreshed
   from a **draft render**, the page built from the form's current values without saving, so tokens
   and templates resolve exactly as they will on the live page.
-- **Help:** focus keyphrase, cornerstone, page and article type and "Hide from search results" each
-  carry a one-line hint and a *What's this?* expander, in both the edit form and Alchemist.
+- **Help:** page and article type and "Hide from search results" each carry a one-line hint and a
+  *What's this?* expander, in both the edit form and Alchemist. Beside the analysis, the focus
+  keyphrase and cornerstone carry the same text behind a "?" badge (neo_tooltip).
 - **Suggested description:** while the description comes from the template, a suggestion sits under
   the field: whole sentences from the page's first substantial paragraph (a sentence holding the
   focus keyphrase preferred), as many as fit Google's 920px, cut only at a word. *Use this* copies
   it into the field to edit; nothing is applied on its own. Extractive only, no AI. Tests:
   `node --test 'modules/neo_seo_panel/tests/js/*.test.ts'`.
 
-In the **Alchemist editor** the same panel opens from the editor's bottom bar. SEO edits there are
-**drafted with the layout**:
+In the **Alchemist editor** the same panel opens from the editor's bottom bar as **Search &
+social** (not "SEO", which is the score in the top bar). With `neo_seo_analysis` a *Scores* row at
+its top shows the two scores, each opening its checks. SEO edits there are **drafted with the
+layout**:
 
 - they reach the page only when the layout is published;
 - Revert and Reset discard them;
@@ -281,9 +284,13 @@ Adds content analysis to the panel:
   toggle and the assessments.
 - **Alchemist editor:** two score pills in the editor's top bar, `● SEO 80` and `● Read 64` (green
   70+, orange 40–69, red below), scored from editor load and dimmed while they update. Without a
-  keyphrase the SEO pill reads *SEO – set keyphrase*. Clicking a pill opens a dropdown with what
-  the scores mean, the keyphrase and cornerstone fields (drafted like every SEO field) and the
-  assessments.
+  keyphrase the SEO pill reads *SEO – set keyphrase*. Clicking a pill opens its view of a dropdown:
+  SEO (760px) puts the keyphrase and cornerstone fields (drafted like every SEO field), the image
+  alt text check and the heading outline beside the assessments, in one column where there is less
+  room; Read (520px) lists the readability assessments. *Edit search & social* opens the panel.
+- **Everywhere:** passed checks fold into one *N passed* row and the heading outline's headings
+  under *N headings* (open on their own when the outline has a problem); both remember the choice
+  in the browser. What each score means is behind the "?" by its heading.
 - **Save confirmation (Alchemist):** the Save dialog shows the same two scores, the top three
   problems and a warning when the page is set to hide from search (drafted or saved). Text only and
   advice only: the dialog saves, cancels and focuses exactly as before, and nothing shows until the

@@ -98,6 +98,9 @@ export class SeoPanel {
         host: this.host,
         config: this.config,
         section: (id, title) => this.section(id, title),
+        top: (element) => {
+          this.root.parentElement?.prepend(element);
+        },
         latest: () => this.render,
         onRender: (callback) => {
           this.renderListeners.push(callback);

@@ -175,6 +175,27 @@ export class AlchemistHost implements NeoSeoPanelHost {
   }
 
   /**
+   * Opens the side panel the SEO fields live in, when it is closed.
+   */
+  showPanel(): boolean {
+    return this.openPanelOf(controls.input(this.scope, 'title'));
+  }
+
+  /**
+   * Opens the side panel holding an element, when it is closed.
+   */
+  protected openPanelOf(element: HTMLElement | null): boolean {
+    const panel = element?.closest<HTMLElement>('[data-alchemist-sidepanel]');
+    if (!panel) {
+      return false;
+    }
+    if (panel.style.display === 'none') {
+      document.querySelector<HTMLElement>(`.neo-alchemist--sidepanel-toggle[data-alchemist-sidepanel="${panel.dataset.alchemistSidepanel}"]`)?.click();
+    }
+    return true;
+  }
+
+  /**
    * Focuses an SEO control, opening the panel when the control lives there.
    */
   protected focusControl(key: NeoSeoOverrideKey): boolean {
@@ -182,10 +203,7 @@ export class AlchemistHost implements NeoSeoPanelHost {
     if (!input) {
       return false;
     }
-    const panel = input.closest<HTMLElement>('[data-alchemist-sidepanel]');
-    if (panel && panel.style.display === 'none') {
-      document.querySelector<HTMLElement>(`.neo-alchemist--sidepanel-toggle[data-alchemist-sidepanel="${panel.dataset.alchemistSidepanel}"]`)?.click();
-    }
+    this.openPanelOf(input);
     // After the panel has had a frame to show and mount.
     window.setTimeout(() => {
       input.scrollIntoView({ block: 'center' });

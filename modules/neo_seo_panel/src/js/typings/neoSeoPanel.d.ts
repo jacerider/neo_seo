@@ -101,6 +101,8 @@ interface NeoSeoPanelHost {
   fix?(id: string, highlights: NeoSeoHighlight[]): NeoSeoFixResult;
   /** Whether fix() has anywhere to go for this assessment. */
   canFix?(id: string, highlights: NeoSeoHighlight[]): boolean;
+  /** Opens the panel the SEO fields live in (Alchemist); FALSE when there is none. */
+  showPanel?(): boolean;
 }
 
 /** The panel's browser config: the mount element's data-neo-seo-panel JSON. */
@@ -119,6 +121,8 @@ interface NeoSeoPanelContext {
   config: NeoSeoPanelConfig;
   /** Adds a titled section to the panel and returns its body. */
   section(id: string, title: string): HTMLElement;
+  /** Puts an element at the top of the panel, above the previews. */
+  top(element: HTMLElement): void;
   /** The latest draft render, if one has arrived. */
   latest(): NeoSeoDraftRender | null;
   /** Called with every draft render as it arrives. */
