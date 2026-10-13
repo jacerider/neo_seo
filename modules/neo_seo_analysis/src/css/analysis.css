@@ -119,20 +119,29 @@
   white-space: nowrap;
 }
 
-/* The light ring keeps the dot distinct on the active (primary) ground. */
+/*
+ * The light ring keeps the dot distinct on the active (primary) ground. It is
+ * a border, not a box-shadow: Firefox snaps a background to the pixel grid but
+ * paints a shadow where the box really is, so on a dot at a fractional x the
+ * ring sat off-centre around the fill. A border is painted with the fill. The
+ * negative margin keeps the ring out of the layout, as the shadow was.
+ */
 .neo-seo-pill__dot {
   display: inline-block;
   flex: none;
+  box-sizing: content-box;
   width: 0.5rem;
   height: 0.5rem;
+  margin: -1.5px;
+  border: 1.5px solid rgb(255 255 255 / 0.9);
   border-radius: 9999px;
-  background: rgb(var(--color-base-400, 156 163 175));
-  box-shadow: 0 0 0 1.5px rgb(255 255 255 / 0.9);
+  background-color: rgb(var(--color-base-400, 156 163 175));
+  background-clip: padding-box;
 }
 
-.neo-seo-pill[data-band="good"] .neo-seo-pill__dot { background: var(--neo-seo-good); }
-.neo-seo-pill[data-band="ok"] .neo-seo-pill__dot { background: var(--neo-seo-ok); }
-.neo-seo-pill[data-band="problem"] .neo-seo-pill__dot { background: var(--neo-seo-problem); }
+.neo-seo-pill[data-band="good"] .neo-seo-pill__dot { background-color: var(--neo-seo-good); }
+.neo-seo-pill[data-band="ok"] .neo-seo-pill__dot { background-color: var(--neo-seo-ok); }
+.neo-seo-pill[data-band="problem"] .neo-seo-pill__dot { background-color: var(--neo-seo-problem); }
 
 .neo-seo-pill__value {
   font-variant-numeric: tabular-nums;
