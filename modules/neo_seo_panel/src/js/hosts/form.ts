@@ -68,10 +68,13 @@ export class FormHost implements NeoSeoPanelHost {
   protected readonly form: HTMLFormElement;
   protected waiter: Waiter | null = null;
 
-  protected readonly scope: HTMLElement;
+  /** Where the overrides' controls are: each section of the field. */
+  protected readonly roots: HTMLElement[];
+  protected readonly scope: controls.Scope;
 
-  constructor(mount: HTMLElement, scope: HTMLElement) {
-    this.scope = scope;
+  constructor(mount: HTMLElement, roots: HTMLElement[]) {
+    this.roots = roots;
+    this.scope = controls.scopeOf(roots);
     const form = mount.closest('form');
     if (!form) {
       throw new Error('The SEO panel needs a form to mount in.');
@@ -176,7 +179,7 @@ export class FormHost implements NeoSeoPanelHost {
       }
       // Inside the SEO element but not an override (an autocomplete's search
       // box): nothing the page shows has changed yet.
-      if (this.scope.contains(target)) {
+      if (this.roots.some((root) => root.contains(target))) {
         return;
       }
       callback({ source: 'content' });

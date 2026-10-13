@@ -172,8 +172,10 @@ title template on a page without that token prints `Site name`, not `| Site name
 
 ## Per-page overrides
 
-On the entity types turned on in settings, an **SEO** section appears in the edit form sidebar. It
-holds:
+On the entity types turned on in settings, the edit form sidebar gets two sections, both closed
+to start: **Search & social** (how the page is listed and shared) and **SEO** (the focus keyphrase
+and cornerstone toggle, which content analysis reads). With `neo_seo_analysis` a third,
+**Readability**, follows. A form without a sidebar shows them where the field sits. They hold:
 
 | Field | Effect |
 |---|---|
@@ -181,7 +183,11 @@ holds:
 | Share image | An image media item, chosen in the media library (an autocomplete without `media_library`); replaces the mapped field and the template. Empty, the panel shows the image shared automatically. |
 | Page type, Article type | Choose from the types the bundle allows. A type the bundle does not allow is ignored. |
 | Hide from search results | Prints `robots: noindex, follow`. It does not remove the page from a sitemap. |
-| Focus keyphrase, Cornerstone | Used by content analysis. |
+| Focus keyphrase, Cornerstone | Used by content analysis. In the SEO section. |
+
+The controls keep one set of names (`neo_seo[0][title]` and so on) whichever section shows them, so
+a module adding a section of its own (`#neo_seo_sections` on the widget element, and
+`#neo_seo_section` on what goes in it) changes nothing that is saved.
 
 Overrides are stored in one base field, `neo_seo`. They are translatable and revisioned with the
 entity, and also available as tokens: `[neo-seo:title]`, `[neo-seo:description]`,
@@ -254,8 +260,8 @@ The neo-component skill has the full reference.
 
 ## The SEO panel (`neo_seo_panel`)
 
-Enabling the module turns the SEO section into a panel. Nothing in any form display changes, and
-uninstalling puts the plain section back.
+Enabling the module adds previews and feedback to the Search & social section. Nothing in any form
+display changes, and uninstalling puts the plain sections back.
 
 - **Previews:** Google desktop, Google mobile (with favicon and breadcrumb-style URL),
   Facebook/LinkedIn and X. They are drawn at each network's real width and scaled to fit.
@@ -289,8 +295,14 @@ draft change, which the panel's previews (and the scores below) read.
 
 Adds content analysis to the panel:
 
-- **Edit form:** an *Analysis* section in the panel, with the focus keyphrase, the cornerstone
-  toggle and the assessments.
+- **Edit form:** the SEO checks, heading outline and image alt text check under the focus keyphrase
+  and cornerstone toggle in the **SEO** section, and the readability checks in a **Readability**
+  section. A page built in its own Alchemist layout (a component tree that allows a custom layout,
+  rendered by the page's full view mode) is written in the layout editor, where its checks can be
+  acted on: its form has no Readability section, and the SEO section shows the two scores, live,
+  with **Open in the layout editor**, which opens the editor on its SEO checks
+  (`?neo_seo=seo`) and asks first when the form holds unsaved changes. A page whose layout is
+  locked is fed by the form's own fields and keeps the checks.
 - **Alchemist editor:** two score pills in the editor's top bar, `● SEO 80` and `● Read 64` (green
   70+, orange 40–69, red below), scored from editor load and dimmed while they update. Without a
   keyphrase the SEO pill shows a grey dot and no score. Clicking a pill opens its view of a dropdown:

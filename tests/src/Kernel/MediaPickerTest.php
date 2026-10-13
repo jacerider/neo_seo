@@ -79,7 +79,7 @@ class MediaPickerTest extends NeoSeoKernelTestBase {
     $formObject = $this->container->get('entity_type.manager')->getFormObject('node', 'default')->setEntity($node);
     $formState = new FormState();
     $form = $this->container->get('form_builder')->buildForm($formObject, $formState);
-    $element = $form[SeoOverrides::FIELD]['widget'][0]['image'];
+    $element = $form[SeoOverrides::FIELD]['widget'][0]['search_social']['image'];
 
     $this->assertSame('neo_seo_media', $element['#type']);
     $this->assertSame((string) $media->id(), $element['#value']);

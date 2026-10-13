@@ -9,8 +9,14 @@ Thresholds follow Yoast's published guidance and all live in `src/js/engine/thre
 Enabling the module (it requires `neo_seo_panel`) adds analysis to both SEO panel hosts
 (`src/js/analysis.ts`, one `Analyzer` behind two surfaces):
 
-- **Edit form** — an Analysis section in the panel (`Drupal.neoSeoPanel.extend()`): the focus
-  keyphrase and cornerstone controls move into it, and every draft render is analysed.
+- **Edit form** — `Drupal.neoSeoPanel.extend()`, into the places the widget alter keeps for it
+  (`data-neo-seo-section`): the SEO checks under the keyphrase and cornerstone controls in the
+  field's SEO section, the readability checks in a Readability section it adds. Every draft render
+  is analysed. For a page built in its own Alchemist layout (`AlchemistLayout::customField()`:
+  a component tree allowing a custom layout, shown by the full view mode) there is no Readability
+  section; the SEO section shows both scores and a link to the layout editor
+  (`AlchemistLayout::editorUrl()`, `?neo_seo=seo`, which opens the badge's SEO view), confirmed
+  first while the form holds unsaved changes. neo_alchemist stays optional.
 - **Alchemist** — the SEO panel's top bar badge (`hook_neo_seo_panel_badge_alter()` +
   `Drupal.neoSeoPanel.extendBadge()`): two pills, `● SEO 80` / `● Read 64` (green 70+, orange
   40–69, red below; grey dot and no score without a keyphrase, which opens the dropdown on the

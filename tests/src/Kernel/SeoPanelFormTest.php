@@ -6,6 +6,7 @@ namespace Drupal\Tests\neo_seo\Kernel;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Form\FormState;
+use Drupal\Core\Render\Element;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\node\Entity\Node;
 use Drupal\node\Entity\NodeType;
@@ -47,8 +48,8 @@ class SeoPanelFormTest extends NeoSeoKernelTestBase {
     $node->save();
     $form = $this->form($node);
 
-    $element = $form[SeoOverrides::FIELD]['widget'][0];
-    $this->assertArrayHasKey('panel', $element, 'The panel mounts inside the widget.');
+    $element = $form[SeoOverrides::FIELD]['widget'][0]['search_social'];
+    $this->assertArrayHasKey('panel', $element, 'The panel mounts in the Search & social section.');
     $config = Json::decode($element['panel']['#attributes']['data-neo-seo-panel']);
     $this->assertSame('form', $config['host']);
     $this->assertSame('node', $config['entityType']);
@@ -73,7 +74,7 @@ class SeoPanelFormTest extends NeoSeoKernelTestBase {
   public function testFieldsCarryHelp(): void {
     $node = Node::create(['type' => 'page', 'title' => 'About']);
     $node->save();
-    $element = $this->form($node)[SeoOverrides::FIELD]['widget'][0];
+    $element = $this->controls($this->form($node));
     foreach (['keyphrase', 'cornerstone', 'page_type', 'article_type', 'noindex'] as $key) {
       $description = (string) ($element[$key]['#description'] ?? '');
       $this->assertMatchesRegularExpression('#^<strong>[^<]+</strong> \S#', $description, "$key has a hint, then an explanation.");
@@ -88,9 +89,75 @@ class SeoPanelFormTest extends NeoSeoKernelTestBase {
    */
   public function testNewEntityHasNoRenderUrl(): void {
     $form = $this->form(Node::create(['type' => 'page']));
-    $config = Json::decode($form[SeoOverrides::FIELD]['widget'][0]['panel']['#attributes']['data-neo-seo-panel']);
+    $config = Json::decode($form[SeoOverrides::FIELD]['widget'][0]['search_social']['panel']['#attributes']['data-neo-seo-panel']);
     $this->assertNull($config['entityId']);
     $this->assertNull($config['renderUrl']);
+  }
+
+  /**
+   * The overrides are two closed sidebar sections; the names stay flat.
+   *
+   * Search & social holds how the page is listed and shared, SEO what it is
+   * analysed for. Each control keeps the name it had before the sections, so
+   * a save reads the same values wherever they are shown.
+   */
+  public function testSections(): void {
+    $node = Node::create(['type' => 'page', 'title' => 'About']);
+    $node->save();
+    $element = $this->form($node)[SeoOverrides::FIELD]['widget'][0];
+
+    $this->assertSame(['search_social', 'seo'], Element::children($element, TRUE), 'Analysis adds Readability; nothing else does.');
+    foreach (['search_social' => 'Search & social', 'seo' => 'SEO'] as $id => $title) {
+      $this->assertSame('details', $element[$id]['#type']);
+      $this->assertSame($title, (string) $element[$id]['#title']);
+      $this->assertFalse($element[$id]['#open'], "$title starts closed.");
+      $this->assertSame('advanced', $element[$id]['#group'], "$title is in the sidebar.");
+    }
+    $this->assertLessThan($element['seo']['#weight'], $element['search_social']['#weight']);
+    $social = [
+      'title',
+      'description',
+      'image',
+      'page_type',
+      'article_type',
+      'noindex',
+      'seo_score',
+      'readability_score',
+      'panel',
+    ];
+    $this->assertSame($social, Element::children($element['search_social']));
+    $this->assertSame(['keyphrase', 'cornerstone'], Element::children($element['seo']));
+    $this->assertSame('neo_seo[0][title]', $element['search_social']['title']['#name']);
+    $this->assertSame('neo_seo[0][keyphrase]', $element['seo']['keyphrase']['#name']);
+  }
+
+  /**
+   * What is typed in either section is saved.
+   */
+  public function testSectionsSave(): void {
+    $node = Node::create(['type' => 'page', 'title' => 'About']);
+    $node->save();
+    $formObject = $this->container->get('entity_type.manager')->getFormObject('node', 'default')->setEntity($node);
+    $formState = (new FormState())->setValues([
+      'title' => [['value' => 'About']],
+      SeoOverrides::FIELD => [
+        [
+          'title' => 'About our gardens',
+          'description' => '',
+          'keyphrase' => 'healing gardens',
+          'cornerstone' => 1,
+          'noindex' => 0,
+        ],
+      ],
+      'op' => 'Save',
+    ]);
+    $this->container->get('form_builder')->submitForm($formObject, $formState);
+    $this->assertSame([], $formState->getErrors());
+
+    $saved = SeoOverrides::of(Node::load($node->id()));
+    $this->assertSame('About our gardens', $saved['title']);
+    $this->assertSame('healing gardens', $saved['keyphrase']);
+    $this->assertTrue((bool) $saved['cornerstone']);
   }
 
   /**
@@ -148,6 +215,20 @@ class SeoPanelFormTest extends NeoSeoKernelTestBase {
     foreach (['101', -1, '4.5', 'abc', 4.5, TRUE, []] as $invalid) {
       $this->assertFalse(SeoOverrides::score($invalid), var_export($invalid, TRUE) . ' is not a score.');
     }
+  }
+
+  /**
+   * The overrides' controls, out of their sections, by key.
+   */
+  protected function controls(array $form): array {
+    $element = $form[SeoOverrides::FIELD]['widget'][0];
+    $controls = [];
+    foreach (Element::children($element) as $section) {
+      foreach (Element::children($element[$section]) as $key) {
+        $controls[$key] = $element[$section][$key];
+      }
+    }
+    return $controls;
   }
 
   /**

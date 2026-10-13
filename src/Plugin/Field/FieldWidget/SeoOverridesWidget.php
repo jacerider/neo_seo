@@ -10,6 +10,8 @@ use Drupal\Core\Field\Attribute\FieldWidget;
 use Drupal\Core\Field\FieldItemListInterface;
 use Drupal\Core\Field\WidgetBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Render\Element;
+use Drupal\Core\Render\ElementInfoManagerInterface;
 use Drupal\Core\Render\Markup;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_seo\Element\MediaPicker;
@@ -20,10 +22,17 @@ use Drupal\neo_seo\SeoOverrides;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * The SEO overrides as a sidebar section of the edit form.
+ * The SEO overrides as sidebar sections of the edit form.
  *
- * The plain form. The SEO panel (neo_seo_panel) replaces it with previews and
- * analysis, and still writes these same values.
+ * Two sections, each a details element of its own: "Search & social" (how the
+ * page is listed and shared) and "SEO" (what it is analysed for). Other
+ * modules add theirs to #neo_seo_sections and place an element in one with
+ * #neo_seo_section; anything placed in none is in the first. The controls are
+ * moved into their sections as the form is built, keeping their names, so
+ * values are submitted as one flat set wherever they are shown.
+ *
+ * The plain form. The SEO panel (neo_seo_panel) adds previews and analysis
+ * to it, and still writes these same values.
  */
 #[FieldWidget(
   id: 'neo_seo_overrides',
@@ -43,12 +52,18 @@ class SeoOverridesWidget extends WidgetBase {
   protected BundleMappingRepository $mapping;
 
   /**
+   * The element info manager, for a container's own process callbacks.
+   */
+  protected ElementInfoManagerInterface $elementInfo;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
     $instance = parent::create($container, $configuration, $plugin_id, $plugin_definition);
     $instance->entityTypeManager = $container->get('entity_type.manager');
     $instance->mapping = $container->get('neo_seo.bundle_mapping');
+    $instance->elementInfo = $container->get('element_info');
     return $instance;
   }
 
@@ -61,11 +76,21 @@ class SeoOverridesWidget extends WidgetBase {
     $entity = $items->getEntity();
     $mapping = $this->mapping->forBundle($entity->getEntityTypeId(), $entity->bundle());
     $element += [
-      '#type' => 'details',
-      '#open' => !$items->isEmpty(),
-      '#group' => isset($form['advanced']) ? 'advanced' : NULL,
-      '#weight' => 90,
+      '#type' => 'container',
       '#attributes' => ['class' => ['neo-seo-overrides']],
+      '#neo_seo_group' => isset($form['advanced']) ? 'advanced' : NULL,
+      '#neo_seo_sections' => [
+        'search_social' => [
+          '#title' => $this->t('Search & social'),
+          '#description' => $element['#description'] ?? '',
+          '#weight' => 0,
+        ],
+        'seo' => ['#title' => $this->t('SEO'), '#weight' => 1],
+      ],
+      '#process' => array_merge(
+        $this->elementInfo->getInfoProperty('container', '#process', []),
+        [[static::class, 'processSections']],
+      ),
     ];
     $element['title'] = [
       '#type' => 'textfield',
@@ -101,6 +126,7 @@ class SeoOverridesWidget extends WidgetBase {
       '#title' => $this->t('Focus keyphrase'),
       '#default_value' => $item->keyphrase,
       '#maxlength' => 255,
+      '#neo_seo_section' => 'seo',
     ];
     $element['page_type'] = [
       '#type' => 'select',
@@ -127,6 +153,7 @@ class SeoOverridesWidget extends WidgetBase {
       '#type' => 'checkbox',
       '#title' => $this->t('Cornerstone content'),
       '#default_value' => (bool) $item->cornerstone,
+      '#neo_seo_section' => 'seo',
     ];
 
     // Plain-language help, the same wherever these controls are shown.
@@ -156,6 +183,45 @@ class SeoOverridesWidget extends WidgetBase {
         '#type' => 'hidden',
         '#default_value' => $item->{$score} === NULL ? '' : (string) $item->{$score},
       ];
+    }
+    return $element;
+  }
+
+  /**
+   * Moves the controls into their sections, as details elements.
+   *
+   * Each control keeps the name it has outside a section: its #parents are
+   * set before it moves, so the sections add nothing to them. The sections
+   * start closed. With no sections (the Alchemist panel's form) the controls
+   * stay where they are.
+   */
+  public static function processSections(array $element, FormStateInterface $form_state, array &$complete_form): array {
+    $sections = $element['#neo_seo_sections'] ?? [];
+    if (!$sections) {
+      return $element;
+    }
+    uasort($sections, fn(array $a, array $b) => ($a['#weight'] ?? 0) <=> ($b['#weight'] ?? 0));
+    $first = (string) array_key_first($sections);
+    $children = Element::children($element);
+    foreach ($sections as $id => $section) {
+      $element[$id] = $section + [
+        '#type' => 'details',
+        '#open' => FALSE,
+        '#group' => $element['#neo_seo_group'] ?? NULL,
+        '#attributes' => [
+          'class' => ['neo-seo-section', 'neo-seo-section--' . Html::getClass($id)],
+          'data-neo-seo-section-wrapper' => $id,
+        ],
+      ];
+      // After the field's other sections, in the sidebar's order.
+      $element[$id]['#weight'] = 90 + ($section['#weight'] ?? 0);
+    }
+    foreach ($children as $key) {
+      $id = $element[$key]['#neo_seo_section'] ?? $first;
+      $target = isset($sections[$id]) ? $id : $first;
+      $element[$key]['#parents'] ??= array_merge($element['#parents'], [$key]);
+      $element[$target][$key] = $element[$key];
+      unset($element[$key]);
     }
     return $element;
   }

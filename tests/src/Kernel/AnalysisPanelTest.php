@@ -6,6 +6,7 @@ namespace Drupal\Tests\neo_seo\Kernel;
 
 use Drupal\Component\Serialization\Json;
 use Drupal\Core\Form\FormState;
+use Drupal\Core\Render\Element;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo_analysis\Controller\KeyphrasesController;
 use Drupal\node\Entity\Node;
@@ -52,10 +53,21 @@ class AnalysisPanelTest extends NeoSeoKernelTestBase {
     $formState = new FormState();
     $form = $this->container->get('form_builder')->buildForm($formObject, $formState);
 
-    $mount = $form[SeoOverrides::FIELD]['widget'][0]['panel'];
+    $element = $form[SeoOverrides::FIELD]['widget'][0];
+    $mount = $element['search_social']['panel'];
     $this->assertContains('neo_seo_analysis/panel', $mount['#attached']['library']);
     $config = Json::decode($mount['#attributes']['data-neo-seo-panel']);
     $this->assertStringContainsString('/neo-seo/keyphrases?entity_type=node&exclude=' . $node->id(), $config['analysis']['keyphrasesUrl']);
+    $this->assertArrayNotHasKey('summary', $config['analysis'], 'A page without an Alchemist layout gets the checks.');
+
+    // A place for the checks under the keyphrase, and a section of their own
+    // for readability's, last.
+    $this->assertSame(['search_social', 'seo', 'readability'], Element::children($element, TRUE));
+    $this->assertSame('Readability', (string) $element['readability']['#title']);
+    $this->assertFalse($element['readability']['#open']);
+    $this->assertSame(['keyphrase', 'cornerstone', 'analysis_seo'], Element::children($element['seo'], TRUE));
+    $this->assertSame('seo', $element['seo']['analysis_seo']['#attributes']['data-neo-seo-section']);
+    $this->assertSame('readability', $element['readability']['analysis_readability']['#attributes']['data-neo-seo-section']);
   }
 
   /**

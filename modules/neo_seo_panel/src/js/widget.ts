@@ -307,7 +307,16 @@ export class SeoPanel {
     this.suggestion.element.hidden = !suggestion;
   }
 
+  /**
+   * A section's body: the place the form keeps for it (a section of the
+   * field, data-neo-seo-section), which its accordion item titles; otherwise
+   * a titled section after the controls.
+   */
   protected section(id: string, title: string): HTMLElement {
+    const slot = this.root.closest('form')?.querySelector<HTMLElement>(`[data-neo-seo-section="${id}"]`);
+    if (slot) {
+      return slot;
+    }
     const body = h('div', { class: 'neo-seo-panel__section-body' });
     const headingId = uniqueId(`neo-seo-section-${id}`);
     this.sections.append(h('section', {

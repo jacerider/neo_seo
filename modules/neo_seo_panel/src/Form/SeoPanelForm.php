@@ -87,8 +87,10 @@ class SeoPanelForm extends FormBase {
       '#required' => FALSE,
     ];
     $element = $widget->formElement($items, 0, $base, $form, $form_state);
-    $element['#type'] = 'container';
-    unset($element['#group'], $element['#open'], $element['#title']);
+    // One flat list: the side panel is a section of its own, and the
+    // keyphrase and cornerstone controls move to the top bar's SEO dropdown.
+    $element['#neo_seo_sections'] = [];
+    unset($element['#title']);
     $element['panel'] = $this->builder->mount($entity, 'alchemist') + ['#weight' => -100];
 
     $form[SeoOverrides::FIELD] = ['#tree' => TRUE, 0 => $element];

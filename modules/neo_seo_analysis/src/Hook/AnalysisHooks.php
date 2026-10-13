@@ -9,9 +9,11 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityFormInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Hook\Attribute\Hook;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Url;
 use Drupal\neo_seo\SeoOverrides;
+use Drupal\neo_seo_analysis\AlchemistLayout;
 
 /**
  * Adds content analysis to the SEO panel.
@@ -19,6 +21,57 @@ use Drupal\neo_seo\SeoOverrides;
 class AnalysisHooks {
 
   use StringTranslationTrait;
+
+  /**
+   * Constructs the hooks.
+   *
+   * @param \Drupal\neo_seo_analysis\AlchemistLayout $layout
+   *   Whether a page is built in its own Alchemist layout.
+   * @param \Drupal\Core\Session\AccountInterface $currentUser
+   *   The current user, who may or may not open the layout editor.
+   */
+  public function __construct(
+    protected AlchemistLayout $layout,
+    protected AccountInterface $currentUser,
+  ) {}
+
+  /**
+   * Implements hook_field_widget_single_element_WIDGET_TYPE_form_alter().
+   *
+   * The edit form's places for the analysis: under the keyphrase and
+   * cornerstone controls in the SEO section, and a Readability section of
+   * its own. A page built in its own Alchemist layout gets no Readability
+   * section: its checks are made in the editor, and the SEO section shows
+   * both scores instead.
+   */
+  #[Hook('field_widget_single_element_neo_seo_overrides_form_alter')]
+  public function widgetAlter(array &$element, FormStateInterface $form_state, array $context): void {
+    $entity = $context['items']->getEntity();
+    if (!$entity instanceof ContentEntityInterface) {
+      return;
+    }
+    $element['analysis_seo'] = $this->slot('seo');
+    if ($this->layout->customField($entity) === NULL) {
+      $element['#neo_seo_sections']['readability'] = ['#title' => $this->t('Readability'), '#weight' => 2];
+      $element['analysis_readability'] = $this->slot('readability');
+    }
+  }
+
+  /**
+   * An empty place in a section that the analysis script fills.
+   */
+  protected function slot(string $section): array {
+    return [
+      '#type' => 'html_tag',
+      '#tag' => 'div',
+      '#attributes' => [
+        'class' => ['neo-seo-analysis', 'neo-seo-analysis--' . $section],
+        'data-neo-seo-section' => $section,
+      ],
+      '#neo_seo_section' => $section,
+      '#weight' => 100,
+    ];
+  }
 
   /**
    * Implements hook_form_alter().
@@ -122,6 +175,15 @@ class AnalysisHooks {
       'keyphrasesUrl' => Url::fromRoute('neo_seo_analysis.keyphrases', [], ['query' => $query])
         ->toString(TRUE)->getGeneratedUrl(),
     ];
+    // A page built in its own layout: the form shows the scores, and the
+    // way to the editor where the checks can be acted on.
+    $field = $host === 'form' ? $this->layout->customField($entity) : NULL;
+    if ($field !== NULL) {
+      $editor = $this->layout->editorUrl($entity, $field, $this->currentUser);
+      $panel['config']['analysis']['summary'] = [
+        'editorUrl' => $editor?->toString(TRUE)->getGeneratedUrl(),
+      ];
+    }
   }
 
 }

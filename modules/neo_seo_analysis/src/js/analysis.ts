@@ -2,9 +2,10 @@
  * Neo | SEO Analysis — content analysis for the SEO panel.
  *
  * Two surfaces over one Analyzer:
- * - the edit form: an "Analysis" section in the panel (a Drupal.neoSeoPanel
- *   extension) holding the focus keyphrase, the cornerstone toggle and the
- *   assessments;
+ * - the edit form (a Drupal.neoSeoPanel extension): the SEO checks under the
+ *   focus keyphrase and cornerstone controls in the field's SEO section, and
+ *   the readability checks in its Readability section — or, for a page built
+ *   in its own Alchemist layout, the two scores and a link to the editor;
  * - Alchemist: the top bar badge (a Drupal.neoSeoPanel.extendBadge()
  *   extension) — two score pills, kept current from editor load, whose
  *   dropdown holds the score help, the keyphrase and cornerstone controls and
@@ -27,6 +28,11 @@ import AnalysisWorker from './analysis.worker?worker&inline';
 
   interface AnalysisConfig {
     keyphrasesUrl?: string;
+    /**
+     * Set for a page built in its own Alchemist layout: the form shows the
+     * two scores and the way to the editor, not the checks.
+     */
+    summary?: { editorUrl: string | null };
   }
 
   /** Keyphrase and cornerstone change nothing on the page: re-run, no render. */
@@ -500,28 +506,50 @@ import AnalysisWorker from './analysis.worker?worker&inline';
   }
 
   /**
-   * The edit form's Analysis section.
+   * The edit form's analysis: in the field's SEO and Readability sections,
+   * or, for a page built in its own Alchemist layout, the two scores and the
+   * way to the editor (summary()).
    */
   function mountSection(context: NeoSeoPanelContext): void {
-    const body = context.section('analysis', Drupal.t('Content analysis'));
-    body.classList.add('neo-seo-analysis');
-    // The inputs analysis reads sit with its results. Moved, not copied: they
-    // stay the host's controls and save the way they always did, help badge
-    // and all. What each score means is behind the "?" by its heading.
-    (['keyphrase', 'cornerstone'] as NeoSeoOverrideKey[]).forEach((key) => {
-      const control = context.host.control(key);
-      if (control) {
-        body.append(control);
-      }
-    });
+    const config = (context.config.analysis ?? {}) as AnalysisConfig;
+    const seo = context.section('seo', Drupal.t('SEO'));
+    seo.classList.add('neo-seo-analysis');
+    // A form without the field's sections: the inputs analysis reads join
+    // its results. Moved, not copied: they stay the host's controls and save
+    // the way they always did, help badge and all.
+    if (!seo.dataset.neoSeoSection) {
+      (['keyphrase', 'cornerstone'] as NeoSeoOverrideKey[]).forEach((key) => {
+        const control = context.host.control(key);
+        if (control) {
+          seo.append(control);
+        }
+      });
+    }
     const status = h('p', { class: 'neo-seo-analysis__status', role: 'status', 'aria-live': 'polite' }, [
       Drupal.t('Analysis runs when the preview is ready.'),
     ]);
-    const results = new Results(context.host, () => {
-      status.textContent = Drupal.t('The preview does not show that text.');
-    });
-    body.append(status, results.element);
     const analyzer = new Analyzer(context.host, context.config, () => context.latest());
+    let draw: (result: AnalysisResult, values: NeoSeoOverrides) => void;
+    if (config.summary) {
+      const scores = h('div', { class: 'neo-seo-analysis__summary' });
+      seo.append(status, scores, editorLink(seo, config.summary.editorUrl));
+      draw = (result, values) => {
+        scores.replaceChildren(
+          summaryScore(Drupal.t('SEO'), values.keyphrase.trim() === '' ? null : result.seo.score, Drupal.t('– no focus keyphrase')),
+          summaryScore(Drupal.t('Readability'), result.readability.available ? result.readability.score : null, '–'),
+        );
+      };
+    }
+    else {
+      const results = new Results(context.host, () => {
+        status.textContent = Drupal.t('The preview does not show that text.');
+      });
+      seo.append(status, results.seo, results.outline, results.images);
+      const readability = context.section('readability', Drupal.t('Readability'));
+      readability.classList.add('neo-seo-analysis');
+      readability.append(results.readability);
+      draw = (result) => results.draw(result);
+    }
     analyzer.onBusy((busy, failed) => {
       if (busy) {
         status.textContent = Drupal.t('Analysing…');
@@ -531,7 +559,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       }
     });
     analyzer.onResult((result, values) => {
-      results.draw(result);
+      draw(result, values);
       status.textContent = values.cornerstone
         ? Drupal.t('Analysed as cornerstone content, against stricter thresholds.')
         : Drupal.t('Analysed. Scores are advice: they never stop a save.');
@@ -540,6 +568,66 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     if (context.latest()) {
       analyzer.analyze();
     }
+  }
+
+  /** One score of the summary: its traffic light, and the score. */
+  function summaryScore(label: string, value: number | null, missing: string): HTMLElement {
+    const band = value === null ? 'none' : scoreBand(value);
+    return h('p', { class: 'neo-seo-analysis__summary-score', 'data-band': band }, [
+      h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
+      h('span', { class: 'neo-seo-analysis__summary-label' }, [label]),
+      h('strong', {}, [value === null ? missing : Drupal.t('@score / 100', { '@score': String(value) })]),
+      value === null ? null : h('span', { class: 'visually-hidden' }, [`, ${bandLabel(band as Band)}`]),
+    ]);
+  }
+
+  /**
+   * The way to the layout editor, opening on its SEO checks: where the
+   * checks of a page built there can be acted on. Leaving asks first while
+   * the form holds changes not yet saved. Without access, a note instead.
+   */
+  function editorLink(section: HTMLElement, url: string | null): HTMLElement {
+    if (!url) {
+      return h('p', { class: 'neo-seo-analysis__note' }, [
+        Drupal.t('This page is built in the layout editor, where its checks are.'),
+      ]);
+    }
+    const link = h('a', { href: url, class: 'btn btn-xs btn-outline neo-seo-analysis__editor-link' }, [
+      Drupal.t('Open in the layout editor'),
+    ]);
+    const form = section.closest('form');
+    const snapshot = () => (form ? formState(form) : '');
+    // After every behavior has attached, so what they set counts as loaded.
+    let loaded = '';
+    window.setTimeout(() => {
+      loaded = snapshot();
+    }, 0);
+    link.addEventListener('click', (event) => {
+      if (form && snapshot() !== loaded && !window.confirm(Drupal.t('Leave this page? Changes you have not saved will be lost.'))) {
+        event.preventDefault();
+      }
+    });
+    return h('div', { class: 'neo-seo-analysis__editor' }, [
+      h('p', { class: 'neo-seo-analysis__note' }, [
+        Drupal.t('This page is built in the layout editor. Its checks, and the way to each fix, are there.'),
+      ]),
+      link,
+    ]);
+  }
+
+  /**
+   * What a form would submit, less what changes without the editor changing
+   * anything: the form's build id and token, and the scores analysis writes.
+   */
+  function formState(form: HTMLFormElement): string {
+    const ignored = /^(form_build_id|form_token|form_id)$|\[(seo_score|readability_score)\]$/;
+    const pairs: string[] = [];
+    new FormData(form).forEach((value, name) => {
+      if (!ignored.test(name) && typeof value === 'string') {
+        pairs.push(`${name}=${value}`);
+      }
+    });
+    return pairs.join('&');
   }
 
   /**
@@ -743,6 +831,16 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     editor.onRender(() => analyzer.analyze());
     if (editor.latest()) {
       analyzer.analyze();
+    }
+
+    // Sent here by the edit form's "Open in the layout editor": open on the
+    // checks asked for, once, and take the request off the address.
+    const asked = new URLSearchParams(window.location.search).get('neo_seo');
+    if (asked === 'seo' || asked === 'readability') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('neo_seo');
+      window.history.replaceState(window.history.state, '', url.toString());
+      window.setTimeout(() => openChecks?.(asked), 0);
     }
   }
 

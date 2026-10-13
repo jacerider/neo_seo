@@ -1,3 +1,9 @@
 parameters:
   # Every hook lives on a class under src/Hook.
   neo_seo_analysis.skip_procedural_hook_scan: true
+
+services:
+  neo_seo_analysis.alchemist_layout:
+    class: Drupal\neo_seo_analysis\AlchemistLayout
+    autowire: true
+  Drupal\neo_seo_analysis\AlchemistLayout: '@neo_seo_analysis.alchemist_layout'

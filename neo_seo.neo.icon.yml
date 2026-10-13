@@ -6,3 +6,11 @@ group.seo:
   word: seo
   icon: file-search
   prefix: group
+group.search_social:
+  exact: 'search & social'
+  icon: share-nodes
+  prefix: group
+group.readability:
+  exact: readability
+  icon: glasses
+  prefix: group

@@ -119,7 +119,10 @@ interface NeoSeoPanelConfig {
 interface NeoSeoPanelContext {
   host: NeoSeoPanelHost;
   config: NeoSeoPanelConfig;
-  /** Adds a titled section to the panel and returns its body. */
+  /**
+   * A section's body: the form's own place for it when it keeps one
+   * (data-neo-seo-section="<id>"), else a titled section added to the panel.
+   */
   section(id: string, title: string): HTMLElement;
   /** Puts an element at the top of the panel, above the previews. */
   top(element: HTMLElement): void;

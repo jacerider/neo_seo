@@ -97,12 +97,19 @@ import { SeoPanel } from './widget';
         if (settings.host !== 'form') {
           return;
         }
+        // The field's sections (SeoOverridesWidget), wherever the form shows
+        // them — in the sidebar they are apart from the field's own element.
+        const form = element.closest('form');
+        const sections = form
+          ? Array.from(form.querySelectorAll<HTMLElement>('[data-neo-seo-section-wrapper]'))
+          : [];
         const scope = element.closest<HTMLElement>('.neo-seo-panel-host') ?? element.parentElement;
-        if (!scope) {
+        const roots = sections.length ? sections : (scope ? [scope] : []);
+        if (!roots.length) {
           return;
         }
         try {
-          start(element, new FormHost(element, scope), settings);
+          start(element, new FormHost(element, roots), settings);
         }
         catch (e) {
           console.error(e);
