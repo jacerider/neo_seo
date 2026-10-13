@@ -10,5 +10,7 @@ panel:
     src/js/analysis.ts: {}
   dependencies:
     - core/drupal
+    - core/drupalSettings
     - core/once
     - neo_seo_panel/panel
+    - neo_tooltip/tooltip

@@ -23,7 +23,7 @@
 import type { AnalysisInput, AnalysisResult, Assessment, Band, OutlineHeading } from './engine/types.ts';
 import AnalysisWorker from './analysis.worker?worker&inline';
 
-(function (Drupal): void {
+(function (Drupal, drupalSettings): void {
 
   interface AnalysisConfig {
     keyphrasesUrl?: string;
@@ -57,6 +57,100 @@ import AnalysisWorker from './analysis.worker?worker&inline';
   }
 
   const ORDER: Record<Band, number> = { problem: 0, ok: 1, good: 2 };
+
+  /** What the two scores mean: the same words in both surfaces. */
+  const SCORE_HELP = {
+    seo: () => Drupal.t('How well the page is set up to be found for its focus keyphrase. Green 70+, orange 40–69, red below. It is advice: it never stops you saving.'),
+    readability: () => Drupal.t('How easy the text is to read. Green 70+, orange 40–69, red below. It is advice: it never stops you saving.'),
+  };
+
+  /**
+   * A remembered choice (an open or closed list), kept in this browser only.
+   * Storage can be unavailable, and then the default simply applies.
+   */
+  const remembered = {
+    get(key: string): boolean | null {
+      try {
+        const value = window.localStorage.getItem(`neoSeoAnalysis.${key}`);
+        return value === null ? null : value === '1';
+      }
+      catch {
+        return null;
+      }
+    },
+    set(key: string, value: boolean): void {
+      try {
+        window.localStorage.setItem(`neoSeoAnalysis.${key}`, value ? '1' : '0');
+      }
+      catch {
+        // Not remembered; nothing else depends on it.
+      }
+    },
+  };
+
+  /**
+   * The site's help badge (neo_base's `form-label-help`, the "?" every
+   * described field carries), its explanation shown by neo_tooltip on hover
+   * and focus. A lead with more beneath it goes in as a template, so the lead
+   * can stand out; a plain explanation as text.
+   */
+  let badgeId = 0;
+  function helpBadge(label: string, lead: string, more = ''): HTMLElement {
+    const button = h('button', {
+      type: 'button',
+      class: 'form-label-help use-neo-tooltip neo-seo-help-badge',
+      'aria-label': label,
+    }, [h('span', { 'aria-hidden': 'true' }, ['?'])]);
+    if (more) {
+      badgeId += 1;
+      const key = `neoSeoAnalysis${badgeId}`;
+      drupalSettings.neoTooltipTemplates = drupalSettings.neoTooltipTemplates || {};
+      drupalSettings.neoTooltipTemplates[key] = `<p class="neo-seo-help-badge__lead">${Drupal.checkPlain(lead)}</p><p class="neo-seo-help-badge__more">${Drupal.checkPlain(more)}</p>`;
+      button.setAttribute('data-tippy-template', key);
+    }
+    else {
+      button.setAttribute('data-tippy-content', lead);
+    }
+    return button;
+  }
+
+  /** Binds neo_tooltip to the badges in a subtree, or releases them. */
+  const tooltips = {
+    attach(element: HTMLElement): void {
+      Drupal.behaviors.neoTooltip?.attach(element, drupalSettings);
+    },
+    detach(element: HTMLElement): void {
+      Drupal.behaviors.neoTooltip?.detach?.(element, drupalSettings, 'unload');
+    },
+  };
+
+  /**
+   * Moves a control's help (the hint and the "What's this?" text the widget
+   * prints under it) into a help badge beside its label. The hint stays in
+   * the page, visually hidden, so the control is still described by it.
+   */
+  function compactHelp(field: HTMLElement): void {
+    const help = field.querySelector<HTMLElement>(':scope > .neo-seo-help');
+    const label = field.querySelector<HTMLElement>('label');
+    if (!help || !label || field.dataset.neoSeoCompact) {
+      return;
+    }
+    field.dataset.neoSeoCompact = 'true';
+    const hint = help.querySelector<HTMLElement>('.neo-seo-help__hint');
+    const more = help.querySelector<HTMLElement>('.neo-seo-help__more > p')?.textContent ?? '';
+    const name = (label.textContent ?? '').replace(/\*/g, '').trim();
+    // Beside the label, not in it: inside, the badge's own name would join the
+    // control's ("Focus keyphrase About Focus keyphrase").
+    label.after(helpBadge(Drupal.t('About @name', { '@name': name }), hint?.textContent ?? '', more));
+    if (hint) {
+      hint.classList.add('visually-hidden');
+      help.replaceWith(hint);
+    }
+    else {
+      help.remove();
+    }
+    tooltips.attach(field);
+  }
 
   /**
    * One worker per page, shared by every analyzer; answers go to whoever asked.
@@ -232,10 +326,11 @@ import AnalysisWorker from './analysis.worker?worker&inline';
 
     draw(result: AnalysisResult): void {
       this.clearHighlight();
-      this.group(this.seo, Drupal.t('SEO'), result.seo.score, result.seo.assessments, null);
+      this.group(this.seo, Drupal.t('SEO'), SCORE_HELP.seo(), result.seo.score, result.seo.assessments, null);
       this.group(
         this.readability,
         Drupal.t('Readability'),
+        SCORE_HELP.readability(),
         result.readability.score,
         result.readability.assessments,
         result.readability.available ? null : (result.readability.message ?? Drupal.t('Readability is analysed for English only.')),
@@ -244,30 +339,78 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     }
 
     /**
+     * Assessments worst first, with the passed ones folded into one "N
+     * passed" row: what needs doing is what is read first. The row's open
+     * state is remembered, for every list at once.
+     */
+    protected checks(assessments: Assessment[]): Node[] {
+      const sorted = [...assessments].sort((a, b) => ORDER[a.band] - ORDER[b.band]);
+      const open = sorted.filter((assessment) => assessment.band !== 'good');
+      const passed = sorted.filter((assessment) => assessment.band === 'good');
+      const nodes: Node[] = [];
+      if (open.length) {
+        const list = h('ul', { class: 'neo-seo-analysis__list' });
+        open.forEach((assessment) => list.append(this.item(assessment)));
+        nodes.push(list);
+      }
+      if (passed.length) {
+        const list = h('ul', { class: 'neo-seo-analysis__list' });
+        passed.forEach((assessment) => list.append(this.item(assessment)));
+        const details = h('details', { class: 'neo-seo-analysis__passed' }, [
+          h('summary', { class: 'neo-seo-analysis__passed-summary', 'data-band': 'good' }, [
+            h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
+            Drupal.formatPlural(passed.length, '1 passed', '@count passed'),
+          ]),
+          list,
+        ]);
+        details.open = remembered.get('passedOpen') ?? false;
+        details.addEventListener('toggle', () => remembered.set('passedOpen', details.open));
+        nodes.push(details);
+      }
+      return nodes;
+    }
+
+    /**
      * The heading outline (its checks, then the headings as an indented tree,
      * flagged where they break it) and the image alt text check. Not scored.
      */
     protected structure(result: AnalysisResult): void {
       const { outline, headings, images } = result.structure;
-      const list = h('ul', { class: 'neo-seo-analysis__list' });
-      [...headings].sort((a, b) => ORDER[a.band] - ORDER[b.band]).forEach((assessment) => list.append(this.item(assessment)));
-      const tree = h('ol', { class: 'neo-seo-analysis__outline', 'aria-label': Drupal.t('Headings on the page, in order') });
-      outline.forEach((heading) => tree.append(this.outlineItem(heading)));
       this.outline.replaceChildren(
         h('h4', { class: 'neo-seo-analysis__heading' }, [Drupal.t('Heading outline')]),
-        list,
-        outline.length ? tree : h('p', { class: 'neo-seo-analysis__note' }, [Drupal.t('The page has no headings.')]),
+        ...this.checks(headings),
+        outline.length
+          ? this.tree(outline, headings.some((assessment) => assessment.band !== 'good') || outline.some((heading) => heading.issue))
+          : h('p', { class: 'neo-seo-analysis__note' }, [Drupal.t('The page has no headings.')]),
       );
-      if (!images.length) {
-        this.images.replaceChildren(
-          h('h4', { class: 'neo-seo-analysis__heading' }, [Drupal.t('Image alt text')]),
-          h('p', { class: 'neo-seo-analysis__note' }, [Drupal.t('The page has no images.')]),
-        );
-        return;
-      }
-      const imageList = h('ul', { class: 'neo-seo-analysis__list' });
-      images.forEach((assessment) => imageList.append(this.item(assessment)));
-      this.images.replaceChildren(h('h4', { class: 'neo-seo-analysis__heading' }, [Drupal.t('Image alt text')]), imageList);
+      this.images.replaceChildren(
+        h('h4', { class: 'neo-seo-analysis__heading' }, [Drupal.t('Image alt text')]),
+        ...(images.length ? this.checks(images) : [h('p', { class: 'neo-seo-analysis__note' }, [Drupal.t('The page has no images.')])]),
+      );
+    }
+
+    /**
+     * The headings as an indented tree, folded away under a count. It opens
+     * on its own when the outline has a problem; a choice made remembers
+     * itself, separately for an outline with problems and one without.
+     */
+    protected tree(outline: OutlineHeading[], problems: boolean): HTMLElement {
+      const tree = h('ol', { class: 'neo-seo-analysis__outline', 'aria-label': Drupal.t('Headings on the page, in order') });
+      outline.forEach((heading) => tree.append(this.outlineItem(heading)));
+      const issues = outline.filter((heading) => heading.issue).length;
+      const key = problems ? 'outlineOpen.problems' : 'outlineOpen.clean';
+      const details = h('details', { class: 'neo-seo-analysis__tree' }, [
+        h('summary', { class: 'neo-seo-analysis__tree-summary' }, [
+          Drupal.formatPlural(outline.length, '1 heading', '@count headings'),
+          issues
+            ? h('span', { class: 'neo-seo-analysis__issue' }, [Drupal.formatPlural(issues, '1 issue', '@count issues')])
+            : null,
+        ]),
+        tree,
+      ]);
+      details.open = remembered.get(key) ?? problems;
+      details.addEventListener('toggle', () => remembered.set(key, details.open));
+      return details;
     }
 
     /**
@@ -313,10 +456,10 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       return item;
     }
 
-    protected group(target: HTMLElement, title: string, score: number, assessments: Assessment[], unavailable: string | null): void {
+    protected group(target: HTMLElement, title: string, help: string, score: number, assessments: Assessment[], unavailable: string | null): void {
       const band = scoreBand(score);
       const heading = h('h4', { class: 'neo-seo-analysis__heading' }, [
-        title,
+        h('span', { class: 'neo-seo-analysis__title' }, [title, helpBadge(Drupal.t('About the @title score', { '@title': title }), help)]),
         unavailable === null
           ? h('span', { class: 'neo-seo-analysis__score', 'data-band': band }, [
             h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
@@ -330,13 +473,11 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         children.push(h('p', { class: 'neo-seo-analysis__note' }, [unavailable]));
       }
       else {
-        const list = h('ul', { class: 'neo-seo-analysis__list' });
-        [...assessments].sort((a, b) => ORDER[a.band] - ORDER[b.band]).forEach((assessment) => {
-          list.append(this.item(assessment));
-        });
-        children.push(list);
+        children.push(...this.checks(assessments));
       }
+      tooltips.detach(target);
       target.replaceChildren(...children);
+      tooltips.attach(target);
     }
 
     protected item(assessment: Assessment): HTMLElement {
@@ -398,25 +539,20 @@ import AnalysisWorker from './analysis.worker?worker&inline';
 
   }
 
-  /** What the two scores mean: the same words in both surfaces. */
-  function scoresHelp(): HTMLElement {
-    return h('p', { class: 'neo-seo-analysis__help' }, [
-      Drupal.t('SEO: how well the page is set up to be found for its focus keyphrase. Readability: how easy the text is to read. Green 70+, orange 40–69, red below. They are advice: they never stop you saving.'),
-    ]);
-  }
-
   /**
    * The edit form's Analysis section.
    */
   function mountSection(context: NeoSeoPanelContext): void {
     const body = context.section('analysis', Drupal.t('Content analysis'));
     body.classList.add('neo-seo-analysis');
-    body.append(scoresHelp());
     // The inputs analysis reads sit with its results. Moved, not copied: they
-    // stay the host's controls and save the way they always did.
+    // stay the host's controls and save the way they always did. What each
+    // score means is behind the (i) by its heading, and the controls' help
+    // behind one by their labels.
     (['keyphrase', 'cornerstone'] as NeoSeoOverrideKey[]).forEach((key) => {
       const control = context.host.control(key);
       if (control) {
+        compactHelp(control);
         body.append(control);
       }
     });
@@ -458,8 +594,9 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       readability: badge.querySelector<HTMLElement>('[data-neo-seo-score="readability"]'),
     };
 
-    // The dropdown: one tab per pill. SEO holds what the score means, what it
-    // is scored against and why; Readability what its score means and why.
+    // The dropdown: one view per pill. SEO holds what the page is scored
+    // against and why; Readability why. Each score's meaning is behind the
+    // (i) by its heading.
     const body = dropdown.element;
     body.classList.add('neo-seo-analysis', 'neo-seo-analysis--dropdown');
     const fields = h('div', { class: 'neo-seo-analysis__fields' });
@@ -468,6 +605,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     (['keyphrase', 'cornerstone'] as NeoSeoOverrideKey[]).forEach((key) => {
       const control = host.control(key);
       if (control) {
+        compactHelp(control);
         fields.append(control);
       }
     });
@@ -479,15 +617,22 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       status.textContent = Drupal.t('The preview does not show that text.');
     });
     type Side = 'seo' | 'readability';
-    const sides: Record<Side, { label: string; help: string; content: Node[] }> = {
+    // SEO is wide: its inputs, outline and alt text beside the checks (two
+    // columns where the dropdown has the room — see analysis.css). Readability
+    // is one column of short lines.
+    fields.classList.add('neo-seo-analysis__area--fields');
+    results.seo.classList.add('neo-seo-analysis__area--checks');
+    results.images.classList.add('neo-seo-analysis__area--images');
+    results.outline.classList.add('neo-seo-analysis__area--outline');
+    const sides: Record<Side, { label: string; size: NeoAlchemistDropdownSize; content: Node[] }> = {
       seo: {
         label: Drupal.t('SEO'),
-        help: Drupal.t('SEO: how well the page is set up to be found for its focus keyphrase. Green 70+, orange 40–69, red below. It is advice: it never stops you saving.'),
-        content: [fields, results.seo, results.outline, results.images],
+        size: 'xl',
+        content: [h('div', { class: 'neo-seo-analysis__columns' }, [fields, results.seo, results.images, results.outline])],
       },
       readability: {
         label: Drupal.t('Readability'),
-        help: Drupal.t('Readability: how easy the text is to read. Green 70+, orange 40–69, red below. It is advice: it never stops you saving.'),
+        size: 'lg',
         content: [results.readability],
       },
     };
@@ -500,7 +645,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         class: 'neo-seo-analysis__pane',
         role: 'group',
         'aria-label': sides[side].label,
-      }, [h('p', { class: 'neo-seo-analysis__help' }, [sides[side].help]), ...sides[side].content]);
+      }, sides[side].content);
       pane.hidden = true;
       panes[side] = pane;
     });
@@ -515,6 +660,8 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         results.clearHighlight();
       }
       dropdown.element.setAttribute('aria-label', sides[side].label);
+      // Optional: a neo_alchemist without setSize() keeps its one width.
+      dropdown.setSize?.(sides[side].size);
     };
     select('seo');
     body.replaceChildren(panes.seo, panes.readability, status);
@@ -711,4 +858,4 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     mount: mountBadge,
   });
 
-})(Drupal);
+})(Drupal, drupalSettings);

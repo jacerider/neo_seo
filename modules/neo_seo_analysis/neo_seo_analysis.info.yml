@@ -8,3 +8,4 @@ core_version_requirement: ^11.3
 dependencies:
   - neo_seo:neo_seo
   - neo_seo:neo_seo_panel
+  - neo_tooltip:neo_tooltip
