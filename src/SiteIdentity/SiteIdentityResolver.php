@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_seo\SiteIdentity;
 
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Utility\Token;
 use Drupal\neo_seo\Graph\PageContext;
@@ -28,11 +29,14 @@ class SiteIdentityResolver {
    *   The token service.
    * @param \Drupal\neo_seo\MediaImage $mediaImage
    *   The media image helper.
+   * @param \Drupal\neo_seo\SiteIdentity\IdentitySources $sources
+   *   Site settings and the favicon, where the identity takes from them.
    */
   public function __construct(
     protected SettingsRepository $settings,
     protected Token $token,
     protected MediaImage $mediaImage,
+    protected IdentitySources $sources,
   ) {}
 
   /**
@@ -61,15 +65,15 @@ class SiteIdentityResolver {
       $address[$key] = $this->replace((string) $value, $context);
     }
 
+    $name = $this->replace((string) ($identity['name'] ?? ''), $context) ?: $context->siteName;
     return [
       'type' => $type,
-      'name' => $this->replace((string) ($identity['name'] ?? ''), $context) ?: $context->siteName,
+      'name' => $name,
       'description' => $this->replace((string) ($identity['description'] ?? ''), $context),
-      'logo' => $this->logo((string) ($identity['logo'] ?? ''), $context),
-      'same_as' => array_values(array_filter(array_map(
-        fn($url) => $this->replace((string) $url, $context),
-        (array) ($identity['same_as'] ?? []),
-      ))),
+      'logo' => ($identity['logo_source'] ?? 'media') === 'favicon'
+        ? $this->faviconLogo($context, $name)
+        : $this->logo((string) ($identity['logo'] ?? ''), $context),
+      'same_as' => $this->sameAs($identity, $context),
       'telephone' => $this->replace((string) ($identity['telephone'] ?? ''), $context),
       'email' => $this->replace((string) ($identity['email'] ?? ''), $context),
       'address' => array_filter($address),
@@ -91,6 +95,45 @@ class SiteIdentityResolver {
     $replaced = $this->token->replacePlain($value, [], ['clear' => TRUE], $bubbleable);
     $context->addCacheableDependency($bubbleable);
     return TokenText::tidy($replaced);
+  }
+
+  /**
+   * The social profiles: site settings' when used, then the ones typed here.
+   *
+   * One URL once, whichever list it is in.
+   *
+   * @return string[]
+   *   Absolute URLs.
+   */
+  protected function sameAs(array $identity, PageContext $context): array {
+    $urls = [];
+    if (!empty($identity['same_as_site_settings'])) {
+      $cacheability = new CacheableMetadata();
+      $type = (string) ($identity['same_as_type'] ?? '') ?: (string) $this->sources->defaultSocialType();
+      $urls = array_column($this->sources->socialLinks($type, $cacheability), 'url');
+      $context->addCacheableDependency($cacheability);
+    }
+    foreach ((array) ($identity['same_as'] ?? []) as $url) {
+      $urls[] = $this->replace((string) $url, $context);
+    }
+    $unique = [];
+    foreach (array_filter($urls) as $url) {
+      $unique[IdentitySources::normalize($url)] ??= $url;
+    }
+    return array_values($unique);
+  }
+
+  /**
+   * The favicon's largest icon as the logo; none until a favicon is uploaded.
+   *
+   * An icon has no caption of its own, so it is captioned with the name it
+   * stands for.
+   */
+  protected function faviconLogo(PageContext $context, string $name): ?array {
+    $cacheability = new CacheableMetadata();
+    $logo = $this->sources->faviconLogo($cacheability);
+    $context->addCacheableDependency($cacheability);
+    return $logo ? $logo + ['caption' => $name] : NULL;
   }
 
   /**

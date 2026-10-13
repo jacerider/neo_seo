@@ -7,13 +7,60 @@
 
 declare(strict_types=1);
 
+use Drupal\neo_seo\SiteIdentity\IdentitySources;
+
 /**
  * Implements hook_install().
  *
- * Turns on the SEO display extender, so Views pages get their SEO settings.
+ * Turns on the SEO display extender, so Views pages get their SEO settings,
+ * and takes the logo and social profiles from the favicon and site settings
+ * where those modules have them.
  */
-function neo_seo_install(): void {
+function neo_seo_install(bool $is_syncing = FALSE): void {
   _neo_seo_views_display_extender(TRUE);
+  if (!$is_syncing) {
+    _neo_seo_identity_sources()->adoptInConfig();
+  }
+}
+
+/**
+ * Takes the logo and social profiles from the favicon and site settings.
+ *
+ * Only where neo_seo has nothing of its own: a logo from the favicon when no
+ * media logo is chosen, and the site settings' social links when the typed
+ * list is empty or holds nothing site settings does not (it is then emptied).
+ */
+function neo_seo_update_11001(): string {
+  $config = \Drupal::configFactory()->getEditable('neo_seo.settings');
+  $before = (array) $config->get('identity');
+  _neo_seo_identity_sources()->adoptInConfig();
+  $after = (array) \Drupal::configFactory()->get('neo_seo.settings')->get('identity');
+  $changes = [];
+  if (($after['logo_source'] ?? 'media') === 'favicon' && ($before['logo_source'] ?? 'media') !== 'favicon') {
+    $changes[] = t('the logo now comes from the favicon');
+  }
+  if (!empty($after['same_as_site_settings']) && empty($before['same_as_site_settings'])) {
+    $changes[] = t('the social profiles now come from site settings');
+  }
+  return $changes ? (string) t('Site identity: @changes.', ['@changes' => implode('; ', $changes)]) : (string) t('Site identity unchanged.');
+}
+
+/**
+ * The identity sources, built here rather than taken from the container.
+ *
+ * An update runs before the container knows a service added in the same
+ * release.
+ */
+function _neo_seo_identity_sources(): IdentitySources {
+  return new IdentitySources(
+    \Drupal::moduleHandler(),
+    \Drupal::entityTypeManager(),
+    \Drupal::service('entity_display.repository'),
+    \Drupal::service('entity_field.manager'),
+    \Drupal::service('file_url_generator'),
+    \Drupal::configFactory(),
+    \Drupal::hasService('neo_favicon.manager') ? \Drupal::service('neo_favicon.manager') : NULL,
+  );
 }
 
 /**

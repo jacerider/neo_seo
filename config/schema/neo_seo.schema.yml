@@ -29,12 +29,21 @@ neo_seo:
         description:
           type: string
           label: 'Description (tokens allowed)'
+        logo_source:
+          type: string
+          label: 'Where the logo comes from: media or favicon'
         logo:
           type: string
           label: 'Logo or image media UUID'
+        same_as_site_settings:
+          type: boolean
+          label: 'Use the social links from site settings'
+        same_as_type:
+          type: string
+          label: 'The site settings type holding the social links'
         same_as:
           type: sequence
-          label: 'Social profile URLs (tokens allowed)'
+          label: 'Social profile URLs (tokens allowed), beside those from site settings'
           sequence:
             type: string
         telephone:

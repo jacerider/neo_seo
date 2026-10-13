@@ -69,8 +69,17 @@ Settings live at **Configuration → Neo → SEO** (`/admin/config/neo/seo`).
 1. **Site identity.** Say whether the site represents an organization or a person.
    - Pick an organization type: Organization, Corporation, Professional service, Local business, NGO,
      and others.
-   - Fill in the name, description, logo (an image media item), social profiles (one URL per line),
-     telephone, email and postal address.
+   - Fill in the name, description, logo, social profiles, telephone, email and postal address.
+   - **Logo:** an image media item, or, with `neo_favicon`, *the site favicon*: its largest icon, at
+     its own size (never cropped to a share card). Until a favicon is uploaded there is no logo, and
+     the form says so.
+   - **Social profiles:** with `neo_site_settings`, *Use the social links from site settings* takes
+     every filled link field of a site settings type (`social` by default), in its display order,
+     and stays current as they change. *Other social profiles* (one URL per line) adds any it does
+     not hold; a profile in both is listed once.
+   - Both are on by default where the module is there and neo_seo has nothing of its own: on
+     install, on update, and when either module is installed later. A typed profile list is only
+     replaced when site settings already holds every URL in it.
    - Every text field accepts tokens. A site that keeps its phone and address in `neo_site_settings`
      can point at `[site:phone]` and `[site:address:*]`.
 2. **Per-page SEO.** Tick the content that gets per-page overrides (usually *Content* and
@@ -349,7 +358,9 @@ The migration does three things, and never overwrites a value neo_seo already ha
 
 - **metatag defaults → default templates.** The set ids match: `global`, `front`, `node`,
   `node__article` and so on.
-- **schema_metatag → bundle mappings and site identity.**
+- **schema_metatag → bundle mappings and site identity.** A logo of `[neo:logo]` becomes *the site
+  favicon* (with `neo_favicon`); social profiles that site settings already holds turn its links on
+  instead of being copied.
 - **metatag field values → per-page overrides.**
 
 Every metatag value is reported as one of:

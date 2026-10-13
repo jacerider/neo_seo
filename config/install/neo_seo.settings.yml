@@ -3,7 +3,10 @@ identity:
   organization_type: Organization
   name: '[site:name]'
   description: '[site:slogan]'
+  logo_source: media
   logo: ''
+  same_as_site_settings: false
+  same_as_type: ''
   same_as: []
   telephone: ''
   email: ''

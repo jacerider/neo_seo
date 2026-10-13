@@ -40,7 +40,21 @@ services:
       - '@neo_seo.settings'
       - '@token'
       - '@neo_seo.media_image'
+      - '@neo_seo.identity_sources'
   Drupal\neo_seo\SiteIdentity\SiteIdentityResolver: '@neo_seo.site_identity'
+
+  # Site settings and the favicon as identity sources; both modules optional.
+  neo_seo.identity_sources:
+    class: Drupal\neo_seo\SiteIdentity\IdentitySources
+    arguments:
+      - '@module_handler'
+      - '@entity_type.manager'
+      - '@entity_display.repository'
+      - '@entity_field.manager'
+      - '@file_url_generator'
+      - '@config.factory'
+      - '@?neo_favicon.manager'
+  Drupal\neo_seo\SiteIdentity\IdentitySources: '@neo_seo.identity_sources'
 
   neo_seo.media_image:
     class: Drupal\neo_seo\MediaImage
@@ -132,7 +146,7 @@ services:
 
   neo_seo.metatag_migrator:
     class: Drupal\neo_seo\Migration\MetatagMigrator
-    arguments: ['@entity_type.manager', '@entity_field.manager', '@config.factory', '@neo_seo.bundle_mapping']
+    arguments: ['@entity_type.manager', '@entity_field.manager', '@config.factory', '@neo_seo.bundle_mapping', '@neo_seo.identity_sources']
   Drupal\neo_seo\Migration\MetatagMigrator: '@neo_seo.metatag_migrator'
 
   neo_seo.head_diff:

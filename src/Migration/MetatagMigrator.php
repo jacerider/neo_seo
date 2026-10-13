@@ -12,6 +12,7 @@ use Drupal\neo_seo\Entity\SeoDefaults;
 use Drupal\neo_seo\Mapping\BundleMappingRepository;
 use Drupal\neo_seo\Schema\SchemaTypes;
 use Drupal\neo_seo\SeoOverrides;
+use Drupal\neo_seo\SiteIdentity\IdentitySources;
 
 /**
  * Converts a site's metatag setup into neo_seo's.
@@ -77,12 +78,15 @@ class MetatagMigrator {
    *   The config factory.
    * @param \Drupal\neo_seo\Mapping\BundleMappingRepository $mapping
    *   The bundle mapping repository.
+   * @param \Drupal\neo_seo\SiteIdentity\IdentitySources $sources
+   *   Site settings and the favicon, which can stand in for copied values.
    */
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
     protected EntityFieldManagerInterface $entityFieldManager,
     protected ConfigFactoryInterface $configFactory,
     protected BundleMappingRepository $mapping,
+    protected IdentitySources $sources,
   ) {}
 
   /**
@@ -174,10 +178,11 @@ class MetatagMigrator {
       'name' => '[site:name]',
       'description' => '[site:slogan]',
       'organization_type' => 'Organization',
+      'logo_source' => 'media',
     ];
     foreach ($plan['identity'] as $key => $value) {
       $current = $settings->get("identity.$key");
-      $untouched = $current === NULL || $current === '' || $current === [] || ($defaultsShipped[$key] ?? NULL) === $current;
+      $untouched = $current === NULL || $current === '' || $current === [] || $current === FALSE || ($defaultsShipped[$key] ?? NULL) === $current;
       if ($untouched && $current !== $value) {
         $settings->set("identity.$key", $value);
         $changed = TRUE;
@@ -348,8 +353,21 @@ class MetatagMigrator {
         $plan['report'][] = $line('converted', 'site identity ' . $map[$tag]);
       }
       elseif ($tag === 'schema_organization_same_as') {
-        $plan['identity']['same_as'] = array_values(array_filter(array_map('trim', is_array($value) ? $value : explode(',', (string) $value))));
-        $plan['report'][] = $line('converted', 'site identity social profiles');
+        $urls = array_values(array_filter(array_map('trim', is_array($value) ? $value : explode(',', (string) $value))));
+        // Profiles site settings already holds are taken from there, kept
+        // current, rather than copied.
+        $type = $this->sources->defaultSocialType();
+        $known = $type !== NULL ? array_map([IdentitySources::class, 'normalize'], array_column($this->sources->socialLinks($type), 'url')) : [];
+        $extra = array_values(array_filter($urls, fn(string $url) => !in_array(IdentitySources::normalize($url), $known, TRUE)));
+        if ($type !== NULL && !$extra) {
+          $plan['identity']['same_as_site_settings'] = TRUE;
+          $plan['identity']['same_as_type'] = $type;
+          $plan['report'][] = $line('converted', "site identity social profiles, from site settings ($type)");
+        }
+        else {
+          $plan['identity']['same_as'] = $urls;
+          $plan['report'][] = $line('converted', 'site identity social profiles');
+        }
       }
       elseif ($tag === 'schema_organization_address' && is_array($value)) {
         $plan['identity']['address'] = array_map('trim', array_filter([
@@ -365,7 +383,14 @@ class MetatagMigrator {
         $plan['report'][] = $line('derived', 'site identity type (kept as configured)');
       }
       elseif ($tag === 'schema_organization_logo') {
-        $plan['report'][] = $line('unconverted', 'pick a logo media item in site identity; neo_seo does not use the favicon');
+        $url = is_array($value) ? (string) ($value['url'] ?? '') : (string) $value;
+        if (str_contains($url, '[neo:logo]') && $this->sources->hasFavicon()) {
+          $plan['identity']['logo_source'] = 'favicon';
+          $plan['report'][] = $line('converted', 'site identity logo, from the favicon');
+        }
+        else {
+          $plan['report'][] = $line('unconverted', 'pick a logo media item, or the favicon, in site identity');
+        }
       }
       elseif (in_array($tag, ['schema_organization_id', 'schema_organization_url'], TRUE)) {
         $plan['report'][] = $line('derived', 'the site URL and #organization');

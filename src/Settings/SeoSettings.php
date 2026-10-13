@@ -9,7 +9,9 @@ use Drupal\Core\Entity\EntityRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\neo_seo\SeoOverridesStorage;
+use Drupal\neo_seo\SiteIdentity\IdentitySources;
 use Drupal\neo_seo\SiteIdentity\OrganizationTypes;
 use Drupal\neo_settings\Plugin\SettingsBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -60,6 +62,11 @@ class SeoSettings extends SettingsBase {
   protected SeoOverridesStorage $overrides;
 
   /**
+   * Site settings and the favicon, as identity sources.
+   */
+  protected IdentitySources $sources;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
@@ -68,6 +75,7 @@ class SeoSettings extends SettingsBase {
     $instance->moduleHandler = $container->get('module_handler');
     $instance->entityTypeManager = $container->get('entity_type.manager');
     $instance->overrides = $container->get('neo_seo.overrides_storage');
+    $instance->sources = $container->get('neo_seo.identity_sources');
     return $instance;
   }
 
@@ -114,21 +122,8 @@ class SeoSettings extends SettingsBase {
       '#default_value' => $identity['description'] ?? '',
       '#maxlength' => 512,
     ];
-    $logo = !empty($identity['logo']) ? $this->entityRepository->loadEntityByUuid('media', $identity['logo']) : NULL;
-    $form['identity']['logo'] = [
-      '#type' => 'entity_autocomplete',
-      '#title' => $this->t('Logo or image'),
-      '#description' => $this->t('An image media item. Google shows an organization’s logo in search results; use a square or wide mark at least 112px across.'),
-      '#target_type' => 'media',
-      '#default_value' => $logo,
-    ];
-    $form['identity']['same_as'] = [
-      '#type' => 'textarea',
-      '#title' => $this->t('Social profiles'),
-      '#description' => $this->t('One URL per line: LinkedIn, Facebook, Instagram, YouTube, X, Wikipedia …'),
-      '#default_value' => implode("\n", $identity['same_as'] ?? []),
-      '#rows' => 4,
-    ];
+    $this->buildLogo($form, $identity);
+    $this->buildSocial($form, $identity);
     $form['identity']['telephone'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Telephone'),
@@ -227,6 +222,118 @@ class SeoSettings extends SettingsBase {
   }
 
   /**
+   * The logo: a media item, or the favicon where neo_favicon is enabled.
+   */
+  protected function buildLogo(array &$form, array $identity): void {
+    $hasFavicon = $this->sources->hasFavicon();
+    $source = $hasFavicon && ($identity['logo_source'] ?? 'media') === 'favicon' ? 'favicon' : 'media';
+    $form['identity']['logo_source'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('Logo or image'),
+      '#options' => [
+        'media' => $this->t('A media item'),
+        'favicon' => $this->t('The site favicon'),
+      ],
+      '#default_value' => $source,
+      '#access' => $hasFavicon,
+    ];
+    $visibleFor = fn(string $value) => $hasFavicon
+      ? ['visible' => [':input[name$="[identity][logo_source]"]' => ['value' => $value]]]
+      : [];
+    $logo = !empty($identity['logo']) ? $this->entityRepository->loadEntityByUuid('media', $identity['logo']) : NULL;
+    $form['identity']['logo'] = [
+      '#type' => 'entity_autocomplete',
+      '#title' => $hasFavicon ? $this->t('Logo media') : $this->t('Logo or image'),
+      '#description' => $this->t('An image media item. Google shows an organization’s logo in search results; use a square or wide mark at least 112px across.'),
+      '#target_type' => 'media',
+      '#default_value' => $logo,
+      '#states' => $visibleFor('media'),
+    ];
+    if ($hasFavicon) {
+      $favicon = $this->sources->faviconLogo();
+      $settings = Url::fromRoute('neo_favicon.settings');
+      $form['identity']['favicon'] = [
+        '#type' => 'item',
+        '#states' => $visibleFor('favicon'),
+        'preview' => $favicon
+          ? [
+            '#type' => 'inline_template',
+            '#template' => '<div class="neo-seo-favicon"><img src="{{ url }}" width="48" height="48" alt=""> {{ size }}</div>',
+            '#context' => [
+              'url' => $favicon['url'],
+              'size' => $this->t('The favicon’s largest icon, @width×@height px, used at its own size.', [
+                '@width' => $favicon['width'],
+                '@height' => $favicon['height'],
+              ]),
+            ],
+          ]
+          : [
+            '#theme' => 'status_messages',
+            '#message_list' => ['warning' => [$this->t('No favicon has been uploaded, so there is no logo yet. <a href=":url">Upload one</a>.', [':url' => $settings->toString()])]],
+          ],
+      ];
+    }
+  }
+
+  /**
+   * Social profiles: typed here, and from site settings where it has them.
+   */
+  protected function buildSocial(array &$form, array $identity): void {
+    $types = $this->sources->socialTypes();
+    $useSiteSettings = $types && !empty($identity['same_as_site_settings']);
+    if ($types) {
+      $type = (string) ($identity['same_as_type'] ?? '');
+      $type = isset($types[$type]) ? $type : (string) $this->sources->defaultSocialType();
+      $form['identity']['same_as_site_settings'] = [
+        '#type' => 'checkbox',
+        '#title' => $this->t('Use the social links from site settings'),
+        '#description' => $this->t('Every filled link of the chosen site settings, in their display order. Kept current: a link changed there changes here.'),
+        '#default_value' => $useSiteSettings,
+      ];
+      $checked = [':input[name$="[identity][same_as_site_settings]"]' => ['checked' => TRUE]];
+      $form['identity']['same_as_type'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Site settings'),
+        '#options' => $types,
+        '#default_value' => $type,
+        '#access' => count($types) > 1,
+        '#states' => ['visible' => $checked],
+      ];
+      $links = $this->sources->socialLinks($type);
+      $edit = Url::fromRoute('entity.neo_site_settings.collection');
+      $form['identity']['same_as_preview'] = [
+        '#type' => 'item',
+        '#title' => $this->t('From %type now', ['%type' => $types[$type]]),
+        '#states' => ['visible' => $checked],
+        'links' => $links
+          ? [
+            '#theme' => 'item_list',
+            '#items' => array_map(fn(array $link) => $this->t('@label: @url', [
+              '@label' => $link['label'],
+              '@url' => $link['url'],
+            ]), $links),
+          ]
+          : ['#markup' => '<p>' . $this->t('None of its links are filled in yet.') . '</p>'],
+        'edit' => [
+          '#type' => 'link',
+          '#title' => $this->t('Edit in site settings'),
+          '#url' => $edit,
+          '#access' => $edit->access(),
+        ],
+      ];
+    }
+    $form['identity']['same_as'] = [
+      '#type' => 'textarea',
+      '#title' => $types ? $this->t('Other social profiles') : $this->t('Social profiles'),
+      '#description' => $types
+        ? $this->t('One URL per line, for profiles site settings does not hold: Wikipedia, Crunchbase … Used with or without the site settings links.')
+        : $this->t('One URL per line: LinkedIn, Facebook, Instagram, YouTube, X, Wikipedia …'),
+      '#default_value' => implode("\n", $identity['same_as'] ?? []),
+      '#rows' => 4,
+    ];
+  }
+
+  /**
    * {@inheritdoc}
    */
   protected function validateForm(array $form, FormStateInterface $form_state) {
@@ -237,7 +344,14 @@ class SeoSettings extends SettingsBase {
     $mediaId = $form_state->getValue(['identity', 'logo']);
     $media = $mediaId ? $this->entityRepository->getActive('media', $mediaId) : NULL;
     $form_state->setValue(['identity', 'logo'], $media ? $media->uuid() : '');
+    $source = $form_state->getValue(['identity', 'logo_source']);
+    $form_state->setValue(['identity', 'logo_source'], $source === 'favicon' ? 'favicon' : 'media');
+    $useSiteSettings = (bool) $form_state->getValue(['identity', 'same_as_site_settings']);
+    $form_state->setValue(['identity', 'same_as_site_settings'], $useSiteSettings);
+    $form_state->setValue(['identity', 'same_as_type'], (string) ($form_state->getValue(['identity', 'same_as_type']) ?? ''));
     $form_state->unsetValue(['identity', 'tokens']);
+    $form_state->unsetValue(['identity', 'favicon']);
+    $form_state->unsetValue(['identity', 'same_as_preview']);
     $form_state->setValue('head_alongside_metatag', (bool) $form_state->getValue('head_alongside_metatag'));
 
     // Removing per-page SEO from an entity type drops its column, and with it
