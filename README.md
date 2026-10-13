@@ -43,8 +43,8 @@ The package has three modules:
 ## Requirements and install
 
 - Drupal 11.3+, `token`, `media`, `jacerider/neo`, `jacerider/neo_settings`.
-- `neo_alchemist` is optional. With it, components can add to the graph and the SEO panel appears
-  in the Alchemist editor.
+- `neo_alchemist` is optional, at 1.3 or later (Composer refuses an older one). With it, components
+  can add to the graph and the SEO panel appears in the Alchemist editor.
 - `views` is optional. With it, Views pages get their own SEO settings.
 - Node 20+ wherever `drush neo-seo:validate` runs (the DDEV web container has it).
 

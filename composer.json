@@ -21,5 +21,8 @@
     "drupal/token": "^1",
     "jacerider/neo": "^1",
     "jacerider/neo_settings": "^1"
+  },
+  "conflict": {
+    "jacerider/neo_alchemist": "<1.3"
   }
 }
