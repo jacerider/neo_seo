@@ -34,7 +34,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
   // Not "SEO": the top bar's SEO score is the analysis; this is where the page's
   // search listing and share card are edited.
   label: new TranslatableMarkup('Search & social'),
-  icon: 'magnifying-glass',
+  icon: 'file-search',
   weight: 10,
   width: '26rem',
 )]

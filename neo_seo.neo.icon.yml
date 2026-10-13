@@ -1,3 +1,8 @@
-# neo_seo.seo:
-#   word: seo
-#   icon: file-search
+neo_seo.seo:
+  word: seo
+  icon: file-search
+  prefix: admin
+group.seo:
+  word: seo
+  icon: file-search
+  prefix: group
