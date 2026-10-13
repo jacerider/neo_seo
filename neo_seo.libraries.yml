@@ -1,7 +1,0 @@
-# Help under the SEO fields: a hint and a "What's this?" expander.
-help:
-  version: VERSION
-  neo: { scope: back }
-  css:
-    component:
-      src/css/help.css: {}

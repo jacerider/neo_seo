@@ -64,21 +64,23 @@ class SeoPanelFormTest extends NeoSeoKernelTestBase {
   }
 
   /**
-   * The SEO fields carry a visible hint and a "What's this?" expander.
+   * Every SEO field carries its help as a description, like the others.
+   *
+   * The hint first, then the explanation: shown wherever the site shows
+   * descriptions (behind a "?" badge with neo_tooltip), never as markup of
+   * the widget's own.
    */
   public function testFieldsCarryHelp(): void {
     $node = Node::create(['type' => 'page', 'title' => 'About']);
     $node->save();
     $element = $this->form($node)[SeoOverrides::FIELD]['widget'][0];
     foreach (['keyphrase', 'cornerstone', 'page_type', 'article_type', 'noindex'] as $key) {
-      $suffix = (string) $element[$key]['#suffix'];
-      $this->assertStringContainsString('class="neo-seo-help__hint"', $suffix, "$key has a hint.");
-      $this->assertStringContainsString('<summary>What’s this?</summary>', $suffix, "$key has an expander.");
-      $this->assertStringContainsString('id="' . $element[$key]['#attributes']['aria-describedby'] . '"', $suffix, "$key is described by its hint.");
-      $this->assertStringContainsString('neo-seo-field', (string) $element[$key]['#prefix']);
+      $description = (string) ($element[$key]['#description'] ?? '');
+      $this->assertMatchesRegularExpression('#^<strong>[^<]+</strong> \S#', $description, "$key has a hint, then an explanation.");
+      $this->assertArrayNotHasKey('#suffix', $element[$key], "$key has no help markup of its own.");
     }
-    $this->assertStringContainsString('Ask search engines not to list this page.', (string) $element['noindex']['#suffix']);
-    $this->assertArrayNotHasKey('#suffix', $element['title'], 'Fields without help are left alone.');
+    $this->assertStringStartsWith('<strong>Ask search engines not to list this page.</strong> For pages', (string) $element['noindex']['#description']);
+    $this->assertStringContainsString('characters', (string) $element['title']['#description'], 'Fields that already had a description keep it.');
   }
 
   /**

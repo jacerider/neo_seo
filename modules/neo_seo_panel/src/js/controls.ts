@@ -49,14 +49,13 @@ export function input(root: Scope, key: NeoSeoOverrideKey): Control | null {
   return root.querySelector<Control>(`[name="${PREFIX}${key}]"]`);
 }
 
-/** The form item wrapping a control, with its help when it has some. */
+/** The form item wrapping a control, its description (and help badge) included. */
 export function wrapper(root: Scope, key: NeoSeoOverrideKey): HTMLElement | null {
   const control = input(root, key);
   if (!control || (control instanceof HTMLInputElement && control.type === 'hidden')) {
     return null;
   }
-  return control.closest<HTMLElement>('.neo-seo-field')
-    ?? control.closest<HTMLElement>('.form-item, .js-form-item')
+  return control.closest<HTMLElement>('.form-item, .js-form-item')
     ?? control;
 }
 

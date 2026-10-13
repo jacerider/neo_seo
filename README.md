@@ -255,9 +255,9 @@ uninstalling puts the plain section back.
 - **What the previews show:** the head the page will print, not the raw field. They are refreshed
   from a **draft render**, the page built from the form's current values without saving, so tokens
   and templates resolve exactly as they will on the live page.
-- **Help:** page and article type and "Hide from search results" each carry a one-line hint and a
-  *What's this?* expander, in both the edit form and Alchemist. Beside the analysis, the focus
-  keyphrase and cornerstone carry the same text behind a "?" badge (neo_tooltip).
+- **Help:** every SEO field carries plain-language help as its description: a one-line hint, then
+  what it is for. Shown the way the site shows descriptions: behind a "?" badge where neo_tooltip
+  makes them tooltips, under the field where it does not.
 - **Suggested description:** while the description comes from the template, a suggestion sits under
   the field: whole sentences from the page's first substantial paragraph (a sentence holding the
   focus keyphrase preferred), as many as fit Google's 920px, cut only at a word. *Use this* copies

@@ -91,27 +91,15 @@ import AnalysisWorker from './analysis.worker?worker&inline';
   /**
    * The site's help badge (neo_base's `form-label-help`, the "?" every
    * described field carries), its explanation shown by neo_tooltip on hover
-   * and focus. A lead with more beneath it goes in as a template, so the lead
-   * can stand out; a plain explanation as text.
+   * and focus.
    */
-  let badgeId = 0;
-  function helpBadge(label: string, lead: string, more = ''): HTMLElement {
-    const button = h('button', {
+  function helpBadge(label: string, text: string): HTMLElement {
+    return h('button', {
       type: 'button',
       class: 'form-label-help use-neo-tooltip neo-seo-help-badge',
       'aria-label': label,
+      'data-tippy-content': text,
     }, [h('span', { 'aria-hidden': 'true' }, ['?'])]);
-    if (more) {
-      badgeId += 1;
-      const key = `neoSeoAnalysis${badgeId}`;
-      drupalSettings.neoTooltipTemplates = drupalSettings.neoTooltipTemplates || {};
-      drupalSettings.neoTooltipTemplates[key] = `<p class="neo-seo-help-badge__lead">${Drupal.checkPlain(lead)}</p><p class="neo-seo-help-badge__more">${Drupal.checkPlain(more)}</p>`;
-      button.setAttribute('data-tippy-template', key);
-    }
-    else {
-      button.setAttribute('data-tippy-content', lead);
-    }
-    return button;
   }
 
   /** Binds neo_tooltip to the badges in a subtree, or releases them. */
@@ -123,34 +111,6 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       Drupal.behaviors.neoTooltip?.detach?.(element, drupalSettings, 'unload');
     },
   };
-
-  /**
-   * Moves a control's help (the hint and the "What's this?" text the widget
-   * prints under it) into a help badge beside its label. The hint stays in
-   * the page, visually hidden, so the control is still described by it.
-   */
-  function compactHelp(field: HTMLElement): void {
-    const help = field.querySelector<HTMLElement>(':scope > .neo-seo-help');
-    const label = field.querySelector<HTMLElement>('label');
-    if (!help || !label || field.dataset.neoSeoCompact) {
-      return;
-    }
-    field.dataset.neoSeoCompact = 'true';
-    const hint = help.querySelector<HTMLElement>('.neo-seo-help__hint');
-    const more = help.querySelector<HTMLElement>('.neo-seo-help__more > p')?.textContent ?? '';
-    const name = (label.textContent ?? '').replace(/\*/g, '').trim();
-    // Beside the label, not in it: inside, the badge's own name would join the
-    // control's ("Focus keyphrase About Focus keyphrase").
-    label.after(helpBadge(Drupal.t('About @name', { '@name': name }), hint?.textContent ?? '', more));
-    if (hint) {
-      hint.classList.add('visually-hidden');
-      help.replaceWith(hint);
-    }
-    else {
-      help.remove();
-    }
-    tooltips.attach(field);
-  }
 
   /**
    * One worker per page, shared by every analyzer; answers go to whoever asked.
@@ -546,13 +506,11 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     const body = context.section('analysis', Drupal.t('Content analysis'));
     body.classList.add('neo-seo-analysis');
     // The inputs analysis reads sit with its results. Moved, not copied: they
-    // stay the host's controls and save the way they always did. What each
-    // score means is behind the (i) by its heading, and the controls' help
-    // behind one by their labels.
+    // stay the host's controls and save the way they always did, help badge
+    // and all. What each score means is behind the "?" by its heading.
     (['keyphrase', 'cornerstone'] as NeoSeoOverrideKey[]).forEach((key) => {
       const control = context.host.control(key);
       if (control) {
-        compactHelp(control);
         body.append(control);
       }
     });
@@ -605,7 +563,6 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     (['keyphrase', 'cornerstone'] as NeoSeoOverrideKey[]).forEach((key) => {
       const control = host.control(key);
       if (control) {
-        compactHelp(control);
         fields.append(control);
       }
     });

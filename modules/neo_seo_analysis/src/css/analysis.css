@@ -388,38 +388,9 @@
   white-space: nowrap;
 }
 
-/*
- * Help badges: the site's own "?" (form-label-help), its text shown by
- * neo_tooltip. A lead with more beneath it is a template, so the lead can
- * stand out.
- */
-/* Beside a field's label: on its line, whether the label is a block or sits in
-   a flex row with a switch. */
-.neo-seo-field label:has(+ .neo-seo-help-badge) {
-  display: inline-flex;
-}
-
-.neo-seo-field label + .neo-seo-help-badge {
-  margin-left: 0.375rem;
-  vertical-align: middle;
-}
-
+/* The "?" beside a score's heading: the site's own badge (form-label-help). */
 .neo-seo-analysis__heading .neo-seo-help-badge {
   font-weight: 400;
-}
-
-.neo-seo-help-badge__lead,
-.neo-seo-help-badge__more {
-  margin: 0;
-  max-width: 18rem;
-}
-
-.neo-seo-help-badge__lead {
-  font-weight: 600;
-}
-
-.neo-seo-help-badge__lead + .neo-seo-help-badge__more {
-  margin-top: 0.375rem;
 }
 
 /* The dropdown's last line: the analysis status, and the way to the fields. */

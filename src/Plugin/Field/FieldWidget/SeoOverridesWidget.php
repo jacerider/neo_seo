@@ -152,11 +152,12 @@ class SeoOverridesWidget extends WidgetBase {
   }
 
   /**
-   * Gives a control a visible one-line hint and a "What's this?" expander.
+   * Gives a control its help: a one-line hint and the longer explanation.
    *
-   * Wrapped together with the control (.neo-seo-field), so the SEO panel keeps
-   * them together wherever it moves the control. Not a #description: those may
-   * become tooltips, and this help is meant to be read where it stands.
+   * As the control's #description, like the fields beside it, so it is shown
+   * the way the site shows every description: behind a "?" badge where
+   * neo_tooltip makes descriptions tooltips, under the field where it does
+   * not. Either way the control is described by it.
    *
    * @param array $element
    *   The control.
@@ -166,16 +167,8 @@ class SeoOverridesWidget extends WidgetBase {
    *   The longer explanation.
    */
   protected function help(array &$element, TranslatableMarkup $hint, TranslatableMarkup $more): void {
-    $id = Html::getUniqueId('neo-seo-help');
-    $element['#attached']['library'][] = 'neo_seo/help';
-    $element['#attributes']['aria-describedby'] = $id;
-    $element['#prefix'] = Markup::create('<div class="neo-seo-field">');
-    $element['#suffix'] = Markup::create(
-      '<div class="neo-seo-help">'
-      . '<p class="neo-seo-help__hint" id="' . $id . '">' . Html::escape((string) $hint) . '</p>'
-      . '<details class="neo-seo-help__more"><summary>' . Html::escape((string) $this->t('What’s this?')) . '</summary>'
-      . '<p>' . Html::escape((string) $more) . '</p></details>'
-      . '</div></div>'
+    $element['#description'] = Markup::create(
+      '<strong>' . Html::escape((string) $hint) . '</strong> ' . Html::escape((string) $more)
     );
   }
 
