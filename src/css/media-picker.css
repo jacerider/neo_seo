@@ -1,0 +1,81 @@
+/*
+ * The media picker (neo_seo_media): a thumbnail and name, then the buttons
+ * that change it.
+ *
+ * It rides in the form element's field suffix, which a theme may draw as a
+ * small inline note beside an input; this one's input is hidden, so the
+ * suffix takes the row.
+ */
+.field-suffix:has(> .neo-seo-media) {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: inherit;
+  white-space: normal;
+}
+.neo-seo-media {
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid rgb(var(--color-base-200, 229 231 235));
+  border-radius: 0.375rem;
+}
+
+.neo-seo-media__preview {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.neo-seo-media__thumb {
+  flex: none;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.25rem;
+  object-fit: cover;
+}
+
+.neo-seo-media__name {
+  overflow: hidden;
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neo-seo-media__empty {
+  font-size: 0.875rem;
+  color: rgb(var(--color-base-500, 107 114 128));
+}
+
+.neo-seo-media__actions {
+  display: flex;
+  gap: 0.375rem;
+}
+
+/* The automatic image, shown while none is chosen (the SEO panel). */
+.neo-seo-media-auto {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: rgb(var(--color-base-600, 75 85 99));
+}
+
+.neo-seo-media-auto[hidden] {
+  display: none;
+}
+
+.neo-seo-media-auto img {
+  flex: none;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.25rem;
+  object-fit: cover;
+}

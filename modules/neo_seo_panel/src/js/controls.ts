@@ -52,17 +52,22 @@ export function input(root: Scope, key: NeoSeoOverrideKey): Control | null {
 /** The form item wrapping a control, its description (and help badge) included. */
 export function wrapper(root: Scope, key: NeoSeoOverrideKey): HTMLElement | null {
   const control = input(root, key);
-  if (!control || (control instanceof HTMLInputElement && control.type === 'hidden')) {
+  // Hidden inputs are the scores, which have no form item to show; the media
+  // picker's value is hidden too, but its form item is the picker.
+  if (!control || (control instanceof HTMLInputElement && control.type === 'hidden' && !control.hasAttribute('data-neo-seo-media'))) {
     return null;
   }
   return control.closest<HTMLElement>('.form-item, .js-form-item')
     ?? control;
 }
 
-/** The media id in an entity autocomplete's "Label (12)". */
+/**
+ * The media id a share image control holds: the media picker's plain "12",
+ * or an entity autocomplete's "Label (12)".
+ */
 function mediaId(value: string): number | null {
-  const match = /\((\d+)\)\s*$/.exec(value.trim());
-  return match ? Number(match[1]) : null;
+  const match = /^(\d+)$|\((\d+)\)\s*$/.exec(value.trim());
+  return match ? Number(match[1] ?? match[2]) : null;
 }
 
 function score(value: string): number | null {

@@ -12,6 +12,7 @@ use Drupal\Core\Field\WidgetBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Markup;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
+use Drupal\neo_seo\Element\MediaPicker;
 use Drupal\neo_seo\Mapping\BundleMappingRepository;
 use Drupal\neo_seo\Plugin\Field\FieldType\SeoOverridesItem;
 use Drupal\neo_seo\Schema\SchemaTypes;
@@ -80,12 +81,20 @@ class SeoOverridesWidget extends WidgetBase {
       '#rows' => 3,
       '#description' => $this->t('Replaces the description template. Search results show about 155 characters.'),
     ];
-    $element['image'] = [
-      '#type' => 'entity_autocomplete',
+    // The media library where it is enabled; an autocomplete otherwise.
+    $element['image'] = MediaPicker::available()
+      ? [
+        '#type' => 'neo_seo_media',
+        '#default_value' => $item->image ? (string) $item->image : '',
+      ]
+      : [
+        '#type' => 'entity_autocomplete',
+        '#target_type' => 'media',
+        '#default_value' => $item->image ? $this->entityTypeManager->getStorage('media')->load($item->image) : NULL,
+      ];
+    $element['image'] += [
       '#title' => $this->t('Share image'),
-      '#target_type' => 'media',
-      '#default_value' => $item->image ? $this->entityTypeManager->getStorage('media')->load($item->image) : NULL,
-      '#description' => $this->t('Shown when the page is shared. 1200×630 works everywhere.'),
+      '#description' => $this->t('Shown when the page is shared. 1200×630 works everywhere. Leave it empty to share the page’s own image.'),
     ];
     $element['keyphrase'] = [
       '#type' => 'textfield',

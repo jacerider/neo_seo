@@ -1,0 +1,14 @@
+# The media picker (neo_seo_media): its preview, Remove, and the command the
+# media library answers with.
+media_picker:
+  version: VERSION
+  neo: { scope: back }
+  css:
+    component:
+      src/css/media-picker.css: {}
+  js:
+    src/js/media-picker.ts: {}
+  dependencies:
+    - core/drupal
+    - core/drupal.ajax
+    - core/once

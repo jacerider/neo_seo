@@ -10,6 +10,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
+use Drupal\neo_seo\Element\MediaPicker;
 use Drupal\neo_seo\SeoOverridesStorage;
 use Drupal\neo_seo\SiteIdentity\IdentitySources;
 use Drupal\neo_seo\SiteIdentity\OrganizationTypes;
@@ -241,12 +242,13 @@ class SeoSettings extends SettingsBase {
       ? ['visible' => [':input[name$="[identity][logo_source]"]' => ['value' => $value]]]
       : [];
     $logo = !empty($identity['logo']) ? $this->entityRepository->loadEntityByUuid('media', $identity['logo']) : NULL;
-    $form['identity']['logo'] = [
-      '#type' => 'entity_autocomplete',
+    // The media library where it is enabled; an autocomplete otherwise.
+    $form['identity']['logo'] = MediaPicker::available()
+      ? ['#type' => 'neo_seo_media', '#default_value' => $logo ? (string) $logo->id() : '']
+      : ['#type' => 'entity_autocomplete', '#target_type' => 'media', '#default_value' => $logo];
+    $form['identity']['logo'] += [
       '#title' => $hasFavicon ? $this->t('Logo media') : $this->t('Logo or image'),
       '#description' => $this->t('An image media item. Google shows an organization’s logo in search results; use a square or wide mark at least 112px across.'),
-      '#target_type' => 'media',
-      '#default_value' => $logo,
       '#states' => $visibleFor('media'),
     ];
     if ($hasFavicon) {

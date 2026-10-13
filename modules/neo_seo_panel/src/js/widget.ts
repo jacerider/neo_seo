@@ -38,6 +38,8 @@ export class SeoPanel {
   protected readonly stages = new Map<PreviewKind['id'], HTMLElement>();
   protected readonly meters: Partial<Record<'title' | 'description', Meter>> = {};
   protected suggestion: { element: HTMLElement; text: HTMLElement } | null = null;
+  /** The image shared while none is chosen, under the share image control. */
+  protected autoImage: { element: HTMLElement; image: HTMLImageElement } | null = null;
   /** The render the paragraphs below were read from. */
   protected suggestFrom: NeoSeoDraftRender | null = null;
   protected suggestBlocks: SuggestBlock[] = [];
@@ -180,6 +182,7 @@ export class SeoPanel {
     this.meters.title = this.meter('title');
     this.meters.description = this.meter('description');
     this.suggestion = this.suggestBox();
+    this.autoImage = this.autoImageBox();
 
     // Extension sections follow the controls.
     this.sections = h('div', { class: 'neo-seo-panel__sections' });
@@ -252,6 +255,36 @@ export class SeoPanel {
     });
     control.append(element);
     return { element, text };
+  }
+
+  /**
+   * What is shared while no share image is chosen: the page's own image, as
+   * the latest render has it. Shown so an editor sees it before choosing.
+   */
+  protected autoImageBox(): { element: HTMLElement; image: HTMLImageElement } | null {
+    const control = this.host.control('image');
+    if (!control) {
+      return null;
+    }
+    const image = h('img', { alt: '', width: '48', height: '48' });
+    const element = h('div', { class: 'neo-seo-media-auto' }, [
+      image,
+      h('span', {}, [Drupal.t('Shared automatically: the page’s own image. Choose one to share another.')]),
+    ]);
+    element.hidden = true;
+    control.append(element);
+    return { element, image };
+  }
+
+  protected showAutoImage(values: NeoSeoOverrides): void {
+    if (!this.autoImage) {
+      return;
+    }
+    const url = this.render?.head.image?.url ?? '';
+    this.autoImage.element.hidden = values.image !== null || url === '';
+    if (url && this.autoImage.image.getAttribute('src') !== url) {
+      this.autoImage.image.setAttribute('src', url);
+    }
   }
 
   protected suggest(values: NeoSeoOverrides): void {
@@ -387,6 +420,7 @@ export class SeoPanel {
     this.measure('title', data.title, !values.title.trim());
     this.measure('description', data.description, !values.description.trim());
     this.suggest(values);
+    this.showAutoImage(values);
     const head = this.render.head;
     this.schema.textContent = head.article_type && head.article_type !== 'None'
       ? Drupal.t('Schema: @page with @article', { '@page': head.page_type, '@article': head.article_type })

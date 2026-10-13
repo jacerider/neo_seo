@@ -178,7 +178,7 @@ holds:
 | Field | Effect |
 |---|---|
 | Title, Description | Replace the templates for this page. Tokens are allowed. |
-| Share image | An image media item; replaces the mapped field and the template. |
+| Share image | An image media item, chosen in the media library (an autocomplete without `media_library`); replaces the mapped field and the template. Empty, the panel shows the image shared automatically. |
 | Page type, Article type | Choose from the types the bundle allows. A type the bundle does not allow is ignored. |
 | Hide from search results | Prints `robots: noindex, follow`. It does not remove the page from a sitemap. |
 | Focus keyphrase, Cornerstone | Used by content analysis. |
