@@ -148,11 +148,13 @@ class SeoOverridesWidget extends WidgetBase {
       '#type' => 'checkbox',
       '#title' => $this->t('Hide from search results'),
       '#default_value' => (bool) $item->noindex,
+      '#neo_size' => 'xs',
     ];
     $element['cornerstone'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Cornerstone content'),
       '#default_value' => (bool) $item->cornerstone,
+      '#neo_size' => 'xs',
       '#neo_seo_section' => 'seo',
     ];
 
