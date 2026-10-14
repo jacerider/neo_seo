@@ -114,7 +114,7 @@ The pieces, and when each appears:
 | BreadcrumbList | `{canonical}#breadcrumb` | Every page but the front page, built from the site's breadcrumb |
 | Article (+ article type) | `{canonical}#article` | When the bundle or editor makes the page an article |
 | Person | `{site}/#/schema/person/{uuid}` | The subject of a profile page, and each article author |
-| Component pieces | `{canonical}#{type}-{uuid}` | When a component on the page declares one |
+| Component nodes | as declared, else `{canonical}#{type}-{uuid}` (`-{row}` when repeated) | When a component on the page declares them (`seo` in its `.component.yml`) |
 
 The `@id` suffixes are the ones Yoast uses, so tools that know Yoast's graph read this one too. A
 person keeps the same `@id` on their own profile page and as an author everywhere else, because the
@@ -233,28 +233,46 @@ set and below front, 403 and 404. They are stored in the view's own config.
 
 ## Components that add to the graph
 
-With `neo_alchemist`, a component can add itself to the page's graph by declaring a piece in its
-`.component.yml`. No PHP is needed:
+With `neo_alchemist`, a component adds nodes to the page's graph by declaring them in its
+`.component.yml`, under a top-level `seo` key. No PHP is needed. The declaration is shaped like
+the JSON-LD it produces:
 
 ```yaml
-thirdPartySettings:
-  neo_seo:
-    pieces:
-      - type: VideoObject
-        properties:
-          name: title            # a prop name…
-          contentUrl: video.src  # …then keys into its resolved value
-          thumbnailUrl: video.poster
+seo:
+  - '@type': ProfessionalService
+    '@each': locations as office
+    '@id': '#office-{{ office.title|slug }}'
+    '@required': [name, address]
+    name: '{{ office.title }}'
+    address: '{{ office.address|postal_address }}'
+    hasMap: '{{ office.directions|url }}'
+    geo:
+      '@type': GeoCoordinates
+      '@if': '{{ office.latitude }}'
+      latitude: '{{ office.latitude }}'
+      longitude: '{{ office.longitude }}'
+    parentOrganization: '{{ graph.organization }}'
 ```
 
-- **How values are read:** properties are read from the prop's resolved value, so bindings to
-  entity fields work.
-- **What is skipped:** unpublished instances, and ones the visitor cannot see.
-- **Output:** one node per instance, `isPartOf` the page.
+- **Values:** `{{ path }}` reads a prop, a row, or a reserved root (`page.url|title|language`,
+  `site.name|url`, and `graph.organization|website|page`, which print a reference); anything else
+  is literal. A value that is exactly one placeholder keeps its type; placeholders in text are
+  filled in as text. Props are read as resolved, so bindings to entity fields work.
+- **Directives:** `@each: <list> as <name>` repeats a node, or builds a list inside a property, at
+  any depth. `@if: '{{ path }}'` (or `'not {{ path }}'`) keeps a node only when the value is
+  truthy. `@required` drops a node missing the properties it lists. `@id` is optional; a
+  `#fragment` is page-scoped, and a declared id two nodes share takes `-2`.
+- **Filters:** `postal_address`, `url`, `image`, `text`, `date`, `slug`, `first`, `join('sep')`.
+- **What is skipped:** unpublished instances, ones the visitor cannot see, empty values, and
+  objects left with only their `@type`.
 - **VideoObject checks:** a VideoObject must have a name, a thumbnail, an upload date and either a
   content or an embed URL. The upload date falls back to the page's published date and the name to
   the page title. A node still missing something is left out and logged once, never emitted
   invalid.
+- **While building a component:** `drush neo:alchemist:validate` lints the declaration (syntax,
+  paths, filters), `drush neo-seo:component <id>` prints the JSON-LD the examples produce, and the
+  component audit reports a node a page would leave out. The preview page's audit badge shows the
+  same JSON-LD.
 
 The neo-component skill has the full reference.
 
@@ -340,6 +358,7 @@ thresholds.
 
 ```bash
 ddev exec npm ci --prefix web/modules/contrib/neo_seo/tools/validate   # once per environment
+ddev drush neo-seo:component front:locations                        # what a component declares
 ddev drush neo-seo:validate --insecure                                 # a sample of every kind of page
 ddev drush neo-seo:validate --insecure --url=/about --warnings         # one page, with warnings
 ```

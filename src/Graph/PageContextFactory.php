@@ -101,6 +101,27 @@ class PageContextFactory {
   }
 
   /**
+   * The context of an example page, for a component shown on its own.
+   *
+   * A page of the site at `{site}example-page`, titled "Example page", with
+   * no entity: what a component's declared schema would look like on any
+   * page that places it.
+   */
+  public function example(): PageContext {
+    $site = $this->configFactory->get('system.site');
+    $siteUrl = $this->siteUrl();
+    $context = new PageContext(
+      siteUrl: $siteUrl,
+      canonicalUrl: $siteUrl . 'example-page',
+      langcode: $this->languageManager->getCurrentLanguage()->getId(),
+      siteName: (string) $site->get('name'),
+      title: 'Example page',
+    );
+    $context->addCacheableDependency($site);
+    return $context;
+  }
+
+  /**
    * Builds the context from the current route.
    */
   protected function build(): PageContext {

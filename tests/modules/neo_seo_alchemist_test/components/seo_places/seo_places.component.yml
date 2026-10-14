@@ -1,0 +1,72 @@
+$schema: 'https://git.drupalcode.org/project/drupal/-/raw/10.1.x/core/modules/sdc/src/metadata.schema.json'
+name: 'SEO places fixture'
+description: >
+  A list of places that declares one node per row: an address, a link, a
+  point only where it has coordinates, a nested list of features, an @id from
+  its name (two rows share one), and a row without a name, which is dropped.
+status: stable
+neo: true
+props:
+  type: object
+  properties:
+    title:
+      type: string
+      title: Title
+      examples: ['Our places']
+    places:
+      type: array
+      title: Places
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+            title: Name
+          address:
+            type: address
+            title: Address
+          link:
+            type: url
+            title: Link
+          lat:
+            type: number
+            title: Latitude
+          lng:
+            type: number
+            title: Longitude
+          features:
+            type: array
+            title: Features
+            items:
+              type: string
+      examples:
+        - name: 'Main Office'
+          address: { address_line1: '1 Main St', address_line2: 'Suite 2', locality: Springfield, administrative_area: OR, postal_code: '97477', country_code: US }
+          link: { uri: 'https://maps.example.com/main', title: Map }
+          lat: 44.05
+          lng: -123.02
+          features: [Parking, 'Step-free access']
+        - name: 'Main Office'
+          address: { address_line1: '9 Side St', locality: Shelbyville, administrative_area: OR, postal_code: '97000', country_code: US }
+        - address: { address_line1: '5 Nowhere Rd', locality: Ogdenville, country_code: US }
+seo:
+  - '@type': Place
+    '@each': places as place
+    '@id': '#place-{{ place.name|slug }}'
+    '@required': [name]
+    name: '{{ place.name }}'
+    description: '{{ place.name }} — one of {{ title }}'
+    address: '{{ place.address|postal_address }}'
+    hasMap: '{{ place.link|url }}'
+    geo:
+      '@type': GeoCoordinates
+      '@if': '{{ place.lat }}'
+      latitude: '{{ place.lat }}'
+      longitude: '{{ place.lng }}'
+    amenityFeature:
+      '@each': place.features as feature
+      '@type': LocationFeatureSpecification
+      name: '{{ feature }}'
+      value: true
+    containedInPlace: '{{ graph.organization }}'
+    url: '{{ page.url }}'

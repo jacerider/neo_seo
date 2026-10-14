@@ -15,11 +15,8 @@ props:
     poster:
       type: string
       title: Poster URL
-thirdPartySettings:
-  neo_seo:
-    pieces:
-      - type: VideoObject
-        properties:
-          name: title
-          contentUrl: video_url
-          thumbnailUrl: poster
+seo:
+  - '@type': VideoObject
+    name: '{{ title }}'
+    contentUrl: '{{ video_url }}'
+    thumbnailUrl: '{{ poster }}'

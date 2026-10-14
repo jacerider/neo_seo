@@ -136,8 +136,22 @@ services:
 
   neo_seo.component_pieces:
     class: Drupal\neo_seo\Alchemist\ComponentPieceCollector
-    arguments: ['@module_handler', '@logger.channel.neo_seo']
+    arguments: ['@module_handler', '@logger.channel.neo_seo', '@neo_seo.component_schema', '@neo_seo.schema_ids']
   Drupal\neo_seo\Alchemist\ComponentPieceCollector: '@neo_seo.component_pieces'
+
+  # The `seo` declaration of a component's .component.yml: its filters, the
+  # evaluator building its nodes, and the static checks behind the lint.
+  neo_seo.component_schema_filters:
+    class: Drupal\neo_seo\ComponentSchema\Filters
+    arguments: ['@file_url_generator', '@stream_wrapper_manager', '@transliteration']
+  Drupal\neo_seo\ComponentSchema\Filters: '@neo_seo.component_schema_filters'
+  neo_seo.component_schema:
+    class: Drupal\neo_seo\ComponentSchema\Evaluator
+    arguments: ['@neo_seo.component_schema_filters', '@neo_seo.schema_ids']
+  Drupal\neo_seo\ComponentSchema\Evaluator: '@neo_seo.component_schema'
+  neo_seo.component_schema_linter:
+    class: Drupal\neo_seo\ComponentSchema\DeclarationLinter
+  Drupal\neo_seo\ComponentSchema\DeclarationLinter: '@neo_seo.component_schema_linter'
 
   neo_seo.diff_mode:
     class: Drupal\neo_seo\Migration\DiffMode

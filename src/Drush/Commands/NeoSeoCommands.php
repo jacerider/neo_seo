@@ -8,6 +8,10 @@ use Consolidation\AnnotatedCommand\CommandResult;
 use Consolidation\OutputFormatters\StructuredData\RowsOfFields;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\File\FileSystemInterface;
+use Drupal\Core\Render\RenderContext;
+use Drupal\Core\Render\RendererInterface;
+use Drupal\neo_seo\Alchemist\ComponentPieceCollector;
+use Drupal\neo_seo\Graph\PageContextFactory;
 use Drupal\neo_seo\Migration\HeadDiff;
 use Drupal\neo_seo\Migration\MetatagMigrator;
 use Drupal\neo_seo\Validation\StructuredDataValidator;
@@ -16,6 +20,7 @@ use Drush\Attributes as CLI;
 use Drush\Commands\AutowireTrait;
 use Drush\Commands\DrushCommands;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Drush commands for neo_seo.
@@ -37,6 +42,14 @@ final class NeoSeoCommands extends DrushCommands {
     private readonly ConfigFactoryInterface $configFactory,
     #[Autowire(service: 'file_system')]
     private readonly FileSystemInterface $fileSystem,
+    #[Autowire(service: 'neo_seo.component_pieces')]
+    private readonly ComponentPieceCollector $componentPieces,
+    #[Autowire(service: 'neo_seo.page_context_factory')]
+    private readonly PageContextFactory $pageContexts,
+    #[Autowire(service: 'renderer')]
+    private readonly RendererInterface $renderer,
+    #[Autowire(service: 'service_container')]
+    private readonly ContainerInterface $container,
   ) {
     parent::__construct();
   }
@@ -284,6 +297,48 @@ final class NeoSeoCommands extends DrushCommands {
       '@type' => $issue['type'],
       '@message' => $issue['message'],
     ]);
+  }
+
+  /**
+   * Prints the JSON-LD a component's `seo` declaration produces.
+   *
+   * Built from the component's examples, on an example page: what any page
+   * placing the component would get. Nodes the page would leave out are
+   * listed after it, with what each is missing; the command then exits
+   * non-zero. Needs neo_alchemist.
+   */
+  #[CLI\Command(name: 'neo-seo:component', aliases: ['nsc'])]
+  #[CLI\Argument(name: 'component', description: 'The SDC component id, e.g. front:locations.')]
+  #[CLI\Usage(name: 'drush neo-seo:component front:locations', description: 'Show the schema the component adds to a page.')]
+  public function component(string $component): int {
+    if (!$this->container->has('neo_alchemist.preview_builder')) {
+      $this->io()->error('Components declare schema through neo_alchemist, which is not enabled.');
+      return self::EXIT_FAILURE;
+    }
+    $entity = $this->container->get('neo_alchemist.preview_builder')->build($component);
+    if (!$entity) {
+      $this->io()->error(sprintf('"%s" is not a Neo component. Run `drush neo:alchemist:components`.', $component));
+      return self::EXIT_FAILURE;
+    }
+    if (empty($entity->getComponentDefinition()['seo'])) {
+      $this->io()->note(sprintf('%s declares no schema (no `seo` key in its .component.yml).', $component));
+      return self::EXIT_SUCCESS;
+    }
+    $page = $this->pageContexts->example();
+    $result = $this->renderer->executeInRenderContext(new RenderContext(), fn() => $this->componentPieces->preview($entity, $page));
+    $this->output()->writeln(ComponentPieceCollector::json($result['nodes']));
+    if (!$result['dropped']) {
+      return self::EXIT_SUCCESS;
+    }
+    foreach ($result['dropped'] as $piece) {
+      $this->io()->warning(sprintf(
+        'Left out: the %s%s has no %s.',
+        $piece['type'],
+        $piece['index'] !== NULL ? ' of row ' . $piece['index'] : '',
+        implode(', ', $piece['missing']),
+      ));
+    }
+    return self::EXIT_FAILURE;
   }
 
 }
