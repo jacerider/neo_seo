@@ -319,14 +319,22 @@ class BundleMappingTest extends NeoSeoKernelTestBase {
   }
 
   /**
-   * Without authors the Article has only its publisher.
+   * Without authors the site identity is the Article's author.
+   *
+   * With an author field that references no one, and with none mapped.
    */
   public function testNoAuthors(): void {
     $this->map(['article_type' => 'Article', 'author_field' => 'field_related_people']);
     [$document, $tags] = $this->page($this->insight());
     $article = $this->assertGraphNode($document, $tags['neo_seo_canonical'] . '#article');
-    $this->assertArrayNotHasKey('author', $article);
-    $this->assertArrayHasKey('publisher', $article);
+    $this->assertSame([$article['publisher']], $article['author'], 'The publisher is the author.');
+    $this->assertStringEndsWith('#organization', $article['publisher']['@id']);
+    $this->assertGraphReferencesResolve($document);
+
+    $this->map(['article_type' => 'Article', 'author_field' => '']);
+    [$document, $tags] = $this->page($this->insight());
+    $article = $this->assertGraphNode($document, $tags['neo_seo_canonical'] . '#article');
+    $this->assertSame([$article['publisher']], $article['author'], 'No author field: the same.');
   }
 
   /**
@@ -360,6 +368,8 @@ class BundleMappingTest extends NeoSeoKernelTestBase {
 
   /**
    * Share images are served through the share image style, at its size.
+   *
+   * Unless the style would enlarge one: that is shared as it is.
    */
   public function testShareImageStyle(): void {
     $style = ImageStyle::create(['name' => 'neo_social', 'label' => 'Social']);
@@ -379,6 +389,12 @@ class BundleMappingTest extends NeoSeoKernelTestBase {
     $this->assertSame('30', $tags['neo_seo_og_image_height']);
     $image = $this->assertGraphNode($document, $tags['neo_seo_canonical'] . '#primaryimage');
     $this->assertSame($tags['neo_seo_og_image'], $image['contentUrl']);
+
+    // An image smaller than the card is not enlarged into it: the original.
+    [, $tags] = $this->page($this->insight(['field_media' => $this->image('small', 40, 20)->id()]));
+    $this->assertStringNotContainsString('/styles/', $tags['neo_seo_og_image']);
+    $this->assertSame('40', $tags['neo_seo_og_image_width']);
+    $this->assertSame('20', $tags['neo_seo_og_image_height']);
 
     // With no style set, the original.
     $this->config('neo_seo.settings')->set('share_image_style', '')->save();

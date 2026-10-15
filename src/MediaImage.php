@@ -85,6 +85,10 @@ class MediaImage {
   /**
    * An image file's URL and dimensions, through the share style if asked.
    *
+   * Never enlarged: when the style would make the image bigger than it is (a
+   * small image cropped up to the card), the file is shared as it is. With
+   * its dimensions unknown the style is used.
+   *
    * @param string $uri
    *   The file URI.
    * @param int|null $width
@@ -102,6 +106,15 @@ class MediaImage {
     if ($style && $style->supportsUri($uri)) {
       $dimensions = ['width' => $width, 'height' => $height];
       $style->transformDimensions($dimensions, $uri);
+      $enlarged = $width !== NULL && $height !== NULL
+        && ((int) $dimensions['width'] > $width || (int) $dimensions['height'] > $height);
+      if ($enlarged) {
+        return [
+          'url' => $this->fileUrlGenerator->generateAbsoluteString($uri),
+          'width' => $width,
+          'height' => $height,
+        ];
+      }
       return [
         'url' => $style->buildUrl($uri),
         'width' => $dimensions['width'] !== NULL ? (int) $dimensions['width'] : NULL,

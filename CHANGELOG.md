@@ -1,5 +1,19 @@
 # Changelog
 
+## An Article without authors names the site as its author
+
+**An Article whose author field referenced no one had no author.** The site
+identity — the organization, or the person a personal site is — is now its
+author, as it is already its publisher. Google recommends an author on every
+Article and accepts an organization. A bundle with an author field still lists
+the people it references; the site is only the fallback.
+
+## A share image is never enlarged
+
+A share image the share image style would make bigger than it is — a small image
+cropped up to 1200×630 — is now shared as it is, at its own size, instead of
+enlarged and blurred. Larger images go through the style as before.
+
 ## A component declares its schema under a top-level `seo` key
 
 **Breaking: `thirdPartySettings.neo_seo.pieces` is no longer read.** A component

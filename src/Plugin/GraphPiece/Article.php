@@ -16,8 +16,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * The page's Article, when its bundle or its editor says it is one.
  *
- * Its authors are the people its bundle's author field references; without
- * any, the Article carries only its publisher.
+ * Its authors are the people its bundle's author field references. Without
+ * any — no author field mapped, or none filled — the site identity (the
+ * organization, or the person a personal site is) is the author, as it is the
+ * publisher: Google recommends an author on every Article, and an
+ * organization is one it accepts.
  */
 #[GraphPiece(
   id: 'article',
@@ -59,6 +62,11 @@ class Article extends GraphPieceBase {
     $values = $this->headValues->resolve($context);
     $image = $values->image();
     $webPage = SchemaIds::ref($this->ids->webPage($context));
+    $identity = SchemaIds::ref($this->ids->siteIdentity($context));
+    $authors = array_map(
+      fn($author) => SchemaIds::ref($this->people->id($context, $author)),
+      $this->people->authors($context),
+    );
     return [
       [
         '@type' => $values->articleType,
@@ -67,11 +75,8 @@ class Article extends GraphPieceBase {
         'description' => $values->get('description'),
         'isPartOf' => $webPage,
         'mainEntityOfPage' => $webPage,
-        'author' => array_map(
-          fn($author) => SchemaIds::ref($this->people->id($context, $author)),
-          $this->people->authors($context),
-        ),
-        'publisher' => SchemaIds::ref($this->ids->siteIdentity($context)),
+        'author' => $authors ?: [$identity],
+        'publisher' => $identity,
         'image' => $image ? SchemaIds::ref($this->ids->primaryImage($context)) : NULL,
         'thumbnailUrl' => $image['url'] ?? NULL,
         'datePublished' => $values->datePublished,
