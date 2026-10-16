@@ -7,6 +7,7 @@ namespace Drupal\neo_seo\Schemamap;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Cache\Context\CacheContextsManager;
 use Drupal\Core\Cache\MemoryCache\MemoryCacheInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
@@ -38,7 +39,9 @@ use Drupal\neo_seo\Head\HeadValuesResolver;
  * line.
  *
  * Building a page's graph resolves what its layout shows, so each entity's
- * nodes are cached, invalidated by what they were built from.
+ * nodes are cached, invalidated by what they were built from, and kept apart
+ * per site address: the nodes' @ids are absolute URLs, so a feed built from
+ * Drush (http://) must not be served to a visitor on https://.
  */
 class SchemamapBuilder {
 
@@ -65,6 +68,8 @@ class SchemamapBuilder {
    *   Building a graph may render.
    * @param \Drupal\Core\Cache\MemoryCache\MemoryCacheInterface $memoryCache
    *   The entity memory cache, emptied between entities.
+   * @param \Drupal\Core\Cache\Context\CacheContextsManager $cacheContexts
+   *   Keys each entity's nodes by the site's address.
    * @param int $perPage
    *   How many entities a feed page holds.
    */
@@ -79,6 +84,7 @@ class SchemamapBuilder {
     protected AccountSwitcherInterface $accountSwitcher,
     protected RendererInterface $renderer,
     protected MemoryCacheInterface $memoryCache,
+    protected CacheContextsManager $cacheContexts,
     protected int $perPage = 100,
   ) {}
 
@@ -146,6 +152,7 @@ class SchemamapBuilder {
   public function nodes(string $entityTypeId, string $bundle, int $page, CacheableMetadata $cacheability): array {
     $cacheability->addCacheableDependency($this->configFactory->get('neo_seo.settings'));
     $cacheability->addCacheTags([$entityTypeId . '_list']);
+    $cacheability->addCacheContexts(['url.site']);
     $definition = $this->entityTypeManager->getDefinition($entityTypeId);
     $ids = $this->query($entityTypeId, $bundle)
       ->sort($definition->getKey('id'))
@@ -193,6 +200,7 @@ class SchemamapBuilder {
       $entity->getEntityTypeId(),
       $entity->id(),
       $entity->language()->getId(),
+      ...$this->cacheContexts->convertTokensToKeys(['url.site'])->getKeys(),
     ]);
     if ($cached = $this->cache->get($cid)) {
       $cacheability->addCacheTags($cached->tags);

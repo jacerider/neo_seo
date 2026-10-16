@@ -290,8 +290,8 @@ visualizer shows the whole site's graph, not one page's.
 - **What is left out:** what an anonymous visitor may not see, a page kept out of search
   results, and a bundle whose robots default is `noindex`. Views pages are not listed.
 - **Built** as an anonymous visitor, from each entity's page as the head and graph would print
-  it. Each entity's nodes are cached and invalidated by what they were built from; the feed
-  responses are cacheable like any page.
+  it. Each entity's nodes are cached and invalidated by what they were built from, per site
+  address (the @ids are absolute URLs); the feed responses are cacheable like any page.
 - **robots.txt:** with the robotstxt module, a `Sitemap:` line is added. A static robots.txt
   takes it by hand: `Sitemap: https://example.com/schemamap.xml`.
 - **Turning it off:** *Publish a schemamap* in the settings (on by default; `neo_seo_update_11002`
@@ -300,10 +300,13 @@ visualizer shows the whole site's graph, not one page's.
 ```bash
 ddev drush neo-seo:schemamap           # the feeds /schemamap.xml lists
 ddev drush neo-seo:schemamap --warm    # build and cache every feed, e.g. after a deploy
+drush --uri=https://example.com neo-seo:schemamap --warm   # on a host, at the address visitors use
 ```
 
 A feed built cold resolves every page's layout, about a second for a hundred simple pages and
-more for pages that list many things; warmed, it is served from the cache.
+more for pages that list many things; warmed, it is served from the cache. The cache is kept per
+site address, so warm with the `--uri` visitors use: Drush's default is often `http://`, and
+warming that fills a cache an `https://` site never reads.
 
 ## The SEO panel (`neo_seo_panel`)
 

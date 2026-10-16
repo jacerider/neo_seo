@@ -151,6 +151,7 @@ services:
       - '@account_switcher'
       - '@renderer'
       - '@entity.memory_cache'
+      - '@cache_contexts_manager'
       - '%neo_seo.schemamap.per_page%'
   Drupal\neo_seo\Schemamap\SchemamapBuilder: '@neo_seo.schemamap'
 

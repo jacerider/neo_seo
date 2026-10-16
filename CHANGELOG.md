@@ -1,5 +1,14 @@
 # Changelog
 
+## Schemamap feeds carry the site's own address
+
+**A feed warmed from Drush listed every @id as `http://` on an `https://` site**, so the
+schema visualizer could not join the feeds' nodes to the pages' own graphs. Each entity's
+cached nodes were keyed without the site's address, and whichever request built them first
+fixed it for everyone. They are now kept per address (the `url.site` cache context). Warm at
+the address visitors use — `drush --uri=https://example.com neo-seo:schemamap --warm` — and
+the command warns when it is warming for `http://`.
+
 ## Schemamap feeds build within a request's memory
 
 **Feeds of pages with large layouts failed (502) on a host with a memory limit.** Building

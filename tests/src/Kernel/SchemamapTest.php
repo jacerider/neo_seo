@@ -117,6 +117,21 @@ class SchemamapTest extends NeoSeoKernelTestBase {
   }
 
   /**
+   * A feed built at one address is not served at another.
+   *
+   * The @ids are absolute: warmed from Drush on http://, they must not reach
+   * a visitor on https://.
+   */
+  public function testFeedPerAddress(): void {
+    $one = $this->page('One');
+    $this->assertContains('http://localhost/node/' . $one->id(), array_column($this->feed('/neo-seo/schema/node/page'), '@id'));
+    $secure = array_column($this->feed('https://localhost/neo-seo/schema/node/page'), '@id');
+    $this->assertContains('https://localhost/node/' . $one->id(), $secure);
+    $this->assertContains('https://localhost/#organization', $secure);
+    $this->assertEmpty(preg_grep('#^http://#', $secure), 'Nothing built for http:// on https://.');
+  }
+
+  /**
    * Unknown feeds are not found; the setting turns the whole thing off.
    */
   public function testNotFound(): void {

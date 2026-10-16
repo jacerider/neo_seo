@@ -368,6 +368,12 @@ final class NeoSeoCommands extends DrushCommands {
       $this->io()->note('No feeds: no published pages with per-page SEO.');
       return self::EXIT_SUCCESS;
     }
+    // The cache is kept per site address: warmed for another than visitors
+    // use, the feeds stay cold for them.
+    $site = Url::fromRoute('<front>', [], ['absolute' => TRUE])->toString();
+    if ($options['warm'] && str_starts_with($site, 'http://')) {
+      $this->io()->warning(sprintf('Warming for %s. If visitors use https://, pass --uri=https://… or this fills a cache they never read.', $site));
+    }
     $rows = [];
     $progress = $options['warm'] ? $this->io()->createProgressBar(count($feeds)) : NULL;
     $progress?->start();
