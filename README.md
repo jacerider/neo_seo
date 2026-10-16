@@ -292,8 +292,12 @@ visualizer shows the whole site's graph, not one page's.
 - **Built** as an anonymous visitor, from each entity's page as the head and graph would print
   it. Each entity's nodes are cached and invalidated by what they were built from, per site
   address (the @ids are absolute URLs); the feed responses are cacheable like any page.
-- **robots.txt:** with the robotstxt module, a `Sitemap:` line is added. A static robots.txt
-  takes it by hand: `Sitemap: https://example.com/schemamap.xml`.
+- **robots.txt:** with the robotstxt module, a `Schemamap:` directive is added. A static
+  robots.txt takes it by hand: `Schemamap: https://example.com/schemamap.xml`. It is the
+  [Schema Feeds](https://github.com/nlweb-ai/website/blob/main/SCHEMA_SPEC.md) directive, which
+  the Yoast visualizer and NLWeb agents look for, not `Sitemap:`. A host that serves its own
+  robots.txt (Pantheon on `*.pantheonsite.io`) hides it; give the visualizer
+  `/schemamap.xml` itself there.
 - **Turning it off:** *Publish a schemamap* in the settings (on by default; `neo_seo_update_11002`
   turns it on for existing sites). The routes then answer 404.
 

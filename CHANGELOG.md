@@ -1,5 +1,14 @@
 # Changelog
 
+## The schemamap is announced with a `Schemamap:` directive
+
+**The Yoast visualizer did not find a site's schemamap from its home page.** robots.txt carried
+it as `Sitemap:`, but the Schema Feeds specification, which the visualizer and NLWeb agents
+follow, announces it with its own `Schemamap:` directive. The robotstxt module now prints
+`Schemamap: https://example.com/schemamap.xml`; a site with a static robots.txt should change
+its line by hand. Each schemamap entry also carries Schema Feeds' `<sf:contentType>` element
+alongside the attribute, as Yoast SEO prints it.
+
 ## Schemamap feeds carry the site's own address
 
 **A feed warmed from Drush listed every @id as `http://` on an `https://` site**, so the

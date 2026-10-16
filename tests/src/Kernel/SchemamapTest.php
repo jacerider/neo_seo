@@ -81,8 +81,9 @@ class SchemamapTest extends NeoSeoKernelTestBase {
     $this->assertSame(200, $response->getStatusCode());
     $this->assertStringStartsWith('application/xml', $response->headers->get('Content-Type'));
     $xml = (string) $response->getContent();
-    $this->assertStringContainsString('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', $xml);
-    preg_match_all('#<url contentType="structuredData/schema.org"><loc>([^<]+)</loc><lastmod>\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ</lastmod>#', $xml, $matches);
+    $this->assertStringContainsString('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:sf="http://schema.org/schemas/schemafeed/0.1">', $xml);
+    $this->assertNotFalse(simplexml_load_string($xml), 'Well-formed XML.');
+    preg_match_all('#<url contentType="structuredData/schema.org"><loc>([^<]+)</loc><lastmod>\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ</lastmod><changefreq>daily</changefreq><priority>0.8</priority><sf:contentType>structuredData/schema.org</sf:contentType></url>#', $xml, $matches);
     $this->assertSame([
       'http://localhost/neo-seo/schema/node/page',
       'http://localhost/neo-seo/schema/node/page/2',
@@ -144,11 +145,11 @@ class SchemamapTest extends NeoSeoKernelTestBase {
   }
 
   /**
-   * The robots.txt line, for the robotstxt module to print.
+   * The robots.txt directive, for the robotstxt module to print.
    */
   public function testRobotsTxt(): void {
     $lines = $this->container->get('module_handler')->invokeAll('robotstxt');
-    $this->assertSame(['Sitemap: http://localhost/schemamap.xml'], $lines);
+    $this->assertSame(['Schemamap: http://localhost/schemamap.xml'], $lines);
     $this->config('neo_seo.settings')->set('schemamap', FALSE)->save();
     $this->assertSame([], $this->container->get('module_handler')->invokeAll('robotstxt'));
   }

@@ -47,13 +47,17 @@ final class SchemamapController extends ControllerBase {
         'page' => $feed['page'],
       ], ['absolute' => TRUE])->toString(TRUE);
       $cacheability->addCacheableDependency($loc);
+      // Schema Feeds names the content type in an element; Yoast's readers
+      // take the attribute. Both, as Yoast SEO prints them.
       $entries .= '<url contentType="structuredData/schema.org">'
         . '<loc>' . Html::escape($loc->getGeneratedUrl()) . '</loc>'
         . ($feed['lastmod'] ? '<lastmod>' . gmdate('Y-m-d\TH:i:s\Z', $feed['lastmod']) . '</lastmod>' : '')
-        . '<changefreq>daily</changefreq><priority>0.8</priority></url>';
+        . '<changefreq>daily</changefreq><priority>0.8</priority>'
+        . '<sf:contentType>structuredData/schema.org</sf:contentType></url>';
     }
     $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
-      . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . $entries . '</urlset>';
+      . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:sf="http://schema.org/schemas/schemafeed/0.1">'
+      . $entries . '</urlset>';
     $response = new CacheableResponse($xml, 200, ['Content-Type' => 'application/xml; charset=utf-8']);
     $response->addCacheableDependency($cacheability);
     return $response;
