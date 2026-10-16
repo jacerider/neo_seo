@@ -1,5 +1,14 @@
 # Changelog
 
+## A module can set the head of a page the templates cannot reach
+
+**`hook_neo_seo_head_templates_alter()`** changes a page's head templates and their token
+data before the tokens are replaced, after the default layers and the editor's overrides. A
+custom route that describes an entity without being its canonical page (a restaurant's
+hours page, an event's tickets page) had no way to get a title or description from that
+entity: the layers only know canonical entity pages. Now its module sets the templates and
+adds the entity to the token data.
+
 ## Each page of a paged listing names itself canonical
 
 **Page 2 of a listing printed page 1's address as its canonical URL, which tells search engines

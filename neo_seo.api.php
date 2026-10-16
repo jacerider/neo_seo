@@ -44,5 +44,32 @@ function hook_neo_seo_graph_piece_info_alter(array &$definitions): void {
 }
 
 /**
+ * Alters a page's head templates before their tokens are replaced.
+ *
+ * $templates holds the token strings each head field resolves from (title,
+ * description, social_title, og_type, image, robots), after every default
+ * layer and the editor's overrides have been applied. $data is the token data
+ * they are replaced with. Use it for a page the layers cannot reach, such as a
+ * custom route that describes an entity without being its canonical page: set
+ * the templates, and add the entity to $data so its tokens resolve. Record
+ * anything you read with $context->addCacheableDependency().
+ *
+ * @param array<string, string> $templates
+ *   The templates, keyed by head field.
+ * @param array $data
+ *   The token data, keyed by token type.
+ * @param \Drupal\neo_seo\Graph\PageContext $context
+ *   The page being described.
+ */
+function hook_neo_seo_head_templates_alter(array &$templates, array &$data, PageContext $context): void {
+  if ($context->routeName === 'mymodule.event_tickets') {
+    $event = \Drupal::routeMatch()->getParameter('node');
+    $data['node'] = $event;
+    $templates['title'] = 'Tickets | [node:title] | [site:name]';
+    $context->addCacheableDependency($event);
+  }
+}
+
+/**
  * @} End of "addtogroup hooks".
  */

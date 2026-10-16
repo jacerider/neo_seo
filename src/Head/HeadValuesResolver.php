@@ -6,6 +6,7 @@ namespace Drupal\neo_seo\Head;
 
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Utility\Token;
 use Drupal\neo_seo\Entity\SeoDefaultsInterface;
@@ -27,7 +28,8 @@ use Drupal\token\TokenEntityMapperInterface;
  * 403 and 404 sit on top of that chain rather than replacing it, which is the
  * trap metatag's defaults have.
  *
- * An editor's SEO overrides for the page sit above every layer.
+ * An editor's SEO overrides for the page sit above every layer, and
+ * hook_neo_seo_head_templates_alter() sees the result last.
  */
 class HeadValuesResolver {
 
@@ -55,6 +57,8 @@ class HeadValuesResolver {
    *   The bundle mapping repository.
    * @param \Drupal\neo_seo\ViewsSeo $viewsSeo
    *   The Views page settings reader.
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
+   *   The module handler, for hook_neo_seo_head_templates_alter().
    */
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
@@ -64,6 +68,7 @@ class HeadValuesResolver {
     protected MediaImage $mediaImage,
     protected BundleMappingRepository $mapping,
     protected ViewsSeo $viewsSeo,
+    protected ModuleHandlerInterface $moduleHandler,
   ) {
     $this->resolved = new \WeakMap();
   }
@@ -99,6 +104,7 @@ class HeadValuesResolver {
     }
 
     $data = $this->tokenData($context->entity) + $this->viewsSeo->tokenData($context);
+    $this->moduleHandler->alter('neo_seo_head_templates', $templates, $data, $context);
     $fields = [];
     foreach (array_keys($this->headTagManager->getFields()) as $field) {
       if ($field === 'image') {

@@ -686,6 +686,11 @@ class Event extends GraphPieceBase {
 
 ### A head tag
 
+`hook_neo_seo_head_templates_alter(array &$templates, array &$data, PageContext $context)` changes
+the token templates a page's head resolves from, after the default layers and the editor's
+overrides. It is for pages the layers cannot reach: a custom route that describes an entity without
+being its canonical page sets the templates and adds that entity to `$data` so its tokens resolve.
+
 Add a plugin under `src/Plugin/HeadTag/` extending `HeadTagBase`. Its `build(HeadValues $values)`
 returns `html_head` attachments; `$this->meta($name, $content)` builds a meta tag. A tag that
 declares `fields:` in its attribute gets those fields in every default template set and in the
