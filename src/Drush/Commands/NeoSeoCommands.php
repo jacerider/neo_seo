@@ -6,14 +6,17 @@ namespace Drupal\neo_seo\Drush\Commands;
 
 use Consolidation\AnnotatedCommand\CommandResult;
 use Consolidation\OutputFormatters\StructuredData\RowsOfFields;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Render\RenderContext;
 use Drupal\Core\Render\RendererInterface;
+use Drupal\Core\Url;
 use Drupal\neo_seo\Alchemist\ComponentPieceCollector;
 use Drupal\neo_seo\Graph\PageContextFactory;
 use Drupal\neo_seo\Migration\HeadDiff;
 use Drupal\neo_seo\Migration\MetatagMigrator;
+use Drupal\neo_seo\Schemamap\SchemamapBuilder;
 use Drupal\neo_seo\Validation\StructuredDataValidator;
 use Drupal\neo_seo\Validation\ValidationSampler;
 use Drush\Attributes as CLI;
@@ -50,6 +53,8 @@ final class NeoSeoCommands extends DrushCommands {
     private readonly RendererInterface $renderer,
     #[Autowire(service: 'service_container')]
     private readonly ContainerInterface $container,
+    #[Autowire(service: 'neo_seo.schemamap')]
+    private readonly SchemamapBuilder $schemamap,
   ) {
     parent::__construct();
   }
@@ -339,6 +344,54 @@ final class NeoSeoCommands extends DrushCommands {
       ));
     }
     return self::EXIT_FAILURE;
+  }
+
+  /**
+   * Lists the schemamap's feeds, and with --warm builds and caches them.
+   *
+   * Each feed page holds up to 100 entities' graphs, built as an anonymous
+   * visitor. Building one resolves what the page's layout shows, so a cold
+   * feed is slow on a large site; --warm builds every entity once so the
+   * feeds are served from the cache.
+   */
+  #[CLI\Command(name: 'neo-seo:schemamap', aliases: ['nssm'])]
+  #[CLI\Option(name: 'warm', description: 'Build every feed now, filling the cache.')]
+  #[CLI\Usage(name: 'drush neo-seo:schemamap', description: 'List the feeds /schemamap.xml points at.')]
+  #[CLI\Usage(name: 'drush neo-seo:schemamap --warm', description: 'Build and cache every feed, e.g. after a deploy.')]
+  public function schemamap(array $options = ['warm' => FALSE]): int {
+    if (!$this->schemamap->enabled()) {
+      $this->io()->warning('The schemamap is turned off in the SEO settings.');
+      return self::EXIT_SUCCESS;
+    }
+    $feeds = $this->schemamap->feeds(new CacheableMetadata());
+    if (!$feeds) {
+      $this->io()->note('No feeds: no published pages with per-page SEO.');
+      return self::EXIT_SUCCESS;
+    }
+    $rows = [];
+    $progress = $options['warm'] ? $this->io()->createProgressBar(count($feeds)) : NULL;
+    $progress?->start();
+    foreach ($feeds as $feed) {
+      $nodes = $options['warm']
+        ? count($this->schemamap->nodes($feed['entity_type'], $feed['bundle'], $feed['page'], new CacheableMetadata()))
+        : NULL;
+      $rows[] = [
+        $feed['entity_type'] . ':' . $feed['bundle'],
+        $feed['page'],
+        $nodes ?? '',
+        Url::fromRoute('neo_seo.schemamap_feed', [
+          'entity_type' => $feed['entity_type'],
+          'bundle' => $feed['bundle'],
+          'page' => $feed['page'],
+        ], ['absolute' => TRUE])->toString(),
+      ];
+      $progress?->advance();
+    }
+    $progress?->finish();
+    $this->io()->newLine(2);
+    $this->io()->table(['Bundle', 'Page', $options['warm'] ? 'Nodes' : '', 'Feed'], $rows);
+    $this->io()->note('Schemamap: ' . Url::fromRoute('neo_seo.schemamap', [], ['absolute' => TRUE])->toString());
+    return self::EXIT_SUCCESS;
   }
 
 }

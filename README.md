@@ -276,6 +276,35 @@ seo:
 
 The neo-component skill has the full reference.
 
+## The schemamap: the whole site's schema
+
+`/schemamap.xml` lists the site's schema as feeds, in the format Yoast SEO's schema
+aggregation uses, which the Yoast schema visualizer and NLWeb agents read. With it the
+visualizer shows the whole site's graph, not one page's.
+
+- **The schemamap** is a sitemap `urlset`: one `<url contentType="structuredData/schema.org">`
+  per feed page, with the bundle's last change as `lastmod`.
+- **A feed**, `/neo-seo/schema/{entity_type}/{bundle}/{page}`, holds the graphs of up to 100
+  published entities of a bundle with per-page SEO, one JSON-LD node per line, each with its
+  `@context`. A node many pages share (the organization, the website) is listed once.
+- **What is left out:** what an anonymous visitor may not see, a page kept out of search
+  results, and a bundle whose robots default is `noindex`. Views pages are not listed.
+- **Built** as an anonymous visitor, from each entity's page as the head and graph would print
+  it. Each entity's nodes are cached and invalidated by what they were built from; the feed
+  responses are cacheable like any page.
+- **robots.txt:** with the robotstxt module, a `Sitemap:` line is added. A static robots.txt
+  takes it by hand: `Sitemap: https://example.com/schemamap.xml`.
+- **Turning it off:** *Publish a schemamap* in the settings (on by default; `neo_seo_update_11002`
+  turns it on for existing sites). The routes then answer 404.
+
+```bash
+ddev drush neo-seo:schemamap           # the feeds /schemamap.xml lists
+ddev drush neo-seo:schemamap --warm    # build and cache every feed, e.g. after a deploy
+```
+
+A feed built cold resolves every page's layout, about a second for a hundred simple pages and
+more for pages that list many things; warmed, it is served from the cache.
+
 ## The SEO panel (`neo_seo_panel`)
 
 Enabling the module adds previews and feedback to the Search & social section. Nothing in any form
@@ -488,10 +517,12 @@ current from editor load. Content analysis is built both ways. See
 | `/admin/config/neo/seo/defaults` | Default templates |
 | `GET /neo-seo/draft/{entity_type}/{id}` | A page's draft render as JSON, with its Alchemist drafts applied (update access). Used by the panel. |
 | `GET /neo-seo/keyphrases` | Other pages' focus keyphrases, for analysis (`edit neo_seo overrides`). |
+| `GET /schemamap.xml` | The schemamap (public; 404 when turned off). |
+| `GET /neo-seo/schema/{entity_type}/{bundle}/{page}` | A schemamap feed, one JSON-LD node per line (public). |
 
 | Config | |
 |---|---|
-| `neo_seo.settings` | Site identity, verification codes, per-page entity types, share image style, *print alongside metatag*. |
+| `neo_seo.settings` | Site identity, verification codes, per-page entity types, share image style, *print alongside metatag*, *publish a schemamap*. |
 | `neo_seo.defaults.*` | Default template sets. |
 | `{bundle config}.third_party.neo_seo` | Bundle mapping. |
 | `views.view.*` display extender `neo_seo` | Views page settings. |

@@ -10,3 +10,23 @@ neo_seo.draft_render:
     no_cache: TRUE
   requirements:
     _entity_access: 'entity.update'
+
+neo_seo.schemamap:
+  path: '/schemamap.xml'
+  defaults:
+    _controller: '\Drupal\neo_seo\Controller\SchemamapController::index'
+  methods: [GET]
+  requirements:
+    _access: 'TRUE'
+
+neo_seo.schemamap_feed:
+  path: '/neo-seo/schema/{entity_type}/{bundle}/{page}'
+  defaults:
+    _controller: '\Drupal\neo_seo\Controller\SchemamapController::feed'
+    page: 1
+  methods: [GET]
+  requirements:
+    _access: 'TRUE'
+    entity_type: '[a-z0-9_]+'
+    bundle: '[a-z0-9_]+'
+    page: '\d+'

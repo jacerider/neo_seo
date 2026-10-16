@@ -46,6 +46,19 @@ function neo_seo_update_11001(): string {
 }
 
 /**
+ * Publishes the site's schema at /schemamap.xml.
+ *
+ * On by default, as on a new site; the SEO settings turn it off.
+ */
+function neo_seo_update_11002(): string {
+  $config = \Drupal::configFactory()->getEditable('neo_seo.settings');
+  if ($config->get('schemamap') === NULL) {
+    $config->set('schemamap', TRUE)->save();
+  }
+  return (string) t("The site's schema is published at /schemamap.xml. The SEO settings turn it off.");
+}
+
+/**
  * The identity sources, built here rather than taken from the container.
  *
  * An update runs before the container knows a service added in the same

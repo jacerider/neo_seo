@@ -1,5 +1,18 @@
 # Changelog
 
+## The whole site's schema at /schemamap.xml
+
+**A schema visualizer, or an AI agent, saw one page's graph at a time.** `/schemamap.xml`
+now lists every page's schema as feeds, in Yoast SEO's schema aggregation format, so the
+Yoast visualizer (with *Follow Schemamap*) and NLWeb agents read the whole site. Each feed
+holds the graphs of up to 100 published entities of a bundle, one JSON-LD node per line,
+built as an anonymous visitor and cached per entity; pages kept out of search results, and
+bundles whose robots default is `noindex`, are left out. It is on by default — run
+`drush updatedb` (`neo_seo_update_11002`) — and *Publish a schemamap* in the settings turns
+it off. With the robotstxt module, robots.txt gets a `Sitemap:` line for it; a static
+robots.txt takes the line by hand. `drush neo-seo:schemamap --warm` builds and caches every
+feed.
+
 ## An Article without authors names the site as its author
 
 **An Article whose author field referenced no one had no author.** The site

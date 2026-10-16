@@ -1,4 +1,6 @@
 parameters:
+  # How many entities one schemamap feed page holds.
+  neo_seo.schemamap.per_page: 100
   # Every hook lives on a class under src/Hook.
   neo_seo.skip_procedural_hook_scan: true
 
@@ -133,6 +135,23 @@ services:
     class: Drupal\neo_seo\ViewsSeo
     arguments: ['@entity_type.manager', '@module_handler']
   Drupal\neo_seo\ViewsSeo: '@neo_seo.views_seo'
+
+  # The site's schema as feeds, listed by /schemamap.xml (Yoast's schema
+  # aggregation format): every page's graph, built as an anonymous visitor.
+  neo_seo.schemamap:
+    class: Drupal\neo_seo\Schemamap\SchemamapBuilder
+    arguments:
+      - '@entity_type.manager'
+      - '@entity_type.bundle.info'
+      - '@config.factory'
+      - '@neo_seo.page_context_factory'
+      - '@neo_seo.graph_builder'
+      - '@neo_seo.head_values'
+      - '@cache.default'
+      - '@account_switcher'
+      - '@renderer'
+      - '%neo_seo.schemamap.per_page%'
+  Drupal\neo_seo\Schemamap\SchemamapBuilder: '@neo_seo.schemamap'
 
   neo_seo.component_pieces:
     class: Drupal\neo_seo\Alchemist\ComponentPieceCollector

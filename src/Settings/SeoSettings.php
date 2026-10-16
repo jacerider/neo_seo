@@ -184,6 +184,13 @@ class SeoSettings extends SettingsBase {
       '#default_value' => $this->getValue('share_image_style'),
     ];
 
+    $form['schemamap'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Publish a schemamap'),
+      '#description' => $this->t('Lists every page’s schema at /schemamap.xml, in the format Yoast SEO’s schema aggregation uses: for AI agents (NLWeb) and tools that read a whole site’s schema at once. Pages kept out of search results are left out.'),
+      '#default_value' => $this->getValue('schemamap') ?? TRUE,
+    ];
+
     $verification = $this->getValue('verification') ?: [];
     $form['verification'] = [
       '#type' => 'details',
