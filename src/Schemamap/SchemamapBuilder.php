@@ -7,6 +7,7 @@ namespace Drupal\neo_seo\Schemamap;
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Cache\MemoryCache\MemoryCacheInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\ContentEntityTypeInterface;
@@ -62,6 +63,8 @@ class SchemamapBuilder {
    *   Builds as an anonymous visitor.
    * @param \Drupal\Core\Render\RendererInterface $renderer
    *   Building a graph may render.
+   * @param \Drupal\Core\Cache\MemoryCache\MemoryCacheInterface $memoryCache
+   *   The entity memory cache, emptied between entities.
    * @param int $perPage
    *   How many entities a feed page holds.
    */
@@ -75,6 +78,7 @@ class SchemamapBuilder {
     protected CacheBackendInterface $cache,
     protected AccountSwitcherInterface $accountSwitcher,
     protected RendererInterface $renderer,
+    protected MemoryCacheInterface $memoryCache,
     protected int $perPage = 100,
   ) {}
 
@@ -149,11 +153,18 @@ class SchemamapBuilder {
       ->execute();
     $storage = $this->entityTypeManager->getStorage($entityTypeId);
     $nodes = [];
-    foreach ($storage->loadMultiple($ids) as $entity) {
+    foreach ($ids as $entityId) {
+      $entity = $storage->load($entityId);
       if (!$entity instanceof ContentEntityInterface) {
         continue;
       }
-      foreach ($this->entityNodes($entity, $cacheability) as $node) {
+      $entityNodes = $this->entityNodes($entity, $cacheability);
+      // Each page's graph loads what its page shows; let it go before the
+      // next, or a feed of pages holds them all: the entities, and what the
+      // page's tokens and values keep in static caches.
+      $this->memoryCache->deleteAll();
+      drupal_static_reset();
+      foreach ($entityNodes as $node) {
         $id = $node['@id'] ?? NULL;
         if ($id === NULL) {
           $nodes[] = $node;
@@ -163,7 +174,6 @@ class SchemamapBuilder {
         }
       }
     }
-    $storage->resetCache($ids);
     return array_values($nodes);
   }
 

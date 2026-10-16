@@ -150,6 +150,7 @@ services:
       - '@cache.default'
       - '@account_switcher'
       - '@renderer'
+      - '@entity.memory_cache'
       - '%neo_seo.schemamap.per_page%'
   Drupal\neo_seo\Schemamap\SchemamapBuilder: '@neo_seo.schemamap'
 

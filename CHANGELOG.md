@@ -1,5 +1,14 @@
 # Changelog
 
+## Schemamap feeds build within a request's memory
+
+**Feeds of pages with large layouts failed (502) on a host with a memory limit.** Building
+a page's graph checked access on every component of its layout, which resolves each
+component's values — for an image, building its derivative — and a feed kept every page's
+entities and statics until it ended. Only the components that declare schema, and those
+that hold one, are looked at now, and each page's entities and statics are released before
+the next: the peak for a feed fell from about 480MB to under 140MB.
+
 ## The whole site's schema at /schemamap.xml
 
 **A schema visualizer, or an AI agent, saw one page's graph at a time.** `/schemamap.xml`

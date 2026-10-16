@@ -104,7 +104,9 @@ class ComponentPieceCollector {
       }
       $item = $entity->get($name)->first();
       if ($item instanceof ComponentTreeItem) {
-        $this->walk($item, ComponentTreeStructure::ROOT_UUID, $context, $pieces);
+        $relevant = [];
+        $this->declaring($item, ComponentTreeStructure::ROOT_UUID, $relevant);
+        $this->walk($item, ComponentTreeStructure::ROOT_UUID, $context, $pieces, $relevant);
       }
     }
     return $pieces;
@@ -229,8 +231,15 @@ class ComponentPieceCollector {
   /**
    * Walks the published children of one parent, depth first.
    */
-  protected function walk(ComponentTreeItem $item, string $parentUuid, PageContext $context, array &$pieces): void {
+  protected function walk(ComponentTreeItem $item, string $parentUuid, PageContext $context, array &$pieces, array $relevant): void {
     foreach ($item->getComponents($parentUuid) as $uuid => $instance) {
+      // Only what declares nodes, or holds what does, is looked at: checking
+      // a component's access resolves its values, which for an image can
+      // mean building its derivative — on a page of many components, more
+      // time and memory than a request has.
+      if (empty($relevant[(string) $uuid])) {
+        continue;
+      }
       if (!$instance instanceof ComponentInstanceInterface || !$instance->isPublished()) {
         continue;
       }
@@ -241,8 +250,34 @@ class ComponentPieceCollector {
       }
       array_push($pieces, ...$this->pieces($instance, (string) $uuid, $context));
       $context->addCacheableDependency($instance->getCacheableMetadata());
-      $this->walk($item, (string) $uuid, $context, $pieces);
+      $this->walk($item, (string) $uuid, $context, $pieces, $relevant);
     }
+  }
+
+  /**
+   * Marks the components that declare nodes, or hold one that does.
+   *
+   * From the component definitions alone: nothing is resolved.
+   *
+   * @param \Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem $item
+   *   The tree.
+   * @param string $parentUuid
+   *   Where to start.
+   * @param array<string, bool> $relevant
+   *   Collects, by instance uuid, whether it or anything beneath it declares.
+   *
+   * @return bool
+   *   Whether anything beneath the parent declares.
+   */
+  protected function declaring(ComponentTreeItem $item, string $parentUuid, array &$relevant): bool {
+    $any = FALSE;
+    foreach ($item->getComponents($parentUuid) as $uuid => $instance) {
+      $declares = $instance instanceof ComponentInterface && !empty($instance->getComponentDefinition()['seo']);
+      $beneath = $this->declaring($item, (string) $uuid, $relevant);
+      $relevant[(string) $uuid] = $declares || $beneath;
+      $any = $any || $relevant[(string) $uuid];
+    }
+    return $any;
   }
 
   /**
