@@ -7,3 +7,8 @@ services:
     class: Drupal\neo_seo_analysis\AlchemistLayout
     autowire: true
   Drupal\neo_seo_analysis\AlchemistLayout: '@neo_seo_analysis.alchemist_layout'
+
+  neo_seo_analysis.image_media:
+    class: Drupal\neo_seo_analysis\ImageMedia
+    autowire: true
+  Drupal\neo_seo_analysis\ImageMedia: '@neo_seo_analysis.image_media'

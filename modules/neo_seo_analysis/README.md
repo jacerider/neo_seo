@@ -29,6 +29,13 @@ Enabling the module (it requires `neo_seo_panel`) adds analysis to both SEO pane
   preview frames and keeps the dropdown open. The Alchemist panel itself
   carries no analysis.
 
+The alt text check lists its images one per file (`imageFile()`: the path without an image style
+or the format a converting style adds). `ImageMedia` finds each image's media item from its URL —
+the file, or a derivative of it — through `/neo-seo/images?src[]=…` (`ImagesController`, at most
+100 a request). Fix opens the media item's edit form with `?neo_seo_media=1` in a modal;
+`MediaFormHooks` makes its Save an AJAX one there (Delete hidden, errors in place) that closes the
+modal and sends `neoSeoMediaSaved`, on which both surfaces forget their lookups and render again.
+
 A keyphrase or cornerstone change re-runs the last render without asking the server again. The two
 scores are written back through the host quietly: hidden inputs saved with the form, or the panel's
 draft key when a draft already exists. A score never blocks a save or a publish.

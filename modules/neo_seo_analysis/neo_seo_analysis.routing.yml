@@ -7,3 +7,13 @@ neo_seo_analysis.keyphrases:
     no_cache: TRUE
   requirements:
     _permission: 'edit neo_seo overrides'
+
+neo_seo_analysis.images:
+  path: '/neo-seo/images'
+  defaults:
+    _controller: '\Drupal\neo_seo_analysis\Controller\ImagesController::lookup'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+  requirements:
+    _permission: 'edit neo_seo overrides'

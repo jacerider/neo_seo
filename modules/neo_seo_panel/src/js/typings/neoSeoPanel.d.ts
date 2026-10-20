@@ -130,6 +130,8 @@ interface NeoSeoPanelContext {
   latest(): NeoSeoDraftRender | null;
   /** Called with every draft render as it arrives. */
   onRender(callback: (render: NeoSeoDraftRender) => void): void;
+  /** Renders the draft again, e.g. after something it shows was saved elsewhere. */
+  refresh(): void;
 }
 
 /** A module's addition to the panel. */

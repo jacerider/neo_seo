@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { altIsMissing } from '../../src/js/engine/structure/index.ts';
+import { altIsMissing, altReason, imageFile } from '../../src/js/engine/structure/index.ts';
 import type { Assessment } from '../../src/js/engine/index.ts';
 import { p, run } from './helpers.ts';
 
@@ -71,46 +71,40 @@ describe('image alt text', () => {
     assert.equal(alt('<img src="/a/anvil.jpg" alt="A red anvil on a workbench">')?.band, 'good');
   });
 
-  test('missing, empty and file-name alt text are flagged', () => {
+  test('missing, empty and file-name alt text are flagged, counted by file', () => {
     const found = alt([
       '<img src="/a/anvil.jpg" alt="A red anvil">',
       '<img src="/a/rocket.jpg">',
       '<img src="/a/coyote.png" alt="">',
       '<img src="/styles/large/public/coyote-trap_2.PNG.avif?itok=x" alt="coyote-trap_2.PNG">',
+      '<img src="/styles/small/public/coyote-trap_2.PNG.webp" alt="">',
     ].join(''));
     assert.equal(found?.band, 'problem');
-    assert.equal(
-      found?.message,
-      '2 of 4 images have no alt text (rocket.jpg, coyote.png), and 1 uses its file name as alt text '
-      + '(coyote-trap_2.PNG). Describe what each one shows.',
-    );
+    assert.equal(found?.message, '3 images need better alt text: none, or just their file names.');
     assert.deepEqual(found?.highlights?.map((h) => (h.kind === 'image' ? h.src : '')), [
       '/a/rocket.jpg',
       '/a/coyote.png',
       '/styles/large/public/coyote-trap_2.PNG.avif?itok=x',
+      '/styles/small/public/coyote-trap_2.PNG.webp',
     ]);
   });
 
-  test('alt text that only repeats the file name says so, naming the files', () => {
-    const found = alt([
-      '<img src="/styles/w600/public/2026-07/civic-building.jpg.avif?itok=a" alt="Civic Building">',
-      '<img src="/styles/w600/public/2026-07/highway-interchange.jpg.webp" alt="Highway Interchange">',
-      '<img src="/a/anvil.jpg" alt="A red anvil">',
-    ].join(''));
-    assert.equal(
-      found?.message,
-      '2 of 3 images use their file name as alt text (civic-building.jpg, highway-interchange.jpg). '
-      + 'Describe what each one shows.',
-    );
+  test('one file is one image', () => {
+    assert.equal(alt('<img src="/a/rocket.jpg"><img src="https://x.test/a/rocket.jpg?v=2">')?.message,
+      '1 image needs better alt text: none, or just its file name.');
   });
 
-  test('one image with no alt text, and a long list cut short', () => {
-    assert.equal(
-      alt('<img src="/a/rocket.jpg">')?.message,
-      '1 of 1 image has no alt text (rocket.jpg). Describe what it shows.',
-    );
-    const many = alt(['a', 'b', 'c', 'd', 'e'].map((n) => `<img src="/x/${n}.jpg">`).join(''));
-    assert.match(many?.message ?? '', /^5 of 5 images have no alt text \(a\.jpg, b\.jpg, c\.jpg and 2 more\)\./);
+  test('an image file is its path without a style or added format', () => {
+    assert.equal(imageFile('https://x.test/sites/default/files/styles/w600/public/2026-07/civic-building.jpg.avif?itok=a'),
+      '/sites/default/files/2026-07/civic-building.jpg');
+    assert.equal(imageFile('/sites/default/files/2026-07/civic-building.jpg'), '/sites/default/files/2026-07/civic-building.jpg');
+  });
+
+  test('the reason is no alt text, or the file name', () => {
+    assert.equal(altReason('/a/anvil.jpg', null), 'none');
+    assert.equal(altReason('/a/anvil.jpg', ' '), 'none');
+    assert.equal(altReason('/styles/s/public/a/civic-building.jpg.avif', 'Civic Building'), 'fileName');
+    assert.equal(altReason('/a/anvil.jpg', 'An anvil'), null);
   });
 
   test('alt text that is just the file name is missing; anything more is fine', () => {

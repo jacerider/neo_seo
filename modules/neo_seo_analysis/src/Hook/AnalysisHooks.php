@@ -14,6 +14,7 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Url;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo_analysis\AlchemistLayout;
+use Drupal\neo_seo_analysis\ImageMedia;
 
 /**
  * Adds content analysis to the SEO panel.
@@ -175,6 +176,8 @@ class AnalysisHooks {
     $panel['config']['analysis'] = [
       'keyphrasesUrl' => Url::fromRoute('neo_seo_analysis.keyphrases', [], ['query' => $query])
         ->toString(TRUE)->getGeneratedUrl(),
+      // Finds the media item behind an image the alt text check flags.
+      'imagesUrl' => ImageMedia::url(),
     ];
     // A page built in its own layout: the form shows the scores, and the
     // way to the editor where the checks can be acted on.

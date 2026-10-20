@@ -107,6 +107,9 @@ export class SeoPanel {
         onRender: (callback) => {
           this.renderListeners.push(callback);
         },
+        refresh: () => {
+          this.refresh();
+        },
       });
     }
     catch (e) {

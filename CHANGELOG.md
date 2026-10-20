@@ -14,14 +14,18 @@ the Save summary share the design. Without a focus keyphrase the SEO score is sh
 the partial score, the pill's tooltip saying the keyphrase checks are not in it, where before the
 pill showed none.
 
-## The alt text check names the images it flags, and why
+## The alt text check lists each image, and fixes it on its media item
 
-**An image flagged for alt text seemed to have it.** The check counts alt text that only repeats
-the file name (`civic-building.jpg` described as "Civic Building") as missing, but its message
-said "have no alt text, or use the file name" without saying which, or which images, so an
-editor who opened the image found alt text and saw a false alarm. The message now counts each
-case on its own and names the files: "2 of 10 images use their file name as alt text
-(civic-building.jpg, highway-interchange.jpg)".
+**An image flagged for alt text seemed to have it, and Fix went only to the first one.** The
+message said "have no alt text, or use the file name" without saying which or where, and its Fix
+opened the component showing the first image — for an image a card pulls from another page, a
+component with no alt text field. The check is now one row, "2 images need better alt text",
+over a list of the images, one per file however often the page shows it: a thumbnail, the file
+name, why (no alt text, or just the file name) and how often it is used, each with its own Show
+in preview and Fix. Fix opens the image's media item — where alt text is kept — in a modal over
+the editor; saving there closes it and the panel checks again. Without a media item, or without
+access to edit it, Fix goes to the component as before. neo_seo_analysis adds the lookup route
+`/neo-seo/images` (permission *edit neo_seo overrides*); the media module stays optional.
 
 ## The schemamap is announced with a `Schemamap:` directive
 

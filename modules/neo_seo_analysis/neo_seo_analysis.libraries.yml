@@ -12,5 +12,7 @@ panel:
     - core/drupal
     - core/drupalSettings
     - core/once
+    - core/drupal.ajax
+    - core/drupal.dialog.ajax
     - neo_seo_panel/panel
     - neo_tooltip/tooltip

@@ -28,6 +28,8 @@ import AnalysisWorker from './analysis.worker?worker&inline';
 
   interface AnalysisConfig {
     keyphrasesUrl?: string;
+    /** Finds the media item behind an image (ImagesController). */
+    imagesUrl?: string;
     /**
      * Set for a page built in its own Alchemist layout: the form shows the
      * two scores and the way to the editor, not the checks.
@@ -355,6 +357,58 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     return graphic;
   }
 
+  type ImageHighlight = Extract<NeoSeoHighlight, { kind: 'image' }>;
+
+  /** The media item behind an image, and its edit form when it may be edited. */
+  interface ImageMedia {
+    media: number;
+    edit: string | null;
+  }
+
+  /**
+   * An image's file, however many times or sizes the page shows it: its path
+   * with an image style's directories and added format taken off. The same
+   * rule as the engine's imageFile(), which this bundle cannot import.
+   */
+  function imageFile(src: string): string {
+    const path = src.split(/[?#]/)[0]!.replace(/^[a-z]+:\/\/[^/]+/i, '');
+    return path
+      .replace(/\/styles\/[^/]+\/[a-z0-9]+\//i, '/')
+      .replace(/^(.+\.[a-z0-9]{2,5})\.(avif|webp)$/i, '$1');
+  }
+
+  /** An image's file name, as uploaded. */
+  function imageName(src: string): string {
+    const base = imageFile(src).split('/').pop() ?? '';
+    try {
+      return decodeURIComponent(base);
+    }
+    catch {
+      return base;
+    }
+  }
+
+  /**
+   * A media item's edit form, in a modal over the page. Saving stays in the
+   * modal (MediaFormHooks) and ends with neoSeoMediaSaved.
+   */
+  function openMedia(url: string): void {
+    Drupal.ajax({
+      url,
+      dialogType: 'modal',
+      dialog: { width: '80%' },
+      progress: { type: 'fullscreen' },
+    } as unknown as Parameters<typeof Drupal.ajax>[0]).execute();
+  }
+
+  /** A media item saved from the panel: every surface checks again. */
+  const MEDIA_SAVED = 'neo-seo:media-saved';
+  if (Drupal.AjaxCommands) {
+    Drupal.AjaxCommands.prototype.neoSeoMediaSaved = function (_ajax: unknown, response: { media: number }) {
+      document.dispatchEvent(new CustomEvent(MEDIA_SAVED, { detail: { media: response.media } }));
+    } as unknown as drupal.Core.IAjaxCommand;
+  }
+
   type Side = 'seo' | 'readability';
 
   /** What the SEO score was measured against, under its ring. */
@@ -451,15 +505,19 @@ import AnalysisWorker from './analysis.worker?worker&inline';
 
     protected readonly host: NeoSeoPanelHost;
     protected readonly onMissing: (side: Side) => void;
+    protected readonly imagesUrl: string | undefined;
+    /** Each image URL's media item, once looked up. */
+    protected readonly media = new Map<string, ImageMedia | null>();
     /** Called after a Fix went somewhere. */
     onFixed: (result: NeoSeoFixResult) => void = () => {};
     readonly seo: HTMLElement;
     readonly readability: HTMLElement;
     protected highlighted: HTMLButtonElement | null = null;
 
-    constructor(host: NeoSeoPanelHost, onMissing: (side: Side) => void) {
+    constructor(host: NeoSeoPanelHost, onMissing: (side: Side) => void, imagesUrl?: string) {
       this.host = host;
       this.onMissing = onMissing;
+      this.imagesUrl = imagesUrl;
       this.seo = h('div', { class: 'neo-seo-analysis__checks' });
       this.readability = h('div', { class: 'neo-seo-analysis__checks' });
     }
@@ -606,7 +664,11 @@ import AnalysisWorker from './analysis.worker?worker&inline';
      * a button whose hit area covers the row, so the whole row goes to the
      * fix. The eye sits above that area and only toggles the marks.
      */
-    protected item(side: Side, { assessment, scored }: Check): HTMLElement {
+    protected item(side: Side, check: Check): HTMLElement {
+      if (check.assessment.id === 'imageAltText' && check.assessment.band !== 'good') {
+        return this.images(side, check);
+      }
+      const { assessment, scored } = check;
       const highlights = assessment.highlights ?? [];
       const controls: HTMLElement[] = [];
       if (highlights.length && this.host.highlight) {
@@ -650,6 +712,145 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         ]),
         controls.length ? h('span', { class: 'neo-seo-analysis__controls' }, controls) : null,
       ]);
+    }
+
+    /**
+     * The alt text check: a summary row, its eye marking every flagged image,
+     * over one row per image file — thumbnail, name, why, how often — each
+     * with its own eye and Fix. Fix opens the media item, where alt text is
+     * kept; without one (or without access), the component showing it.
+     */
+    protected images(side: Side, { assessment, scored }: Check): HTMLElement {
+      const highlights = (assessment.highlights ?? []).filter((target): target is ImageHighlight => target.kind === 'image');
+      const files = new Map<string, ImageHighlight[]>();
+      highlights.forEach((target) => {
+        const key = imageFile(target.src);
+        files.set(key, [...(files.get(key) ?? []), target]);
+      });
+      const lookup = this.lookup([...files.values()].map((uses) => uses[0]!.src));
+      const list = h('ul', { class: 'neo-seo-analysis__images', 'aria-label': Drupal.t('Images to describe') });
+      files.forEach((uses) => list.append(this.image(side, uses, lookup)));
+      const details = h('details', { class: 'neo-seo-analysis__image-list' }, [
+        h('summary', { class: 'neo-seo-analysis__image-summary', 'data-band': assessment.band }, [
+          h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
+          h('span', { class: 'neo-seo-analysis__body' }, [
+            h('span', { class: 'visually-hidden' }, [`${bandLabel(assessment.band)}: `]),
+            h('span', { class: 'neo-seo-analysis__message' }, [assessment.message]),
+            scored ? null : h('span', { class: 'neo-seo-analysis__tag' }, [Drupal.t('Not scored')]),
+          ]),
+        ]),
+        list,
+        h('p', { class: 'neo-seo-analysis__image-note' }, [
+          Drupal.t('Alt text is saved on the media item, so it changes everywhere the image is used.'),
+        ]),
+      ]);
+      details.open = remembered.get('imagesOpen') ?? true;
+      details.addEventListener('toggle', () => remembered.set('imagesOpen', details.open));
+      const all = this.showButton(side, highlights, assessment.message);
+      return h('li', { class: 'neo-seo-analysis__item neo-seo-analysis__item--images', 'data-band': assessment.band }, [
+        details,
+        all ? h('span', { class: 'neo-seo-analysis__controls neo-seo-analysis__controls--summary' }, [all]) : null,
+      ]);
+    }
+
+    /** One flagged image file, and every place the page shows it. */
+    protected image(side: Side, uses: ImageHighlight[], lookup: Promise<void>): HTMLElement {
+      const first = uses[0]!;
+      const name = imageName(first.src);
+      const why = (first.alt ?? '').trim() === '' ? Drupal.t('No alt text') : Drupal.t('Alt is the file name');
+      const controls = h('span', { class: 'neo-seo-analysis__controls' });
+      const show = this.showButton(side, uses, name);
+      if (show) {
+        controls.append(show);
+      }
+      const row = h('li', { class: 'neo-seo-analysis__image' }, [
+        h('img', { class: 'neo-seo-analysis__thumb', src: first.src, alt: '', loading: 'lazy', decoding: 'async' }),
+        h('span', { class: 'neo-seo-analysis__body' }, [
+          h('span', { class: 'neo-seo-analysis__image-name' }, [name]),
+          h('span', { class: 'neo-seo-analysis__image-meta' }, [
+            uses.length > 1 ? `${why} · ${Drupal.formatPlural(uses.length, 'used once', 'used @count times')}` : why,
+          ]),
+        ]),
+        controls,
+      ]);
+      lookup.then(() => {
+        const found = this.media.get(first.src) ?? null;
+        let go: (() => void) | null = null;
+        if (found?.edit) {
+          const url = found.edit;
+          go = () => {
+            this.onFixed('component');
+            openMedia(url);
+          };
+        }
+        else if (this.host.fix && this.host.canFix?.('imageAltText', uses)) {
+          go = () => {
+            const result = this.host.fix?.('imageAltText', uses) ?? null;
+            if (result) {
+              this.onFixed(result);
+            }
+            else {
+              this.onMissing(side);
+            }
+          };
+        }
+        if (!go) {
+          return;
+        }
+        const fix = h('button', {
+          type: 'button',
+          class: 'neo-seo-analysis__fix',
+          'aria-label': found?.edit
+            ? Drupal.t('Edit the alt text of @name', { '@name': name })
+            : Drupal.t('Go to the component showing @name', { '@name': name }),
+        }, [Drupal.t('Fix'), h('span', { class: 'neo-seo-analysis__chevron', 'aria-hidden': 'true' })]);
+        fix.addEventListener('click', go);
+        controls.append(fix);
+        row.classList.add('is-fixable');
+      });
+      return row;
+    }
+
+    /** An eye marking targets in the preview, where the host has one. */
+    protected showButton(side: Side, targets: NeoSeoHighlight[], what: string): HTMLButtonElement | null {
+      if (!targets.length || !this.host.highlight) {
+        return null;
+      }
+      const show = h('button', {
+        type: 'button',
+        class: 'neo-seo-analysis__show',
+        'aria-pressed': 'false',
+        'aria-label': Drupal.t('Show in the preview: @what', { '@what': what }),
+        title: Drupal.t('Show in preview'),
+      }, [eyeIcon()]);
+      show.addEventListener('click', () => this.toggleHighlight(side, show, targets));
+      return show;
+    }
+
+    /**
+     * Looks up the media items behind image URLs not looked up yet, in one
+     * request. Without the endpoint, or when it fails, none are found.
+     */
+    protected async lookup(srcs: string[]): Promise<void> {
+      const wanted = srcs.filter((src) => !this.media.has(src));
+      if (!wanted.length || !this.imagesUrl) {
+        return;
+      }
+      const url = new URL(this.imagesUrl, window.location.href);
+      wanted.forEach((src) => url.searchParams.append('src[]', src));
+      try {
+        const response = await fetch(url.toString(), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        const body = response.ok ? await response.json() as { images?: Record<string, ImageMedia | null> } : {};
+        wanted.forEach((src) => this.media.set(src, body.images?.[src] ?? null));
+      }
+      catch {
+        // Not found: the rows fall back to the component, or offer no Fix.
+      }
+    }
+
+    /** Forgets what was looked up: a media item was saved. */
+    forget(): void {
+      this.media.clear();
     }
 
     protected toggleHighlight(side: Side, button: HTMLButtonElement, highlights: NeoSeoHighlight[]): void {
@@ -731,7 +932,11 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         seo: new Scorecard(Drupal.t('SEO'), SCORE_HELP.seo(), fields),
         readability: new Scorecard(Drupal.t('Readability'), SCORE_HELP.readability()),
       };
-      const results = new Results(context.host, (side) => cards[side].say(missing));
+      const results = new Results(context.host, (side) => cards[side].say(missing), config.imagesUrl);
+      document.addEventListener(MEDIA_SAVED, () => {
+        results.forget();
+        context.refresh();
+      });
       seo.append(cards.seo.element, results.seo);
       const readability = context.section('readability', Drupal.t('Readability'));
       readability.classList.add('neo-seo-analysis');
@@ -834,7 +1039,13 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       seo: new Scorecard(Drupal.t('SEO'), SCORE_HELP.seo(), fields),
       readability: new Scorecard(Drupal.t('Readability'), SCORE_HELP.readability()),
     };
-    const results = new Results(host, (side) => cards[side].say(Drupal.t('The preview does not show that text.')));
+    const config = (editor.config.analysis ?? {}) as AnalysisConfig;
+    const results = new Results(host, (side) => cards[side].say(Drupal.t('The preview does not show that text.')), config.imagesUrl);
+    // A media item saved from the alt text check: render and check again.
+    document.addEventListener(MEDIA_SAVED, () => {
+      results.forget();
+      editor.refresh();
+    });
     const sides: Record<Side, { label: string; content: Node[] }> = {
       seo: { label: Drupal.t('SEO'), content: [cards.seo.element, results.seo] },
       readability: { label: Drupal.t('Readability'), content: [cards.readability.element, results.readability] },

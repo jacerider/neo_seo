@@ -356,6 +356,11 @@ Adds content analysis to the panel:
   is the last row. The heading and image alt text checks sit in the SEO list, tagged *Not scored*.
   A check that can be fixed is a row-wide button to its fix, "Fix ›" at its end; *Show in preview*
   is an eye beside it.
+- **Image alt text:** one row, "N images need better alt text", over the images it flags, one per
+  file: thumbnail, file name, why and how often it is used, each with its own eye and Fix. Fix
+  opens the image's media item in a modal (alt text lives there, shared by every use); saving
+  closes it and the panel checks again. An image with no media item, or one the editor may not
+  edit, falls back to its component.
 - **Edit form:** the SEO header and checks in the **SEO** section, the readability ones in a
   **Readability** section. A page built in its own Alchemist layout (a component tree that allows a custom layout,
   rendered by the page's full view mode) is written in the layout editor, where its checks can be

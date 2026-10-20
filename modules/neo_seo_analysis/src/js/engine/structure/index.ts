@@ -115,14 +115,20 @@ export function altIsMissing(src: string, alt: string | null): boolean {
   return altProblem(src, alt) !== null;
 }
 
-/** The images' file names, the first few, so the editor can find them. */
-function fileNames(images: Array<{ src: string }>): string {
-  const names = [...new Set(images.map((img) => fileName(img.src)).filter((name) => name !== ''))];
-  if (names.length === 0) {
-    return '';
-  }
-  const shown = names.slice(0, 3).join(', ');
-  return names.length > 3 ? ` (${shown} and ${names.length - 3} more)` : ` (${shown})`;
+/**
+ * An image's file, however many times or sizes the page shows it: its path
+ * with an image style's directories and added format taken off.
+ */
+export function imageFile(src: string): string {
+  const path = src.split(/[?#]/)[0]!.replace(/^[a-z]+:\/\/[^/]+/i, '');
+  return path
+    .replace(/\/styles\/[^/]+\/[a-z0-9]+\//i, '/')
+    .replace(/^(.+\.[a-z0-9]{2,5})\.(avif|webp)$/i, '$1');
+}
+
+/** Why an image's alt text says nothing, or null when it says something. */
+export function altReason(src: string, alt: string | null): 'none' | 'fileName' | null {
+  return altProblem(src, alt);
 }
 
 export function imageAltText(ctx: Context): Assessment | null {
@@ -139,25 +145,15 @@ export function imageAltText(ctx: Context): Assessment | null {
       message: images.length === 1 ? 'The image has alt text.' : `All ${images.length} images have alt text.`,
     };
   }
-  // Say which case it is: alt text that only repeats the file name is there
-  // when the editor looks, so without the names it reads as a false alarm.
-  const none = missing.filter((img) => altProblem(img.src, img.alt) === 'none');
-  const named = missing.filter((img) => altProblem(img.src, img.alt) === 'fileName');
-  const of = `of ${images.length} ${images.length === 1 ? 'image' : 'images'}`;
-  const parts: string[] = [];
-  if (none.length > 0) {
-    parts.push(`${none.length} ${of} ${none.length === 1 ? 'has' : 'have'} no alt text${fileNames(none)}`);
-  }
-  if (named.length > 0) {
-    const verb = named.length === 1 ? 'uses its file name' : 'use their file name';
-    parts.push(none.length > 0
-      ? `${named.length} ${verb} as alt text${fileNames(named)}`
-      : `${named.length} ${of} ${verb} as alt text${fileNames(named)}`);
-  }
+  // Counted by file: an image shown three times is one alt text to write.
+  // Which images, and why, the panel lists from the highlights.
+  const files = new Set(missing.map((img) => imageFile(img.src))).size;
   return {
     id,
     band: 'problem',
-    message: `${parts.join(', and ')}. ${missing.length === 1 ? 'Describe what it shows.' : 'Describe what each one shows.'}`,
+    message: files === 1
+      ? '1 image needs better alt text: none, or just its file name.'
+      : `${files} images need better alt text: none, or just their file names.`,
     highlights: missing.map((img): Highlight => ({ kind: 'image', src: img.src, alt: img.alt })),
   };
 }
