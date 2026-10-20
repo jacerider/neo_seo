@@ -62,8 +62,6 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     return score >= 70 ? 'good' : score >= 40 ? 'ok' : 'problem';
   }
 
-  const ORDER: Record<Band, number> = { problem: 0, ok: 1, good: 2 };
-
   /** What the two scores mean: the same words in both surfaces. */
   const SCORE_HELP = {
     seo: () => Drupal.t('How well the page is set up to be found for its focus keyphrase. Green 70+, orange 40–69, red below. It is advice: it never stops you saving.'),
@@ -261,70 +259,216 @@ import AnalysisWorker from './analysis.worker?worker&inline';
 
   }
 
+  function svg(tag: string, attributes: Record<string, string>): SVGElement {
+    const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, value));
+    return element;
+  }
+
   /**
-   * The SEO and readability assessment lists, with a Show button where the
-   * host can mark an assessment's highlights in its preview.
+   * A score as a ring: the arc is the score out of 100 in its band's colour,
+   * the number inside (the large ring) or beside it (the pills). No score yet,
+   * or none for the page, is an empty ring. A label makes it an image to a
+   * screen reader; without one it is decoration beside text that says it.
+   */
+  function ring(score: number | null, size: 'lg' | 'sm', label = ''): HTMLElement {
+    const graphic = svg('svg', { class: 'neo-seo-ring__graphic', viewBox: '0 0 36 36', 'aria-hidden': 'true', focusable: 'false' });
+    graphic.append(
+      svg('circle', { class: 'neo-seo-ring__track', cx: '18', cy: '18', r: '15', pathLength: '100' }),
+      svg('circle', {
+        class: 'neo-seo-ring__arc',
+        cx: '18',
+        cy: '18',
+        r: '15',
+        pathLength: '100',
+        'stroke-dasharray': `${Math.max(0, Math.min(100, score ?? 0))} 100`,
+      }),
+    );
+    const attributes: Record<string, string> = {
+      class: `neo-seo-ring neo-seo-ring--${size}`,
+      'data-band': score === null ? 'none' : scoreBand(score),
+    };
+    if (label) {
+      attributes.role = 'img';
+      attributes['aria-label'] = label;
+    }
+    else {
+      attributes['aria-hidden'] = 'true';
+    }
+    return h('span', attributes, [
+      graphic,
+      size === 'lg' ? h('span', { class: 'neo-seo-ring__value', 'aria-hidden': 'true' }, [score === null ? '–' : String(score)]) : null,
+    ]);
+  }
+
+  /** A score's ring and value, one line: the summaries and the Save summary. */
+  function scoreLine(className: string, label: string, value: number | null, note = ''): HTMLElement {
+    const band = value === null ? 'none' : scoreBand(value);
+    return h('span', { class: className, 'data-band': band }, [
+      ring(value, 'sm'),
+      h('span', { class: `${className}-label` }, [label]),
+      h('strong', {}, [value === null ? '–' : String(value)]),
+      value === null ? null : h('span', { class: 'visually-hidden' }, [` / 100, ${bandLabel(band as Band)}`]),
+      note ? h('span', { class: `${className}-note` }, [note]) : null,
+    ]);
+  }
+
+  type Side = 'seo' | 'readability';
+
+  /** What the SEO score was measured against, under its ring. */
+  function seoStatus(values: NeoSeoOverrides, score: number): string {
+    if (values.cornerstone) {
+      return Drupal.t('Cornerstone content: scored against stricter thresholds.');
+    }
+    if (values.keyphrase.trim() === '') {
+      return Drupal.t('No focus keyphrase: set one to run every check.');
+    }
+    return bandLabel(scoreBand(score));
+  }
+
+  /**
+   * A score's header: the ring, the score's name and what it means, a status
+   * line, and for SEO the keyphrase and cornerstone controls it is measured
+   * against. The status line is the surface's one live region: what was
+   * measured, or why there is nothing to show.
+   */
+  class Scorecard {
+
+    readonly element: HTMLElement;
+    protected readonly label: string;
+    protected readonly ringSlot: HTMLElement;
+    protected readonly status: HTMLElement;
+
+    constructor(label: string, help: string, fields: HTMLElement | null = null) {
+      this.label = label;
+      this.ringSlot = h('span', { class: 'neo-seo-analysis__ring' }, [ring(null, 'lg')]);
+      this.status = h('p', { class: 'neo-seo-analysis__status', role: 'status', 'aria-live': 'polite' }, [
+        Drupal.t('Analysing…'),
+      ]);
+      this.element = h('div', { class: 'neo-seo-analysis__scorecard', 'data-band': 'none' }, [
+        this.ringSlot,
+        h('div', { class: 'neo-seo-analysis__scorecard-body' }, [
+          h('h4', { class: 'neo-seo-analysis__title' }, [
+            label,
+            helpBadge(Drupal.t('About the @title score', { '@title': label }), help),
+          ]),
+          this.status,
+          fields,
+        ]),
+      ]);
+    }
+
+    /** A new score, or none (null), and what it was measured against. */
+    show(score: number | null, status: string): void {
+      const band = score === null ? 'none' : scoreBand(score);
+      this.element.dataset.band = band;
+      this.element.classList.remove('is-failed');
+      this.ringSlot.replaceChildren(ring(score, 'lg', score === null
+        ? Drupal.t('@label score: none', { '@label': this.label })
+        : Drupal.t('@label score: @score out of 100, @band', {
+          '@label': this.label,
+          '@score': String(score),
+          '@band': bandLabel(band as Band),
+        })));
+      this.status.textContent = status;
+    }
+
+    /** Re-analysing: the last score stays, the ring turning around it. */
+    busy(busy: boolean): void {
+      this.element.classList.toggle('is-busy', busy);
+      this.element.setAttribute('aria-busy', busy ? 'true' : 'false');
+    }
+
+    /** Analysis could not run: the ring empties and the line says why. */
+    fail(text: string): void {
+      this.busy(false);
+      this.element.classList.add('is-failed');
+      this.status.textContent = text;
+    }
+
+    say(text: string): void {
+      this.status.textContent = text;
+    }
+
+  }
+
+  /** An assessment, and whether it counts toward its score. */
+  interface Check {
+    assessment: Assessment;
+    scored: boolean;
+  }
+
+  /**
+   * The SEO and readability checks: problems, then improvements, each under
+   * a count, then the passed ones folded into one row; for SEO, the heading
+   * outline last. The structure checks (headings, alt text) join the SEO
+   * list, tagged as not scored. Each check's Show and Fix sit under its
+   * message, so the message has the row's width.
    */
   class Results {
 
-    readonly element: HTMLElement;
     protected readonly host: NeoSeoPanelHost;
-    protected readonly onMissing: () => void;
+    protected readonly onMissing: (side: Side) => void;
     /** Called after a Fix went somewhere. */
     onFixed: (result: NeoSeoFixResult) => void = () => {};
     readonly seo: HTMLElement;
     readonly readability: HTMLElement;
-    /** The heading outline and its checks. */
-    readonly outline: HTMLElement;
-    /** The image alt text check. */
-    readonly images: HTMLElement;
     protected highlighted: HTMLButtonElement | null = null;
 
-    constructor(host: NeoSeoPanelHost, onMissing: () => void) {
+    constructor(host: NeoSeoPanelHost, onMissing: (side: Side) => void) {
       this.host = host;
       this.onMissing = onMissing;
-      this.seo = h('div', { class: 'neo-seo-analysis__group' });
-      this.readability = h('div', { class: 'neo-seo-analysis__group' });
-      this.outline = h('div', { class: 'neo-seo-analysis__group' });
-      this.images = h('div', { class: 'neo-seo-analysis__group' });
-      this.element = h('div', { class: 'neo-seo-analysis__results' }, [this.seo, this.outline, this.images, this.readability]);
+      this.seo = h('div', { class: 'neo-seo-analysis__checks' });
+      this.readability = h('div', { class: 'neo-seo-analysis__checks' });
     }
 
     draw(result: AnalysisResult): void {
       this.clearHighlight();
-      this.group(this.seo, Drupal.t('SEO'), SCORE_HELP.seo(), result.seo.score, result.seo.assessments, null);
-      this.group(
-        this.readability,
-        Drupal.t('Readability'),
-        SCORE_HELP.readability(),
-        result.readability.score,
-        result.readability.assessments,
-        result.readability.available ? null : (result.readability.message ?? Drupal.t('Readability is analysed for English only.')),
-      );
-      this.structure(result);
+      const { outline, headings, images } = result.structure;
+      this.seo.replaceChildren(...this.checks('seo', [
+        ...result.seo.assessments.map((assessment) => ({ assessment, scored: true })),
+        ...headings.map((assessment) => ({ assessment, scored: false })),
+        ...images.map((assessment) => ({ assessment, scored: false })),
+      ]), this.outline(outline, headings));
+      this.readability.replaceChildren(...(result.readability.available
+        ? this.checks('readability', result.readability.assessments.map((assessment) => ({ assessment, scored: true })))
+        : [h('p', { class: 'neo-seo-analysis__note' }, [
+          result.readability.message ?? Drupal.t('Readability is analysed for English only.'),
+        ])]));
     }
 
     /**
-     * Assessments worst first, with the passed ones folded into one "N
-     * passed" row: what needs doing is what is read first. The row's open
-     * state is remembered, for every list at once.
+     * Problems and improvements, each under its count, worst first; the
+     * passed checks folded into one "N passed" row whose open state is
+     * remembered, for every list at once.
      */
-    protected checks(assessments: Assessment[]): Node[] {
-      const sorted = [...assessments].sort((a, b) => ORDER[a.band] - ORDER[b.band]);
-      const open = sorted.filter((assessment) => assessment.band !== 'good');
-      const passed = sorted.filter((assessment) => assessment.band === 'good');
+    protected checks(side: Side, checks: Check[]): Node[] {
       const nodes: Node[] = [];
-      if (open.length) {
+      ([['problem', Drupal.t('Problems')], ['ok', Drupal.t('Improvements')]] as Array<[Band, string]>).forEach(([band, title]) => {
+        const matching = checks.filter((check) => check.assessment.band === band);
+        if (!matching.length) {
+          return;
+        }
         const list = h('ul', { class: 'neo-seo-analysis__list' });
-        open.forEach((assessment) => list.append(this.item(assessment)));
-        nodes.push(list);
+        matching.forEach((check) => list.append(this.item(side, check)));
+        nodes.push(h('section', { class: 'neo-seo-analysis__band', 'data-band': band, 'aria-label': title }, [
+          h('h5', { class: 'neo-seo-analysis__band-title' }, [
+            title,
+            h('span', { class: 'neo-seo-analysis__count' }, [String(matching.length)]),
+          ]),
+          list,
+        ]));
+      });
+      if (!nodes.length && checks.length) {
+        nodes.push(h('p', { class: 'neo-seo-analysis__clear' }, [Drupal.t('Nothing to fix.')]));
       }
+      const passed = checks.filter((check) => check.assessment.band === 'good');
       if (passed.length) {
         const list = h('ul', { class: 'neo-seo-analysis__list' });
-        passed.forEach((assessment) => list.append(this.item(assessment)));
+        passed.forEach((check) => list.append(this.item(side, check)));
         const details = h('details', { class: 'neo-seo-analysis__passed' }, [
-          h('summary', { class: 'neo-seo-analysis__passed-summary', 'data-band': 'good' }, [
-            h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
+          h('summary', { class: 'neo-seo-analysis__row', 'data-band': 'good' }, [
+            h('span', { class: 'neo-seo-analysis__tick', 'aria-hidden': 'true' }),
             Drupal.formatPlural(passed.length, '1 passed', '@count passed'),
           ]),
           list,
@@ -337,37 +481,28 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     }
 
     /**
-     * The heading outline (its checks, then the headings as an indented tree,
-     * flagged where they break it) and the image alt text check. Not scored.
+     * The headings as an indented tree, folded under a count, the list's last
+     * row. It opens on its own when the outline has a problem; a choice made
+     * remembers itself, separately for an outline with problems and one
+     * without.
      */
-    protected structure(result: AnalysisResult): void {
-      const { outline, headings, images } = result.structure;
-      this.outline.replaceChildren(
-        h('h4', { class: 'neo-seo-analysis__heading' }, [Drupal.t('Heading outline')]),
-        ...this.checks(headings),
-        outline.length
-          ? this.tree(outline, headings.some((assessment) => assessment.band !== 'good') || outline.some((heading) => heading.issue))
-          : h('p', { class: 'neo-seo-analysis__note' }, [Drupal.t('The page has no headings.')]),
-      );
-      this.images.replaceChildren(
-        h('h4', { class: 'neo-seo-analysis__heading' }, [Drupal.t('Image alt text')]),
-        ...(images.length ? this.checks(images) : [h('p', { class: 'neo-seo-analysis__note' }, [Drupal.t('The page has no images.')])]),
-      );
-    }
-
-    /**
-     * The headings as an indented tree, folded away under a count. It opens
-     * on its own when the outline has a problem; a choice made remembers
-     * itself, separately for an outline with problems and one without.
-     */
-    protected tree(outline: OutlineHeading[], problems: boolean): HTMLElement {
+    protected outline(outline: OutlineHeading[], headings: Assessment[]): HTMLElement {
+      const name = h('span', { class: 'neo-seo-analysis__row-name' }, [Drupal.t('Heading outline')]);
+      if (!outline.length) {
+        return h('p', { class: 'neo-seo-analysis__row neo-seo-analysis__row--static' }, [
+          name,
+          h('span', { class: 'neo-seo-analysis__row-meta' }, [Drupal.t('No headings')]),
+        ]);
+      }
+      const problems = headings.some((assessment) => assessment.band !== 'good') || outline.some((heading) => heading.issue);
       const tree = h('ol', { class: 'neo-seo-analysis__outline', 'aria-label': Drupal.t('Headings on the page, in order') });
       outline.forEach((heading) => tree.append(this.outlineItem(heading)));
       const issues = outline.filter((heading) => heading.issue).length;
       const key = problems ? 'outlineOpen.problems' : 'outlineOpen.clean';
       const details = h('details', { class: 'neo-seo-analysis__tree' }, [
-        h('summary', { class: 'neo-seo-analysis__tree-summary' }, [
-          Drupal.formatPlural(outline.length, '1 heading', '@count headings'),
+        h('summary', { class: 'neo-seo-analysis__row' }, [
+          name,
+          h('span', { class: 'neo-seo-analysis__row-meta' }, [Drupal.formatPlural(outline.length, '1 heading', '@count headings')]),
           issues
             ? h('span', { class: 'neo-seo-analysis__issue' }, [Drupal.formatPlural(issues, '1 issue', '@count issues')])
             : null,
@@ -411,7 +546,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
             this.onFixed(result);
           }
           else {
-            this.onMissing();
+            this.onMissing('seo');
           }
         });
         item.append(button);
@@ -422,51 +557,23 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       return item;
     }
 
-    protected group(target: HTMLElement, title: string, help: string, score: number, assessments: Assessment[], unavailable: string | null): void {
-      const band = scoreBand(score);
-      const heading = h('h4', { class: 'neo-seo-analysis__heading' }, [
-        h('span', { class: 'neo-seo-analysis__title' }, [title, helpBadge(Drupal.t('About the @title score', { '@title': title }), help)]),
-        unavailable === null
-          ? h('span', { class: 'neo-seo-analysis__score', 'data-band': band }, [
-            h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
-            Drupal.t('@score / 100', { '@score': String(score) }),
-            h('span', { class: 'visually-hidden' }, [`, ${bandLabel(band)}`]),
-          ])
-          : null,
-      ]);
-      const children: Node[] = [heading];
-      if (unavailable !== null) {
-        children.push(h('p', { class: 'neo-seo-analysis__note' }, [unavailable]));
-      }
-      else {
-        children.push(...this.checks(assessments));
-      }
-      tooltips.detach(target);
-      target.replaceChildren(...children);
-      tooltips.attach(target);
-    }
-
-    protected item(assessment: Assessment): HTMLElement {
-      const item = h('li', { class: 'neo-seo-analysis__item', 'data-band': assessment.band }, [
-        h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
-        h('span', { class: 'visually-hidden' }, [`${bandLabel(assessment.band)}: `]),
-        h('span', { class: 'neo-seo-analysis__message' }, [assessment.message]),
-      ]);
+    protected item(side: Side, { assessment, scored }: Check): HTMLElement {
+      const actions: HTMLElement[] = [];
       const highlights = assessment.highlights ?? [];
       if (highlights.length && this.host.highlight) {
-        const button = h('button', {
+        const show = h('button', {
           type: 'button',
-          class: 'neo-seo-analysis__mark',
+          class: 'neo-seo-analysis__action',
           'aria-pressed': 'false',
           'aria-label': Drupal.t('Show in the preview: @message', { '@message': assessment.message }),
-        }, [Drupal.t('Show')]);
-        button.addEventListener('click', () => this.toggleHighlight(button, highlights));
-        item.append(button);
+        }, [Drupal.t('Show in preview')]);
+        show.addEventListener('click', () => this.toggleHighlight(side, show, highlights));
+        actions.push(show);
       }
       if (assessment.band !== 'good' && this.host.fix && this.host.canFix?.(assessment.id, highlights)) {
         const fix = h('button', {
           type: 'button',
-          class: 'neo-seo-analysis__mark neo-seo-analysis__fix',
+          class: 'neo-seo-analysis__action neo-seo-analysis__fix',
           'aria-label': Drupal.t('Go to the field that fixes this: @message', { '@message': assessment.message }),
         }, [Drupal.t('Fix')]);
         fix.addEventListener('click', () => {
@@ -475,15 +582,28 @@ import AnalysisWorker from './analysis.worker?worker&inline';
             this.onFixed(result);
           }
           else {
-            this.onMissing();
+            this.onMissing(side);
           }
         });
-        item.append(fix);
+        actions.push(fix);
       }
-      return item;
+      const meta = scored && !actions.length
+        ? null
+        : h('span', { class: 'neo-seo-analysis__meta' }, [
+          scored ? null : h('span', { class: 'neo-seo-analysis__tag' }, [Drupal.t('Not scored')]),
+          ...actions,
+        ]);
+      return h('li', { class: 'neo-seo-analysis__item', 'data-band': assessment.band }, [
+        h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
+        h('span', { class: 'neo-seo-analysis__body' }, [
+          h('span', { class: 'visually-hidden' }, [`${bandLabel(assessment.band)}: `]),
+          h('span', { class: 'neo-seo-analysis__message' }, [assessment.message]),
+          meta,
+        ]),
+      ]);
     }
 
-    protected toggleHighlight(button: HTMLButtonElement, highlights: NeoSeoHighlight[]): void {
+    protected toggleHighlight(side: Side, button: HTMLButtonElement, highlights: NeoSeoHighlight[]): void {
       const on = this.highlighted !== button;
       this.clearHighlight();
       if (on && this.host.highlight?.(highlights)) {
@@ -491,7 +611,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         button.setAttribute('aria-pressed', 'true');
       }
       else if (on) {
-        this.onMissing();
+        this.onMissing(side);
       }
     }
 
@@ -507,78 +627,85 @@ import AnalysisWorker from './analysis.worker?worker&inline';
 
   /**
    * The edit form's analysis: in the field's SEO and Readability sections,
-   * or, for a page built in its own Alchemist layout, the two scores and the
-   * way to the editor (summary()).
+   * each a score's header and its checks, or, for a page built in its own
+   * Alchemist layout, the two scores and the way to the editor (summary()).
    */
   function mountSection(context: NeoSeoPanelContext): void {
     const config = (context.config.analysis ?? {}) as AnalysisConfig;
     const seo = context.section('seo', Drupal.t('SEO'));
     seo.classList.add('neo-seo-analysis');
-    // A form without the field's sections: the inputs analysis reads join
-    // its results. Moved, not copied: they stay the host's controls and save
-    // the way they always did, help badge and all.
-    if (!seo.dataset.neoSeoSection) {
+    const analyzer = new Analyzer(context.host, context.config, () => context.latest());
+    const missing = Drupal.t('The preview does not show that text.');
+    const failed = Drupal.t('Analysis is not available in this browser.');
+
+    if (config.summary) {
+      // The inputs stay where the form has them: they are edited here, and
+      // scored in the editor.
+      if (!seo.dataset.neoSeoSection) {
+        (['keyphrase', 'cornerstone'] as NeoSeoOverrideKey[]).forEach((key) => {
+          const control = context.host.control(key);
+          if (control) {
+            seo.append(control);
+          }
+        });
+      }
+      const status = h('p', { class: 'neo-seo-analysis__status', role: 'status', 'aria-live': 'polite' }, [
+        Drupal.t('Analysis runs when the preview is ready.'),
+      ]);
+      const scores = h('div', { class: 'neo-seo-analysis__summary' });
+      seo.append(status, scores, editorLink(seo, config.summary.editorUrl));
+      analyzer.onBusy((busy, error) => {
+        status.textContent = busy ? Drupal.t('Analysing…') : (error ? failed : status.textContent);
+      });
+      analyzer.onResult((result, values) => {
+        scores.replaceChildren(
+          scoreLine('neo-seo-analysis__summary-score', Drupal.t('SEO'), result.seo.score,
+            values.keyphrase.trim() === '' ? Drupal.t('no focus keyphrase') : ''),
+          scoreLine('neo-seo-analysis__summary-score', Drupal.t('Readability'),
+            result.readability.available ? result.readability.score : null),
+        );
+        status.textContent = Drupal.t('Scores are advice: they never stop a save.');
+      });
+    }
+    else {
+      // The inputs analysis reads join the SEO score's header. Moved, not
+      // copied: they stay the host's controls and save the way they always
+      // did, help badge and all.
+      const fields = h('div', { class: 'neo-seo-analysis__fields' });
       (['keyphrase', 'cornerstone'] as NeoSeoOverrideKey[]).forEach((key) => {
         const control = context.host.control(key);
         if (control) {
-          seo.append(control);
+          fields.append(control);
         }
       });
-    }
-    const status = h('p', { class: 'neo-seo-analysis__status', role: 'status', 'aria-live': 'polite' }, [
-      Drupal.t('Analysis runs when the preview is ready.'),
-    ]);
-    const analyzer = new Analyzer(context.host, context.config, () => context.latest());
-    let draw: (result: AnalysisResult, values: NeoSeoOverrides) => void;
-    if (config.summary) {
-      const scores = h('div', { class: 'neo-seo-analysis__summary' });
-      seo.append(status, scores, editorLink(seo, config.summary.editorUrl));
-      draw = (result, values) => {
-        scores.replaceChildren(
-          summaryScore(Drupal.t('SEO'), values.keyphrase.trim() === '' ? null : result.seo.score, Drupal.t('– no focus keyphrase')),
-          summaryScore(Drupal.t('Readability'), result.readability.available ? result.readability.score : null, '–'),
-        );
+      const cards: Record<Side, Scorecard> = {
+        seo: new Scorecard(Drupal.t('SEO'), SCORE_HELP.seo(), fields),
+        readability: new Scorecard(Drupal.t('Readability'), SCORE_HELP.readability()),
       };
-    }
-    else {
-      const results = new Results(context.host, () => {
-        status.textContent = Drupal.t('The preview does not show that text.');
-      });
-      seo.append(status, results.seo, results.outline, results.images);
+      const results = new Results(context.host, (side) => cards[side].say(missing));
+      seo.append(cards.seo.element, results.seo);
       const readability = context.section('readability', Drupal.t('Readability'));
       readability.classList.add('neo-seo-analysis');
-      readability.append(results.readability);
-      draw = (result) => results.draw(result);
+      readability.append(cards.readability.element, results.readability);
+      tooltips.attach(cards.seo.element);
+      tooltips.attach(cards.readability.element);
+      analyzer.onBusy((busy, error) => {
+        (Object.values(cards)).forEach((card) => (error ? card.fail(failed) : card.busy(busy)));
+      });
+      analyzer.onResult((result, values) => {
+        results.draw(result);
+        cards.seo.show(result.seo.score, seoStatus(values, result.seo.score));
+        cards.readability.show(
+          result.readability.available ? result.readability.score : null,
+          result.readability.available ? bandLabel(scoreBand(result.readability.score)) : Drupal.t('Not analysed'),
+        );
+        Object.values(cards).forEach((card) => card.busy(false));
+      });
     }
-    analyzer.onBusy((busy, failed) => {
-      if (busy) {
-        status.textContent = Drupal.t('Analysing…');
-      }
-      else if (failed) {
-        status.textContent = Drupal.t('Analysis is not available in this browser.');
-      }
-    });
-    analyzer.onResult((result, values) => {
-      draw(result, values);
-      status.textContent = values.cornerstone
-        ? Drupal.t('Analysed as cornerstone content, against stricter thresholds.')
-        : Drupal.t('Analysed. Scores are advice: they never stop a save.');
-    });
     context.onRender(() => analyzer.analyze());
     if (context.latest()) {
       analyzer.analyze();
     }
-  }
-
-  /** One score of the summary: its traffic light, and the score. */
-  function summaryScore(label: string, value: number | null, missing: string): HTMLElement {
-    const band = value === null ? 'none' : scoreBand(value);
-    return h('p', { class: 'neo-seo-analysis__summary-score', 'data-band': band }, [
-      h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
-      h('span', { class: 'neo-seo-analysis__summary-label' }, [label]),
-      h('strong', {}, [value === null ? missing : Drupal.t('@score / 100', { '@score': String(value) })]),
-      value === null ? null : h('span', { class: 'visually-hidden' }, [`, ${bandLabel(band as Band)}`]),
-    ]);
   }
 
   /**
@@ -640,9 +767,8 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       readability: badge.querySelector<HTMLElement>('[data-neo-seo-score="readability"]'),
     };
 
-    // The dropdown: one view per pill. SEO holds what the page is scored
-    // against and why; Readability why. Each score's meaning is behind the
-    // (i) by its heading.
+    // The dropdown: one view per pill, each a score's header and its checks,
+    // one column. The SEO header holds what the page is scored against.
     const body = dropdown.element;
     body.classList.add('neo-seo-analysis', 'neo-seo-analysis--dropdown');
     const fields = h('div', { class: 'neo-seo-analysis__fields' });
@@ -655,31 +781,14 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       }
     });
     editor.addRoot(fields);
-    const status = h('p', { class: 'neo-seo-analysis__status', role: 'status', 'aria-live': 'polite' }, [
-      Drupal.t('Analysing…'),
-    ]);
-    const results = new Results(host, () => {
-      status.textContent = Drupal.t('The preview does not show that text.');
-    });
-    type Side = 'seo' | 'readability';
-    // SEO is wide: its inputs, outline and alt text beside the checks (two
-    // columns where the dropdown has the room — see analysis.css). Readability
-    // is one column of short lines.
-    fields.classList.add('neo-seo-analysis__area--fields');
-    results.seo.classList.add('neo-seo-analysis__area--checks');
-    results.images.classList.add('neo-seo-analysis__area--images');
-    results.outline.classList.add('neo-seo-analysis__area--outline');
-    const sides: Record<Side, { label: string; size: NeoAlchemistDropdownSize; content: Node[] }> = {
-      seo: {
-        label: Drupal.t('SEO'),
-        size: 'xl',
-        content: [h('div', { class: 'neo-seo-analysis__columns' }, [fields, results.seo, results.images, results.outline])],
-      },
-      readability: {
-        label: Drupal.t('Readability'),
-        size: 'lg',
-        content: [results.readability],
-      },
+    const cards: Record<Side, Scorecard> = {
+      seo: new Scorecard(Drupal.t('SEO'), SCORE_HELP.seo(), fields),
+      readability: new Scorecard(Drupal.t('Readability'), SCORE_HELP.readability()),
+    };
+    const results = new Results(host, (side) => cards[side].say(Drupal.t('The preview does not show that text.')));
+    const sides: Record<Side, { label: string; content: Node[] }> = {
+      seo: { label: Drupal.t('SEO'), content: [cards.seo.element, results.seo] },
+      readability: { label: Drupal.t('Readability'), content: [cards.readability.element, results.readability] },
     };
     let current: Side = 'seo';
     // No tabs: the pills are the switch. The open pill's side is shown; the
@@ -702,18 +811,18 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         pills[key]?.classList.toggle('is-active', on && dropdown.isOpen());
         pills[key]?.setAttribute('aria-pressed', on && dropdown.isOpen() ? 'true' : 'false');
       });
-      if (side !== 'seo') {
+      if (side !== current) {
         results.clearHighlight();
       }
       current = side;
       dropdown.element.setAttribute('aria-label', sides[side].label);
       // Optional: a neo_alchemist without setSize() keeps its one width.
-      dropdown.setSize?.(sides[side].size);
+      dropdown.setSize?.('lg');
     };
     select('seo');
     // The SEO fields themselves — title, description, share image — are in the
     // Search & social panel: one click there from the checks about them.
-    const footer = h('div', { class: 'neo-seo-analysis__footer' }, [status]);
+    const children: Node[] = [panes.seo, panes.readability];
     if (host.showPanel) {
       const edit = h('button', { type: 'button', class: 'btn btn-xs btn-outline neo-seo-analysis__panel-link' }, [
         Drupal.t('Edit search & social'),
@@ -722,9 +831,11 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         dropdown.close();
         host.showPanel?.();
       });
-      footer.append(edit);
+      children.push(h('div', { class: 'neo-seo-analysis__footer' }, [edit]));
     }
-    body.replaceChildren(panes.seo, panes.readability, footer);
+    body.replaceChildren(...children);
+    tooltips.attach(cards.seo.element);
+    tooltips.attach(cards.readability.element);
     // A Fix that went to the panel or the canvas leaves the dropdown; one that
     // went to the keyphrase field, which lives in it, keeps it open.
     results.onFixed = (result) => {
@@ -757,8 +868,8 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     };
 
     const keyphraseInput = () => fields.querySelector<HTMLInputElement>('[name="neo_seo[0][keyphrase]"]');
-    // No keyphrase: the SEO pill asks for one and opens straight onto it.
-    // Runs after the editor's own toggle, so the field takes the focus.
+    // No keyphrase: the SEO pill opens straight onto the field. Runs after
+    // the editor's own toggle, so the field takes the focus.
     badge.addEventListener('click', (event) => {
       const pill = (event.target as Element).closest<HTMLElement>('[data-neo-seo-score="seo"]');
       if (pill?.dataset.missing === 'true' && dropdown.isOpen()) {
@@ -766,58 +877,58 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       }
     });
 
+    // A pill shows its score as the dropdown does — SEO's without a keyphrase
+    // too, the tooltip saying the keyphrase checks are not in it.
     const setPill = (pill: HTMLElement | null, score: number | null, missing = false) => {
       if (!pill) {
         return;
       }
       const value = pill.querySelector<HTMLElement>('.neo-seo-pill__value');
+      pill.querySelector<HTMLElement>('.neo-seo-pill__ring')?.replaceChildren(ring(score, 'sm'));
       pill.dataset.missing = missing ? 'true' : 'false';
-      if (value) {
-        value.hidden = missing;
-      }
-      // No keyphrase: the grey dot and the label alone; the tooltip says why.
-      if (missing) {
-        pill.dataset.band = 'none';
-        pill.title = Drupal.t('No focus keyphrase: set one to score the page.');
-        return;
-      }
       const band = score === null ? 'none' : scoreBand(score);
       pill.dataset.band = band;
       if (value) {
+        value.hidden = false;
         value.textContent = score === null ? '–' : String(score);
       }
-      pill.title = score === null ? '' : `${bandLabel(band as Band)}: ${score} / 100`;
+      pill.title = score === null
+        ? ''
+        : missing
+          ? Drupal.t('@score / 100 without the keyphrase checks: set a focus keyphrase to run them.', { '@score': String(score) })
+          : `${bandLabel(band as Band)}: ${score} / 100`;
     };
     const setUpdating = (updating: boolean) => {
       [pills.seo, pills.readability].forEach((pill) => pill?.classList.toggle('is-updating', updating));
       badge.setAttribute('aria-busy', updating ? 'true' : 'false');
+      Object.values(cards).forEach((card) => card.busy(updating));
     };
 
     const analyzer = new Analyzer(host, editor.config, () => editor.latest());
     analyzer.onBusy((busy, failed) => {
       if (busy) {
         setUpdating(true);
-        status.textContent = Drupal.t('Analysing…');
       }
       else if (failed) {
         setUpdating(false);
-        status.textContent = Drupal.t('Analysis is not available in this browser.');
+        Object.values(cards).forEach((card) => card.fail(Drupal.t('Analysis is not available in this browser.')));
       }
     });
     badgeState = { editor, result: null, keyphraseMissing: false };
     analyzer.onResult((result, values) => {
       results.draw(result);
+      const missing = values.keyphrase.trim() === '';
       if (badgeState) {
         badgeState.result = result;
-        badgeState.keyphraseMissing = values.keyphrase.trim() === '';
+        badgeState.keyphraseMissing = missing;
       }
-      setPill(pills.seo, result.seo.score, values.keyphrase.trim() === '');
-      setPill(pills.readability, result.readability.available ? result.readability.score : null);
+      const readability = result.readability.available ? result.readability.score : null;
+      cards.seo.show(result.seo.score, seoStatus(values, result.seo.score));
+      cards.readability.show(readability, readability === null ? Drupal.t('Not analysed') : bandLabel(scoreBand(readability)));
+      setPill(pills.seo, result.seo.score, missing);
+      setPill(pills.readability, readability);
       scoreListeners.forEach((listener) => listener());
       setUpdating(false);
-      status.textContent = values.cornerstone
-        ? Drupal.t('Analysed as cornerstone content, against stricter thresholds.')
-        : Drupal.t('Analysed.');
     });
     editor.onState((state) => {
       if (state === 'updating') {
@@ -825,7 +936,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       }
       else if (state === 'error') {
         setUpdating(false);
-        status.textContent = Drupal.t('The page could not be rendered for analysis.');
+        Object.values(cards).forEach((card) => card.fail(Drupal.t('The page could not be rendered for analysis.')));
       }
     });
     editor.onRender(() => analyzer.analyze());
@@ -845,7 +956,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
   }
 
   /** Opens the badge's dropdown on a view; set once the badge is mounted. */
-  let openChecks: ((side: 'seo' | 'readability') => void) | null = null;
+  let openChecks: ((side: Side) => void) | null = null;
 
   /** Called after the badge shows new scores. */
   const scoreListeners: Array<() => void> = [];
@@ -862,30 +973,32 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     ]);
     const buttons = (['seo', 'readability'] as const).map((side) => {
       const value = h('span', { class: 'neo-seo-pill__value' }, ['–']);
+      const graphic = h('span', { class: 'neo-seo-pill__ring' }, [ring(null, 'sm')]);
       const button = h('button', {
         type: 'button',
         class: 'neo-seo-pill btn btn-xs btn-outline',
         'data-band': 'none',
       }, [
-        h('span', { class: 'neo-seo-pill__dot', 'aria-hidden': 'true' }),
+        graphic,
         h('span', { class: 'neo-seo-pill__label' }, [side === 'seo' ? Drupal.t('SEO') : Drupal.t('Read')]),
         value,
       ]);
       button.setAttribute('aria-label', side === 'seo' ? Drupal.t('Show the SEO checks') : Drupal.t('Show the readability checks'));
       button.addEventListener('click', () => openChecks?.(side));
       row.append(button);
-      return { side, button, value };
+      return { side, button, value, graphic };
     });
     const update = () => {
       const state = badgeState;
       if (!state?.result) {
         return;
       }
-      buttons.forEach(({ side, button, value }) => {
+      buttons.forEach(({ side, button, value, graphic }) => {
         const score = side === 'seo'
-          ? (state.keyphraseMissing ? null : state.result!.seo.score)
+          ? state.result!.seo.score
           : (state.result!.readability.available ? state.result!.readability.score : null);
         button.dataset.band = score === null ? 'none' : scoreBand(score);
+        graphic.replaceChildren(ring(score, 'sm'));
         value.textContent = score === null ? '–' : String(score);
       });
     };
@@ -917,20 +1030,12 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       return;
     }
     const { result, editor } = state;
-    const scores = h('p', { class: 'neo-seo-save-summary__scores' });
-    const score = (label: string, value: number | null, missing: string) => {
-      const band = value === null ? 'none' : scoreBand(value);
-      return h('span', { class: 'neo-seo-save-summary__score', 'data-band': band }, [
-        h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
-        `${label} `,
-        h('strong', {}, [value === null ? missing : String(value)]),
-        value === null ? null : h('span', { class: 'visually-hidden' }, [` / 100, ${bandLabel(band as Band)}`]),
-      ]);
-    };
-    scores.append(
-      score(Drupal.t('SEO'), state.keyphraseMissing ? null : result.seo.score, Drupal.t('– no focus keyphrase')),
-      score(Drupal.t('Readability'), result.readability.available ? result.readability.score : null, '–'),
-    );
+    const scores = h('p', { class: 'neo-seo-save-summary__scores' }, [
+      scoreLine('neo-seo-save-summary__score', Drupal.t('SEO'), result.seo.score,
+        state.keyphraseMissing ? Drupal.t('no focus keyphrase') : ''),
+      scoreLine('neo-seo-save-summary__score', Drupal.t('Readability'),
+        result.readability.available ? result.readability.score : null),
+    ]);
 
     const children: Node[] = [h('h3', { class: 'neo-seo-save-summary__title' }, [Drupal.t('SEO check')]), scores];
     const render = editor.latest();

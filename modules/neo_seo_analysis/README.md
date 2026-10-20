@@ -10,21 +10,23 @@ Enabling the module (it requires `neo_seo_panel`) adds analysis to both SEO pane
 (`src/js/analysis.ts`, one `Analyzer` behind two surfaces):
 
 - **Edit form** — `Drupal.neoSeoPanel.extend()`, into the places the widget alter keeps for it
-  (`data-neo-seo-section`): the SEO checks under the keyphrase and cornerstone controls in the
-  field's SEO section, the readability checks in a Readability section it adds. Every draft render
+  (`data-neo-seo-section`): in the field's SEO section a `Scorecard` (score ring, status line, and
+  the keyphrase and cornerstone controls, moved into it) above the SEO checks; in a Readability
+  section it adds, the readability scorecard and checks. Every draft render
   is analysed. For a page built in its own Alchemist layout (`AlchemistLayout::customField()`:
   a component tree allowing a custom layout, shown by the full view mode) there is no Readability
   section; the SEO section shows both scores and a link to the layout editor
   (`AlchemistLayout::editorUrl()`, `?neo_seo=seo`, which opens the badge's SEO view), confirmed
   first while the form holds unsaved changes. neo_alchemist stays optional.
 - **Alchemist** — the SEO panel's top bar badge (`hook_neo_seo_panel_badge_alter()` +
-  `Drupal.neoSeoPanel.extendBadge()`): two pills, `● SEO 80` / `● Read 64` (green 70+, orange
-  40–69, red below; grey dot and no score without a keyphrase, which opens the dropdown on the
-  keyphrase field). They are scored from editor load off the editor's shared draft render, refreshed
+  `Drupal.neoSeoPanel.extendBadge()`): two pills, a small ring then `SEO 80` / `Read 64` (green
+  70+, orange 40–69, red below; without a keyphrase the partial SEO score, and the pill opens the
+  dropdown on the keyphrase field). They are scored from editor load off the editor's shared draft render, refreshed
   after every layout or SEO draft change whether or not the panel was opened, and dimmed with a
-  spinner while that happens. The dropdown holds the score help, the keyphrase and cornerstone
-  controls (drafted through the panel's draft key like every SEO field) and the assessments; Show
-  marks an assessment in the preview frames and keeps the dropdown open. The Alchemist panel itself
+  spinner while that happens. The dropdown (520px, one view a pill) holds the same scorecard —
+  the SEO one with the keyphrase and cornerstone controls, drafted through the panel's draft key
+  like every SEO field — and checks as the form; *Show in preview* marks an assessment in the
+  preview frames and keeps the dropdown open. The Alchemist panel itself
   carries no analysis.
 
 A keyphrase or cornerstone change re-runs the last render without asking the server again. The two

@@ -349,23 +349,26 @@ draft change, which the panel's previews (and the scores below) read.
 
 Adds content analysis to the panel:
 
-- **Edit form:** the SEO checks, heading outline and image alt text check under the focus keyphrase
-  and cornerstone toggle in the **SEO** section, and the readability checks in a **Readability**
-  section. A page built in its own Alchemist layout (a component tree that allows a custom layout,
+- **Layout, everywhere:** one column. A score's header — a ring with the score, its name and what it
+  was measured against, and for SEO the focus keyphrase and cornerstone fields — above its checks,
+  grouped *Problems* then *Improvements* under a count, then one folded *N passed* row; for SEO the
+  heading outline is the last row. The heading and image alt text checks sit in the SEO list,
+  tagged *Not scored*. *Show in preview* and *Fix* are links under each message.
+- **Edit form:** the SEO header and checks in the **SEO** section, the readability ones in a
+  **Readability** section. A page built in its own Alchemist layout (a component tree that allows a custom layout,
   rendered by the page's full view mode) is written in the layout editor, where its checks can be
   acted on: its form has no Readability section, and the SEO section shows the two scores, live,
   with **Open in the layout editor**, which opens the editor on its SEO checks
   (`?neo_seo=seo`) and asks first when the form holds unsaved changes. A page whose layout is
   locked is fed by the form's own fields and keeps the checks.
-- **Alchemist editor:** two score pills in the editor's top bar, `● SEO 80` and `● Read 64` (green
-  70+, orange 40–69, red below), scored from editor load and dimmed while they update. Without a
-  keyphrase the SEO pill shows a grey dot and no score. Clicking a pill opens its view of a dropdown:
-  SEO (760px) puts the keyphrase and cornerstone fields (drafted like every SEO field), the image
-  alt text check and the heading outline beside the assessments, in one column where there is less
-  room; Read (520px) lists the readability assessments. *Edit search & social* opens the panel.
-- **Everywhere:** passed checks fold into one *N passed* row and the heading outline's headings
-  under *N headings* (open on their own when the outline has a problem); both remember the choice
-  in the browser. What each score means is behind the "?" by its heading.
+- **Alchemist editor:** two score pills in the editor's top bar, a small ring then `SEO 80` and
+  `Read 64` (green 70+, orange 40–69, red below), scored from editor load and dimmed while they
+  update. Without a keyphrase the SEO score is the partial one, as the dropdown shows it; its
+  tooltip says the keyphrase checks are not in it, and the pill opens on the keyphrase field.
+  Clicking a pill opens its view of a 520px dropdown. *Edit search & social* opens the panel.
+- **Everywhere:** the *N passed* row, and the heading outline (open on its own when the outline has
+  a problem), remember whether they were open in the browser. What each score means is behind the
+  "?" by its name.
 - **Save confirmation (Alchemist):** the Save dialog shows the same two scores, the top three
   problems and a warning when the page is set to hide from search (drafted or saved). Text only and
   advice only: the dialog saves, cancels and focuses exactly as before, and nothing shows until the
@@ -380,7 +383,7 @@ Adds content analysis to the panel:
   SEO checks only.
 - **Cornerstone** pages are held to stricter thresholds.
 - **Where it runs:** in a Web Worker, against the draft render. Typing does not freeze the form.
-- **Show:** in Alchemist, *Show* marks an assessment's text in the preview.
+- **Show in preview:** in Alchemist, it marks an assessment's text in the preview.
 
 Scores are stored with the overrides when the page is saved or published. The admin content list
 can show *SEO* and *Readability* columns (Views handler `neo_seo_score`; a page that was never

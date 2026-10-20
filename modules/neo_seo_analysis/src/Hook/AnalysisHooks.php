@@ -136,10 +136,11 @@ class AnalysisHooks {
           'class' => ['neo-seo-pill', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary', 'is-updating'],
           'data-neo-seo-score' => $kind,
         ],
-        'dot' => [
+        // A small ring of the score; analysis.ts draws it.
+        'ring' => [
           '#type' => 'html_tag',
           '#tag' => 'span',
-          '#attributes' => ['class' => ['neo-seo-pill__dot'], 'aria-hidden' => 'true'],
+          '#attributes' => ['class' => ['neo-seo-pill__ring'], 'aria-hidden' => 'true'],
         ],
         'label' => [
           '#type' => 'html_tag',
