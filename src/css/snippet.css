@@ -104,7 +104,7 @@
   white-space: nowrap;
   vertical-align: baseline;
   cursor: default;
-  user-select: all;
+  user-select: none;
 }
 
 .neo-seo-snippet__editor.is-template .neo-seo-snippet__pill {

@@ -211,6 +211,28 @@
         }, 0);
       });
       this.editor.addEventListener('keydown', (event) => this.keydown(event));
+      // A pill is one thing: clicking it puts the caret after it. Firefox
+      // otherwise puts the caret inside it, where nothing can be typed.
+      this.editor.addEventListener('mousedown', (event) => {
+        const pill = (event.target as Element).closest?.('.neo-seo-snippet__pill');
+        if (pill && this.editor.contains(pill)) {
+          event.preventDefault();
+          this.editor.focus();
+          this.caretAfter(pill);
+        }
+      });
+      document.addEventListener('selectionchange', () => {
+        if (document.activeElement !== this.editor) {
+          return;
+        }
+        const anchor = window.getSelection()?.anchorNode ?? null;
+        const pill = anchor instanceof Element
+          ? anchor.closest('.neo-seo-snippet__pill')
+          : anchor?.parentElement?.closest('.neo-seo-snippet__pill') ?? null;
+        if (pill && this.editor.contains(pill)) {
+          this.caretAfter(pill);
+        }
+      });
       this.editor.addEventListener('paste', (event) => {
         event.preventDefault();
         const text = (event.clipboardData?.getData('text/plain') ?? '').replace(/\s+/g, ' ');
@@ -225,6 +247,7 @@
       const template = this.config.template;
       const fromTemplate = value.trim() === '' && !!template;
       this.editor.replaceChildren(...this.parse(fromTemplate ? template! : value));
+      this.pad();
       this.editor.classList.toggle('is-template', fromTemplate);
       this.updateState();
     }
@@ -324,6 +347,19 @@
     }
 
     keydown(event: KeyboardEvent): void {
+      if ((event.key === 'Backspace' || event.key === 'Delete') && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const pill = this.pillBeside(event.key === 'Backspace' ? 'before' : 'after');
+        if (pill) {
+          // Removed here: Firefox will not delete an uneditable pill.
+          event.preventDefault();
+          const marker = document.createTextNode('');
+          pill.replaceWith(marker);
+          this.pad();
+          this.caretAt(marker);
+          this.sync();
+          return;
+        }
+      }
       if (event.key === 'Enter') {
         // One line: a title or description never breaks.
         event.preventDefault();
@@ -382,7 +418,82 @@
         selection?.addRange(after);
       }
       this.range = null;
+      this.pad();
       this.sync();
+    }
+
+    /**
+     * Keeps a place to type at either end and between two pills: an empty
+     * spot there is one no browser can put a caret in reliably. The spacer is
+     * a zero-width space, which serialize() drops.
+     */
+    pad(): void {
+      const isPill = (node: Node | null) => node instanceof HTMLElement && node.classList.contains('neo-seo-snippet__pill');
+      const spacer = () => document.createTextNode('\u200B');
+      const nodes = Array.from(this.editor.childNodes);
+      nodes.forEach((node) => {
+        if (isPill(node) && isPill(node.previousSibling)) {
+          node.before(spacer());
+        }
+      });
+      if (isPill(this.editor.firstChild)) {
+        this.editor.prepend(spacer());
+      }
+      if (isPill(this.editor.lastChild) || !this.editor.lastChild) {
+        this.editor.append(spacer());
+      }
+    }
+
+    /** The pill right before or after a collapsed caret, if any. */
+    pillBeside(side: 'before' | 'after'): HTMLElement | null {
+      const selection = window.getSelection();
+      if (!selection || !selection.isCollapsed || !selection.anchorNode || !this.editor.contains(selection.anchorNode)) {
+        return null;
+      }
+      const isPill = (node: Node | null): node is HTMLElement => node instanceof HTMLElement && node.classList.contains('neo-seo-snippet__pill');
+      const anchor = selection.anchorNode;
+      const offset = selection.anchorOffset;
+      let neighbour: Node | null = null;
+      if (anchor.nodeType === Node.TEXT_NODE) {
+        const text = anchor.textContent ?? '';
+        // Zero-width spacers do not count as text in the way.
+        const between = side === 'before' ? text.slice(0, offset) : text.slice(offset);
+        if (between.replace(/\u200B/g, '') !== '') {
+          return null;
+        }
+        neighbour = side === 'before' ? anchor.previousSibling : anchor.nextSibling;
+      }
+      else if (anchor === this.editor) {
+        neighbour = side === 'before' ? this.editor.childNodes[offset - 1] ?? null : this.editor.childNodes[offset] ?? null;
+      }
+      return isPill(neighbour) ? neighbour : null;
+    }
+
+    /** Puts the caret right after a node. */
+    caretAfter(node: Node): void {
+      const next = node.nextSibling;
+      if (next && next.nodeType === Node.TEXT_NODE) {
+        // Inside the text after it, past any spacer, so typing lands there.
+        const text = next.textContent ?? '';
+        this.caretAt(next, text.startsWith('\u200B') ? 1 : 0);
+        return;
+      }
+      const range = document.createRange();
+      range.setStartAfter(node);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
+
+    /** Puts the caret in a text node, at an offset. */
+    caretAt(node: Node, offset = 0): void {
+      const range = document.createRange();
+      range.setStart(node, Math.min(offset, (node.textContent ?? '').length));
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
     }
 
   }
