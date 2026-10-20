@@ -351,7 +351,8 @@ Adds content analysis to the panel:
 
 - **Layout, everywhere:** one column. A score's header — a ring with the score, its name and what it
   was measured against, and for SEO the focus keyphrase and cornerstone fields — above its checks,
-  grouped *Problems* then *Improvements* under a count, then one folded *N passed* row; for SEO the
+  grouped *Problems* then *Improvements* under a count, each check marked by a severity icon (red
+  disc, amber triangle, green tick), then one folded *N passed* row; for SEO the
   heading outline is the last row. The heading and image alt text checks sit in the SEO list,
   tagged *Not scored*. *Show in preview* and *Fix* are links under each message.
 - **Edit form:** the SEO header and checks in the **SEO** section, the readability ones in a

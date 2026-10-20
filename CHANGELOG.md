@@ -6,7 +6,8 @@
 beside the checks never matched their height, and the side cards squeezed long messages into a
 thin strip. Each score now has a header — a ring with the score, what it was measured against, and
 for SEO the keyphrase and cornerstone fields — above one column of checks grouped *Problems*,
-*Improvements* and a folded *N passed*, with the heading outline last. The heading and alt text
+*Improvements* and a folded *N passed*, with the heading outline last. Each check's severity is an
+icon (a red disc, an amber triangle, a green tick) in place of the dot. The heading and alt text
 checks join the SEO list, tagged *Not scored*; *Show in preview* and *Fix* are links under each
 message. The edit form, the Alchemist dropdown (now 520px for both views), the top bar pills and
 the Save summary share the design. Without a focus keyphrase the SEO score is shown everywhere as

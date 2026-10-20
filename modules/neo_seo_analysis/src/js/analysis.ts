@@ -313,6 +313,38 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     ]);
   }
 
+  /**
+   * A check's severity as an icon: a red disc with "!" for a problem, an
+   * amber triangle with "!" for an improvement, a green disc with a tick for
+   * a pass. Decoration: the band is also said in text beside it.
+   */
+  function severityIcon(band: Band): SVGElement {
+    const graphic = svg('svg', {
+      class: 'neo-seo-icon',
+      'data-band': band,
+      viewBox: '0 0 16 16',
+      'aria-hidden': 'true',
+      focusable: 'false',
+    });
+    if (band === 'good') {
+      graphic.append(
+        svg('circle', { class: 'neo-seo-icon__shape', cx: '8', cy: '8', r: '8' }),
+        svg('path', { class: 'neo-seo-icon__tick', d: 'M4.6 8.3 7 10.6l4.4-5' }),
+      );
+      return graphic;
+    }
+    graphic.append(band === 'problem'
+      ? svg('circle', { class: 'neo-seo-icon__shape', cx: '8', cy: '8', r: '8' })
+      : svg('path', { class: 'neo-seo-icon__shape neo-seo-icon__shape--triangle', d: 'M8 1.6 15 14.2H1Z' }));
+    const top = band === 'problem' ? 3.6 : 5.6;
+    const length = band === 'problem' ? 5.4 : 4.4;
+    graphic.append(
+      svg('rect', { class: 'neo-seo-icon__mark', x: '7.1', y: String(top), width: '1.8', height: String(length), rx: '0.9' }),
+      svg('circle', { class: 'neo-seo-icon__mark', cx: '8', cy: String(top + length + 1.9), r: '1' }),
+    );
+    return graphic;
+  }
+
   type Side = 'seo' | 'readability';
 
   /** What the SEO score was measured against, under its ring. */
@@ -453,6 +485,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         matching.forEach((check) => list.append(this.item(side, check)));
         nodes.push(h('section', { class: 'neo-seo-analysis__band', 'data-band': band, 'aria-label': title }, [
           h('h5', { class: 'neo-seo-analysis__band-title' }, [
+            severityIcon(band),
             title,
             h('span', { class: 'neo-seo-analysis__count' }, [String(matching.length)]),
           ]),
@@ -468,7 +501,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         passed.forEach((check) => list.append(this.item(side, check)));
         const details = h('details', { class: 'neo-seo-analysis__passed' }, [
           h('summary', { class: 'neo-seo-analysis__row', 'data-band': 'good' }, [
-            h('span', { class: 'neo-seo-analysis__tick', 'aria-hidden': 'true' }),
+            severityIcon('good'),
             Drupal.formatPlural(passed.length, '1 passed', '@count passed'),
           ]),
           list,
@@ -594,7 +627,7 @@ import AnalysisWorker from './analysis.worker?worker&inline';
           ...actions,
         ]);
       return h('li', { class: 'neo-seo-analysis__item', 'data-band': assessment.band }, [
-        h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
+        severityIcon(assessment.band),
         h('span', { class: 'neo-seo-analysis__body' }, [
           h('span', { class: 'visually-hidden' }, [`${bandLabel(assessment.band)}: `]),
           h('span', { class: 'neo-seo-analysis__message' }, [assessment.message]),
