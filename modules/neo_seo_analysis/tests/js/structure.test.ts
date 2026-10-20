@@ -79,12 +79,38 @@ describe('image alt text', () => {
       '<img src="/styles/large/public/coyote-trap_2.PNG.avif?itok=x" alt="coyote-trap_2.PNG">',
     ].join(''));
     assert.equal(found?.band, 'problem');
-    assert.match(found?.message ?? '', /^3 of 4 images/);
+    assert.equal(
+      found?.message,
+      '2 of 4 images have no alt text (rocket.jpg, coyote.png), and 1 uses its file name as alt text '
+      + '(coyote-trap_2.PNG). Describe what each one shows.',
+    );
     assert.deepEqual(found?.highlights?.map((h) => (h.kind === 'image' ? h.src : '')), [
       '/a/rocket.jpg',
       '/a/coyote.png',
       '/styles/large/public/coyote-trap_2.PNG.avif?itok=x',
     ]);
+  });
+
+  test('alt text that only repeats the file name says so, naming the files', () => {
+    const found = alt([
+      '<img src="/styles/w600/public/2026-07/civic-building.jpg.avif?itok=a" alt="Civic Building">',
+      '<img src="/styles/w600/public/2026-07/highway-interchange.jpg.webp" alt="Highway Interchange">',
+      '<img src="/a/anvil.jpg" alt="A red anvil">',
+    ].join(''));
+    assert.equal(
+      found?.message,
+      '2 of 3 images use their file name as alt text (civic-building.jpg, highway-interchange.jpg). '
+      + 'Describe what each one shows.',
+    );
+  });
+
+  test('one image with no alt text, and a long list cut short', () => {
+    assert.equal(
+      alt('<img src="/a/rocket.jpg">')?.message,
+      '1 of 1 image has no alt text (rocket.jpg). Describe what it shows.',
+    );
+    const many = alt(['a', 'b', 'c', 'd', 'e'].map((n) => `<img src="/x/${n}.jpg">`).join(''));
+    assert.match(many?.message ?? '', /^5 of 5 images have no alt text \(a\.jpg, b\.jpg, c\.jpg and 2 more\)\./);
   });
 
   test('alt text that is just the file name is missing; anything more is fine', () => {

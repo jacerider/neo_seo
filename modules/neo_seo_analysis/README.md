@@ -97,8 +97,8 @@ Highlight  = { kind: 'sentence' | 'paragraph', text }
 - **Structure** is reported beside the scores, never in them: `outline` lists every heading in
   order (`{level, text, issue?}`, issue `extraH1` or `skippedLevel`); `headings` holds `singleH1`
   (none or several H1s is a problem) and `headingLevels` (a skipped level is ok-band; not run with
-  fewer than two headings); `images` holds `imageAltText` (missing, empty, or file-name alt text;
-  not run without images).
+  fewer than two headings); `images` holds `imageAltText` (missing, empty, or file-name alt text,
+  each case counted and its files named in the message; not run without images).
 
 ## Layout
 

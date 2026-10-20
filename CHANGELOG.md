@@ -1,5 +1,14 @@
 # Changelog
 
+## The alt text check names the images it flags, and why
+
+**An image flagged for alt text seemed to have it.** The check counts alt text that only repeats
+the file name (`civic-building.jpg` described as "Civic Building") as missing, but its message
+said "have no alt text, or use the file name" without saying which, or which images, so an
+editor who opened the image found alt text and saw a false alarm. The message now counts each
+case on its own and names the files: "2 of 10 images use their file name as alt text
+(civic-building.jpg, highway-interchange.jpg)".
+
 ## The schemamap is announced with a `Schemamap:` directive
 
 **The Yoast visualizer did not find a site's schemamap from its home page.** robots.txt carried

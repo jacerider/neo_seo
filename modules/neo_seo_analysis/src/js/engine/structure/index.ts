@@ -82,8 +82,8 @@ export function headingLevels(outline: OutlineHeading[]): Assessment | null {
   };
 }
 
-/** A file name as words: no directories, extensions or separators. */
-function fileWords(src: string): string {
+/** An image's file name, as uploaded: no directories, query or converted format. */
+function fileName(src: string): string {
   const base = src.split(/[?#]/)[0]!.split('/').pop() ?? '';
   let name = base;
   try {
@@ -92,16 +92,37 @@ function fileWords(src: string): string {
   catch {
     // Keep the raw name.
   }
-  return name.split('.')[0]!.replace(/[-_\s]+/g, ' ').trim().toLowerCase();
+  // An image style converting the format appends its own: photo.jpg.avif.
+  return name.replace(/^(.+\.[a-z0-9]{2,5})\.(avif|webp)$/i, '$1');
+}
+
+/** A file name as words: no directories, extensions or separators. */
+function fileWords(src: string): string {
+  return fileName(src).split('.')[0]!.replace(/[-_\s]+/g, ' ').trim().toLowerCase();
+}
+
+/** Why an image's alt text says nothing, or null when it says something. */
+function altProblem(src: string, alt: string | null): 'none' | 'fileName' | null {
+  if (alt === null || alt.trim() === '') {
+    return 'none';
+  }
+  const words = alt.split('.')[0]!.replace(/[-_\s]+/g, ' ').trim().toLowerCase();
+  return words !== '' && words === fileWords(src) ? 'fileName' : null;
 }
 
 /** Alt text that says nothing: missing, empty, or the file's own name. */
 export function altIsMissing(src: string, alt: string | null): boolean {
-  if (alt === null || alt.trim() === '') {
-    return true;
+  return altProblem(src, alt) !== null;
+}
+
+/** The images' file names, the first few, so the editor can find them. */
+function fileNames(images: Array<{ src: string }>): string {
+  const names = [...new Set(images.map((img) => fileName(img.src)).filter((name) => name !== ''))];
+  if (names.length === 0) {
+    return '';
   }
-  const words = alt.split('.')[0]!.replace(/[-_\s]+/g, ' ').trim().toLowerCase();
-  return words !== '' && words === fileWords(src);
+  const shown = names.slice(0, 3).join(', ');
+  return names.length > 3 ? ` (${shown} and ${names.length - 3} more)` : ` (${shown})`;
 }
 
 export function imageAltText(ctx: Context): Assessment | null {
@@ -118,10 +139,25 @@ export function imageAltText(ctx: Context): Assessment | null {
       message: images.length === 1 ? 'The image has alt text.' : `All ${images.length} images have alt text.`,
     };
   }
+  // Say which case it is: alt text that only repeats the file name is there
+  // when the editor looks, so without the names it reads as a false alarm.
+  const none = missing.filter((img) => altProblem(img.src, img.alt) === 'none');
+  const named = missing.filter((img) => altProblem(img.src, img.alt) === 'fileName');
+  const of = `of ${images.length} ${images.length === 1 ? 'image' : 'images'}`;
+  const parts: string[] = [];
+  if (none.length > 0) {
+    parts.push(`${none.length} ${of} ${none.length === 1 ? 'has' : 'have'} no alt text${fileNames(none)}`);
+  }
+  if (named.length > 0) {
+    const verb = named.length === 1 ? 'uses its file name' : 'use their file name';
+    parts.push(none.length > 0
+      ? `${named.length} ${verb} as alt text${fileNames(named)}`
+      : `${named.length} ${of} ${verb} as alt text${fileNames(named)}`);
+  }
   return {
     id,
     band: 'problem',
-    message: `${missing.length} of ${images.length} images have no alt text, or use the file name. Describe what each one shows.`,
+    message: `${parts.join(', and ')}. ${missing.length === 1 ? 'Describe what it shows.' : 'Describe what each one shows.'}`,
     highlights: missing.map((img): Highlight => ({ kind: 'image', src: img.src, alt: img.alt })),
   };
 }
