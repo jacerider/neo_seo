@@ -345,6 +345,16 @@ import AnalysisWorker from './analysis.worker?worker&inline';
     return graphic;
   }
 
+  /** An eye, for "show in preview". */
+  function eyeIcon(): SVGElement {
+    const graphic = svg('svg', { class: 'neo-seo-eye', viewBox: '0 0 16 16', 'aria-hidden': 'true', focusable: 'false' });
+    graphic.append(
+      svg('path', { d: 'M1 8s2.6-4.8 7-4.8S15 8 15 8s-2.6 4.8-7 4.8S1 8 1 8Z' }),
+      svg('circle', { cx: '8', cy: '8', r: '2.2' }),
+    );
+    return graphic;
+  }
+
   type Side = 'seo' | 'readability';
 
   /** What the SEO score was measured against, under its ring. */
@@ -434,8 +444,8 @@ import AnalysisWorker from './analysis.worker?worker&inline';
    * The SEO and readability checks: problems, then improvements, each under
    * a count, then the passed ones folded into one row; for SEO, the heading
    * outline last. The structure checks (headings, alt text) join the SEO
-   * list, tagged as not scored. Each check's Show and Fix sit under its
-   * message, so the message has the row's width.
+   * list, tagged as not scored. A check that can be fixed is a row-wide
+   * button to its fix; Show in preview is an eye at the row's end.
    */
   class Results {
 
@@ -590,25 +600,33 @@ import AnalysisWorker from './analysis.worker?worker&inline';
       return item;
     }
 
+    /**
+     * One check: its dot, message and "Not scored" tag; at its end the eye
+     * that shows it in the preview, and, where it can be fixed, "Fix ›" —
+     * a button whose hit area covers the row, so the whole row goes to the
+     * fix. The eye sits above that area and only toggles the marks.
+     */
     protected item(side: Side, { assessment, scored }: Check): HTMLElement {
-      const actions: HTMLElement[] = [];
       const highlights = assessment.highlights ?? [];
+      const controls: HTMLElement[] = [];
       if (highlights.length && this.host.highlight) {
         const show = h('button', {
           type: 'button',
-          class: 'neo-seo-analysis__action',
+          class: 'neo-seo-analysis__show',
           'aria-pressed': 'false',
           'aria-label': Drupal.t('Show in the preview: @message', { '@message': assessment.message }),
-        }, [Drupal.t('Show in preview')]);
+          title: Drupal.t('Show in preview'),
+        }, [eyeIcon()]);
         show.addEventListener('click', () => this.toggleHighlight(side, show, highlights));
-        actions.push(show);
+        controls.push(show);
       }
-      if (assessment.band !== 'good' && this.host.fix && this.host.canFix?.(assessment.id, highlights)) {
+      const fixable = assessment.band !== 'good' && !!this.host.fix && !!this.host.canFix?.(assessment.id, highlights);
+      if (fixable) {
         const fix = h('button', {
           type: 'button',
-          class: 'neo-seo-analysis__action neo-seo-analysis__fix',
+          class: 'neo-seo-analysis__fix',
           'aria-label': Drupal.t('Go to the field that fixes this: @message', { '@message': assessment.message }),
-        }, [Drupal.t('Fix')]);
+        }, [Drupal.t('Fix'), h('span', { class: 'neo-seo-analysis__chevron', 'aria-hidden': 'true' })]);
         fix.addEventListener('click', () => {
           const result = this.host.fix?.(assessment.id, highlights) ?? null;
           if (result) {
@@ -618,21 +636,19 @@ import AnalysisWorker from './analysis.worker?worker&inline';
             this.onMissing(side);
           }
         });
-        actions.push(fix);
+        controls.push(fix);
       }
-      const meta = scored && !actions.length
-        ? null
-        : h('span', { class: 'neo-seo-analysis__meta' }, [
-          scored ? null : h('span', { class: 'neo-seo-analysis__tag' }, [Drupal.t('Not scored')]),
-          ...actions,
-        ]);
-      return h('li', { class: 'neo-seo-analysis__item', 'data-band': assessment.band }, [
-        severityIcon(assessment.band),
+      return h('li', {
+        class: `neo-seo-analysis__item${fixable ? ' is-fixable' : ''}`,
+        'data-band': assessment.band,
+      }, [
+        h('span', { class: 'neo-seo-analysis__dot', 'aria-hidden': 'true' }),
         h('span', { class: 'neo-seo-analysis__body' }, [
           h('span', { class: 'visually-hidden' }, [`${bandLabel(assessment.band)}: `]),
           h('span', { class: 'neo-seo-analysis__message' }, [assessment.message]),
-          meta,
+          scored ? null : h('span', { class: 'neo-seo-analysis__tag' }, [Drupal.t('Not scored')]),
         ]),
+        controls.length ? h('span', { class: 'neo-seo-analysis__controls' }, controls) : null,
       ]);
     }
 

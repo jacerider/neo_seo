@@ -6,10 +6,10 @@
 beside the checks never matched their height, and the side cards squeezed long messages into a
 thin strip. Each score now has a header — a ring with the score, what it was measured against, and
 for SEO the keyphrase and cornerstone fields — above one column of checks grouped *Problems*,
-*Improvements* and a folded *N passed*, with the heading outline last. Each check's severity is an
-icon (a red disc, an amber triangle, a green tick) in place of the dot. The heading and alt text
-checks join the SEO list, tagged *Not scored*; *Show in preview* and *Fix* are links under each
-message. The edit form, the Alchemist dropdown (now 520px for both views), the top bar pills and
+*Improvements* and a folded *N passed*, with the heading outline last; each group's heading carries
+its severity icon (a red disc, an amber triangle, a green tick) and count. The heading and alt text
+checks join the SEO list, tagged *Not scored*. A check that can be fixed is a row-wide button to
+its fix, "Fix ›" at its end; *Show in preview* is an eye beside it, amber while its marks show. The edit form, the Alchemist dropdown (now 520px for both views), the top bar pills and
 the Save summary share the design. Without a focus keyphrase the SEO score is shown everywhere as
 the partial score, the pill's tooltip saying the keyphrase checks are not in it, where before the
 pill showed none.

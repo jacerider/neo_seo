@@ -351,10 +351,11 @@ Adds content analysis to the panel:
 
 - **Layout, everywhere:** one column. A score's header — a ring with the score, its name and what it
   was measured against, and for SEO the focus keyphrase and cornerstone fields — above its checks,
-  grouped *Problems* then *Improvements* under a count, each check marked by a severity icon (red
-  disc, amber triangle, green tick), then one folded *N passed* row; for SEO the
-  heading outline is the last row. The heading and image alt text checks sit in the SEO list,
-  tagged *Not scored*. *Show in preview* and *Fix* are links under each message.
+  grouped *Problems* then *Improvements*, each heading with its severity icon (red disc, amber
+  triangle) and count, then one folded *N passed* row (a green tick); for SEO the heading outline
+  is the last row. The heading and image alt text checks sit in the SEO list, tagged *Not scored*.
+  A check that can be fixed is a row-wide button to its fix, "Fix ›" at its end; *Show in preview*
+  is an eye beside it.
 - **Edit form:** the SEO header and checks in the **SEO** section, the readability ones in a
   **Readability** section. A page built in its own Alchemist layout (a component tree that allows a custom layout,
   rendered by the page's full view mode) is written in the layout editor, where its checks can be
@@ -384,7 +385,7 @@ Adds content analysis to the panel:
   SEO checks only.
 - **Cornerstone** pages are held to stricter thresholds.
 - **Where it runs:** in a Web Worker, against the draft render. Typing does not freeze the form.
-- **Show in preview:** in Alchemist, it marks an assessment's text in the preview.
+- **Show in preview:** in Alchemist, the eye on a check marks its text in the preview.
 
 Scores are stored with the overrides when the page is saved or published. The admin content list
 can show *SEO* and *Readability* columns (Views handler `neo_seo_score`; a page that was never

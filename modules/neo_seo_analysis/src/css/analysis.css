@@ -278,35 +278,36 @@
 }
 
 .neo-seo-analysis__item {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 0.625rem;
-  padding: 0.375rem 0.875rem;
+  padding: 0.4375rem 0.875rem;
   font-size: 0.8125rem;
   line-height: 1.45;
 }
 
-/* The icon sits on the message's first line. */
-.neo-seo-analysis__item > .neo-seo-icon {
-  margin-top: 0.1875rem;
+.neo-seo-analysis__dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.375rem;
+  border-radius: 9999px;
+  background: var(--neo-seo-none);
 }
+
+[data-band="good"] > .neo-seo-analysis__dot { background: var(--neo-seo-good); }
+[data-band="ok"] > .neo-seo-analysis__dot { background: var(--neo-seo-ok); }
+[data-band="problem"] > .neo-seo-analysis__dot { background: var(--neo-seo-problem); }
 
 .neo-seo-analysis__body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 0.125rem;
+  align-items: flex-start;
+  gap: 0.25rem;
   min-width: 0;
   overflow-wrap: anywhere;
-}
-
-/* Under the message: "Not scored", then Show in preview · Fix. */
-.neo-seo-analysis__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.5rem;
-  font-size: 0.75rem;
 }
 
 .neo-seo-analysis__tag {
@@ -318,39 +319,105 @@
   line-height: 1.125rem;
 }
 
-.neo-seo-analysis__action {
-  padding: 0;
+/* The row's end: the eye, then "Fix ›". */
+.neo-seo-analysis__controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/*
+ * A fixable row is its Fix button: the button's ::after covers the row, so
+ * a click anywhere on it goes to the fix. The eye is lifted above it.
+ */
+.neo-seo-analysis__fix {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.25rem;
   border: 0;
   background: none;
-  color: rgb(var(--color-primary-600, 37 99 235));
+  color: var(--neo-seo-muted);
   font: inherit;
+  font-size: 0.75rem;
   font-weight: 600;
+  line-height: 1.25rem;
   cursor: pointer;
 }
 
-.neo-seo-analysis__action + .neo-seo-analysis__action::before {
-  content: "·";
-  margin-right: 0.5rem;
-  color: var(--neo-seo-muted);
-  font-weight: 400;
+.neo-seo-analysis__fix::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
-.neo-seo-analysis__action:hover,
-.neo-seo-analysis__action:focus-visible {
-  text-decoration: underline;
+.neo-seo-analysis__fix:focus-visible {
+  outline: none;
 }
 
-.neo-seo-analysis__action:focus-visible {
+.neo-seo-analysis__chevron {
+  width: 0.3125rem;
+  height: 0.3125rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.neo-seo-analysis__item.is-fixable:hover,
+.neo-seo-analysis__item.is-fixable:has(.neo-seo-analysis__fix:focus-visible) {
+  background: rgb(var(--color-base-50, 249 250 251));
+}
+
+.neo-seo-analysis__item.is-fixable:hover .neo-seo-analysis__fix,
+.neo-seo-analysis__fix:focus-visible {
+  color: rgb(var(--color-primary-600, 37 99 235));
+}
+
+.neo-seo-analysis__item.is-fixable:has(.neo-seo-analysis__fix:focus-visible) {
   outline: 2px solid rgb(var(--color-primary-500, 59 130 246));
-  outline-offset: 2px;
-  border-radius: 0.125rem;
+  outline-offset: -2px;
 }
 
-.neo-seo-analysis__action[aria-pressed="true"] {
-  padding: 0 0.25rem;
-  border-radius: 0.25rem;
+/* Show in preview: an eye, amber while its marks are on. */
+.neo-seo-analysis__show {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: -0.0625rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.375rem;
+  background: none;
+  color: var(--neo-seo-muted);
+  cursor: pointer;
+}
+
+.neo-seo-analysis__show:hover {
+  background: rgb(var(--color-base-100, 243 244 246));
+  color: rgb(var(--color-base-900, 17 24 39));
+}
+
+.neo-seo-analysis__show:focus-visible {
+  outline: 2px solid rgb(var(--color-primary-500, 59 130 246));
+  outline-offset: 0;
+}
+
+.neo-seo-analysis__show[aria-pressed="true"] {
   background: #fde68a;
   color: #78350f;
+}
+
+.neo-seo-eye {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
 }
 
 /*
