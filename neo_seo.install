@@ -59,6 +59,36 @@ function neo_seo_update_11002(): string {
 }
 
 /**
+ * Adds the title separator and the snippet variables.
+ *
+ * The separator is "|", as titles have it now. The global title template
+ * takes the separator token only while it is still the one shipped: an edited
+ * template is left alone, and so is every page's own title.
+ */
+function neo_seo_update_11003(): string {
+  $config = \Drupal::configFactory()->getEditable('neo_seo.settings');
+  if ($config->get('separator') === NULL) {
+    $config->set('separator', '|');
+  }
+  if ($config->get('variables') === NULL) {
+    $config->set('variables', [
+      ['label' => 'Title', 'token' => '[neo:title]'],
+      ['label' => 'Site title', 'token' => '[site:name]'],
+      ['label' => 'Separator', 'token' => '[neo-seo:separator]'],
+      ['label' => 'Description', 'token' => '[neo:description]'],
+      ['label' => 'Tagline', 'token' => '[site:slogan]'],
+    ]);
+  }
+  $config->save();
+  $global = \Drupal::configFactory()->getEditable('neo_seo.defaults.global');
+  if ($global->get('values.title') === '[neo:title] | [site:name]') {
+    $global->set('values.title', '[neo:title] [neo-seo:separator] [site:name]')->save();
+    return (string) t('Title separator added; the global title template now uses it.');
+  }
+  return (string) t('Title separator added. The global title template was edited, so it was left alone.');
+}
+
+/**
  * The identity sources, built here rather than taken from the container.
  *
  * An update runs before the container knows a service added in the same

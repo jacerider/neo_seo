@@ -248,7 +248,7 @@ class HeadTagsTest extends NeoSeoKernelTestBase {
     SeoDefaults::load('global')->delete();
     $this->container->get('config.installer')->installOptionalConfig();
     $global = SeoDefaults::load('global')->getValues();
-    $this->assertSame('[neo:title] | [site:name]', $global['title']);
+    $this->assertSame('[neo:title] [neo-seo:separator] [site:name]', $global['title']);
     $this->assertSame('[neo:description]', $global['description']);
     $this->assertSame('[neo:image]', $global['image']);
     $this->assertSame('noindex, follow', SeoDefaults::load('404')->getValues()['robots']);

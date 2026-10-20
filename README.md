@@ -163,12 +163,32 @@ throws away everything the global and bundle sets say; here it doesn't.
 
 The shipped sets are:
 
-- `global`: title `[neo:title] | [site:name]`, description `[neo:description]`, image `[neo:image]`.
+- `global`: title `[neo:title] [neo-seo:separator] [site:name]`, description `[neo:description]`,
+  image `[neo:image]`.
 - `front`: title `[site:name]`.
 - `403` and `404`: `noindex, follow`.
 
 Templates resolve to plain text. When a token resolves to nothing, its separator goes with it: a
 title template on a page without that token prints `Site name`, not `| Site name`.
+
+### Snippet variables
+
+The title, description and social title templates, and a page's own title and description, are
+edited in a **snippet input**: tokens show as named pills ("Title · Separator · Site title"), the
+text between them as text. The stored value is still token text.
+
+- **Insert variable**, or typing `[`, opens a picker: the **snippet variables** first, then a search
+  over every token of the page's type and the global ones (`/neo-seo/tokens`).
+- **Snippet variables** are set in the SEO settings, one `Name | [token]` a line. Shipped: Title
+  `[neo:title]`, Site title `[site:name]`, Separator `[neo-seo:separator]`, Description
+  `[neo:description]`, Tagline `[site:slogan]`.
+- **Title separator** (SEO settings): `|`, `–`, `—`, `-`, `·` or `•`, printed by
+  `[neo-seo:separator]`.
+- A pill's tooltip gives its token and, on an edit form or in Alchemist, what it gives on the page.
+  A token that does not resolve for the page's type is outlined in red.
+- **A page's empty title or description shows the template** that applies, as pills. Editing it
+  makes an override; one that ends equal to the template saves nothing, so later template changes
+  still reach the page. **Use template** clears an override.
 
 ## Per-page overrides
 

@@ -94,6 +94,22 @@ neo_seo:
     schemamap:
       type: boolean
       label: 'Publish the site''s schema at /schemamap.xml'
+    separator:
+      type: string
+      label: 'Title separator, the [neo-seo:separator] token'
+    variables:
+      type: sequence
+      label: 'Snippet variables: the tokens offered first, by name'
+      sequence:
+        type: mapping
+        label: 'Snippet variable'
+        mapping:
+          label:
+            type: label
+            label: 'Name'
+          token:
+            type: string
+            label: 'Token'
     override_entity_types:
       type: sequence
       label: 'Entity types that get the SEO overrides field'

@@ -11,6 +11,16 @@ neo_seo.draft_render:
   requirements:
     _entity_access: 'entity.update'
 
+neo_seo.tokens:
+  path: '/neo-seo/tokens'
+  defaults:
+    _controller: '\Drupal\neo_seo\Controller\TokensController::lookup'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+  requirements:
+    _permission: 'edit neo_seo overrides+administer neo_seo'
+
 neo_seo.schemamap:
   path: '/schemamap.xml'
   defaults:

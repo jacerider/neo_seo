@@ -72,11 +72,12 @@ class DraftRenderer {
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity, carrying the unsaved values. It is marked as a preview.
    *
-   * @return array{html: string, url: string, language: string, head: array, overrides: array}
+   * @return array{html: string, url: string, language: string, head: array, overrides: array, tokens: object}
    *   The rendered body HTML (led by the title as an H1 unless the entity
    *   renders an H1 of its own), the page URL and language, the resolved head
    *   values (title, description, social title, robots, canonical, image,
-   *   page type, article type), and the overrides the draft carries.
+   *   page type, article type), the overrides the draft carries, and what
+   *   each token in the title and description gives on the draft.
    */
   public function render(ContentEntityInterface $entity): array {
     $entity->in_preview = TRUE;
@@ -114,7 +115,27 @@ class DraftRenderer {
         'keyphrase' => (string) ($overrides['keyphrase'] ?? ''),
         'cornerstone' => (bool) $overrides['cornerstone'],
       ],
+      // What each token in the title and description gives on this draft:
+      // their templates' and their overrides', for the snippet input.
+      'tokens' => (object) $this->headValues->tokenValues($context, static::tokensIn(array_merge(
+        array_intersect_key($this->headValues->templates($context), array_flip(['title', 'description', 'social_title'])),
+        [(string) ($overrides['title'] ?? ''), (string) ($overrides['description'] ?? '')],
+      ))),
     ];
+  }
+
+  /**
+   * The tokens in some texts.
+   *
+   * @param string[] $texts
+   *   Texts holding tokens.
+   *
+   * @return string[]
+   *   Each token once, such as [node:title].
+   */
+  public static function tokensIn(array $texts): array {
+    preg_match_all('/\[[^\[\]\s:]+:[^\[\]\s]+\]/u', implode(' ', $texts), $matches);
+    return array_values(array_unique($matches[0]));
   }
 
   /**

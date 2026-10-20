@@ -33,12 +33,21 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 class SeoSettings extends SettingsBase {
 
   /**
+   * The title separators offered: those TokenText::tidy() knows to drop when
+   * stranded.
+   */
+  public const SEPARATORS = ['|', '–', '—', '-', '·', '•'];
+
+
+  /**
    * Lists that must replace, never merge, when saved.
    *
    * @var array
    */
   protected $strictParents = [
     ['identity', 'same_as'],
+    // A list: a shorter one replaces it rather than merging row by row.
+    ['variables'],
     ['override_entity_types'],
   ];
 
@@ -182,6 +191,30 @@ class SeoSettings extends SettingsBase {
       '#options' => $styles,
       '#empty_option' => $this->t('- Original image -'),
       '#default_value' => $this->getValue('share_image_style'),
+    ];
+
+    $form['snippets'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Titles and snippet variables'),
+      '#open' => TRUE,
+    ];
+    $form['snippets']['separator'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Title separator'),
+      '#description' => $this->t('The [neo-seo:separator] token, between a page’s title and the site name in the shipped title template.'),
+      '#options' => array_combine(static::SEPARATORS, static::SEPARATORS),
+      '#default_value' => $this->getValue('separator') ?? '|',
+    ];
+    $variables = array_map(
+      static fn(array $variable): string => ($variable['label'] ?? '') . ' | ' . ($variable['token'] ?? ''),
+      (array) ($this->getValue('variables') ?? []),
+    );
+    $form['snippets']['variables'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Snippet variables'),
+      '#description' => $this->t('Offered first, by name, when a title or description is edited: one per line, as <code>Name | [token]</code>. Every other token is found by searching.'),
+      '#default_value' => implode("\n", $variables),
+      '#rows' => max(5, count($variables) + 1),
     ];
 
     $form['schemamap'] = [
@@ -362,6 +395,25 @@ class SeoSettings extends SettingsBase {
     $form_state->unsetValue(['identity', 'favicon']);
     $form_state->unsetValue(['identity', 'same_as_preview']);
     $form_state->setValue('head_alongside_metatag', (bool) $form_state->getValue('head_alongside_metatag'));
+
+    // The titles group is a details element only: its values are top-level.
+    $form_state->setValue('separator', (string) $form_state->getValue(['snippets', 'separator']));
+    $lines = (string) $form_state->getValue(['snippets', 'variables']);
+    $form_state->unsetValue('snippets');
+
+    // Snippet variables: "Name | [token]" a line.
+    $variables = [];
+    foreach (preg_split('/\R/', $lines) as $number => $line) {
+      if (trim($line) === '') {
+        continue;
+      }
+      if (!preg_match('/^(.+?)\s*\|\s*(\[[^\[\]\s]+\])\s*$/u', trim($line), $match)) {
+        $form_state->setErrorByName('snippets][variables', $this->t('Line @line is not <code>Name | [token]</code>.', ['@line' => $number + 1]));
+        continue;
+      }
+      $variables[] = ['label' => trim($match[1]), 'token' => $match[2]];
+    }
+    $form_state->setValue('variables', $variables);
 
     // Removing per-page SEO from an entity type drops its column, and with it
     // every value editors set. Refuse while there is any.

@@ -86,31 +86,7 @@ class HeadValuesResolver {
    */
   protected function doResolve(PageContext $context): HeadValues {
     $layers = $this->layers($context);
-    $viewsSettings = $this->viewsSeo->settings($context);
-
-    // Each layer's templates, lowest precedence first. A Views page's own
-    // settings slot in above global and below front, 403 and 404, which are
-    // only ever layered on top.
-    $stack = [];
-    foreach ($layers as $defaults) {
-      $context->addCacheableDependency($defaults);
-      if ($viewsSettings !== NULL && in_array($defaults->id(), SeoDefaultsInterface::ON_TOP, TRUE)) {
-        $stack[] = array_diff_key($viewsSettings, ['page_type' => TRUE]);
-        $viewsSettings = NULL;
-      }
-      $stack[] = $defaults->getValues();
-    }
-    if ($viewsSettings !== NULL) {
-      $stack[] = array_diff_key($viewsSettings, ['page_type' => TRUE]);
-    }
-    $templates = [];
-    foreach ($stack as $values) {
-      foreach ($values as $field => $template) {
-        if ((string) $template !== '') {
-          $templates[$field] = (string) $template;
-        }
-      }
-    }
+    $templates = $this->templates($context);
 
     $overrides = SeoOverrides::of($context->entity);
     foreach (['title', 'description'] as $field) {
@@ -149,6 +125,63 @@ class HeadValuesResolver {
       $context->entity ? $this->mapping->datePublished($context) : NULL,
       $context->entity ? $this->mapping->dateModified($context) : NULL,
     );
+  }
+
+  /**
+   * The templates a page's head is built from, before its own overrides.
+   *
+   * Each field's from the most specific set that gives it; a Views page's own
+   * settings slot in above global and below front, 403 and 404, which are only
+   * ever layered on top.
+   *
+   * @return array<string, string>
+   *   Field => template; a field no set gives is absent.
+   */
+  public function templates(PageContext $context): array {
+    $viewsSettings = $this->viewsSeo->settings($context);
+    $stack = [];
+    foreach ($this->layers($context) as $defaults) {
+      $context->addCacheableDependency($defaults);
+      if ($viewsSettings !== NULL && in_array($defaults->id(), SeoDefaultsInterface::ON_TOP, TRUE)) {
+        $stack[] = array_diff_key($viewsSettings, ['page_type' => TRUE]);
+        $viewsSettings = NULL;
+      }
+      $stack[] = $defaults->getValues();
+    }
+    if ($viewsSettings !== NULL) {
+      $stack[] = array_diff_key($viewsSettings, ['page_type' => TRUE]);
+    }
+    $templates = [];
+    foreach ($stack as $values) {
+      foreach ($values as $field => $template) {
+        if ((string) $template !== '') {
+          $templates[$field] = (string) $template;
+        }
+      }
+    }
+    return $templates;
+  }
+
+  /**
+   * What each token gives on a page, as plain text.
+   *
+   * @param string[] $tokens
+   *   Tokens, such as [node:title].
+   *
+   * @return array<string, string>
+   *   Token => its value; empty when it gives nothing.
+   */
+  public function tokenValues(PageContext $context, array $tokens): array {
+    $data = $this->tokenData($context->entity) + $this->viewsSeo->tokenData($context);
+    $values = [];
+    foreach (array_unique($tokens) as $token) {
+      // Not tidied: a separator token is nothing but a separator.
+      $bubbleable = new BubbleableMetadata();
+      $value = $this->token->replacePlain($token, $data, ['clear' => TRUE], $bubbleable);
+      $context->addCacheableDependency($bubbleable);
+      $values[$token] = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($value), ENT_QUOTES | ENT_HTML5)));
+    }
+    return $values;
   }
 
   /**

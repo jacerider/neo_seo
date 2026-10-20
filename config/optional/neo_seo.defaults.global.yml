@@ -4,7 +4,7 @@ dependencies: {  }
 id: global
 label: Global
 values:
-  title: '[neo:title] | [site:name]'
+  title: '[neo:title] [neo-seo:separator] [site:name]'
   description: '[neo:description]'
   social_title: '[neo:title]'
   og_type: website

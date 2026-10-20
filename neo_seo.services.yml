@@ -138,6 +138,15 @@ services:
 
   # The site's schema as feeds, listed by /schemamap.xml (Yoast's schema
   # aggregation format): every page's graph, built as an anonymous visitor.
+  neo_seo.snippet:
+    class: Drupal\neo_seo\Snippet
+    arguments:
+      - '@config.factory'
+      - '@neo_seo.page_context_factory'
+      - '@neo_seo.head_values'
+      - '@token.entity_mapper'
+  Drupal\neo_seo\Snippet: '@neo_seo.snippet'
+
   neo_seo.schemamap:
     class: Drupal\neo_seo\Schemamap\SchemamapBuilder
     arguments:

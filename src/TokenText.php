@@ -27,9 +27,9 @@ final class TokenText {
     $text = trim((string) preg_replace('/\s+/u', ' ', $text));
     // A separator run in the middle ("a | | b", "a, , b") collapses to its
     // first separator.
-    $text = (string) preg_replace('/([|,·–—-])(?:\s*[|,·–—-])+/u', '$1', $text);
+    $text = (string) preg_replace('/([|,·•–—-])(?:\s*[|,·•–—-])+/u', '$1', $text);
     // A separator stranded at either end goes, with its space.
-    $text = (string) preg_replace('/^(?:\s*[|,·:–—-]\s*)+|(?:\s*[|,·:–—-]\s*)+$/u', '', $text);
+    $text = (string) preg_replace('/^(?:\s*[|,·•:–—-]\s*)+|(?:\s*[|,·•:–—-]\s*)+$/u', '', $text);
     return trim($text);
   }
 

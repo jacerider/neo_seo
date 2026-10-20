@@ -26,3 +26,15 @@ head_alongside_metatag: false
 override_entity_types: []
 share_image_style: neo_social
 schemamap: true
+separator: '|'
+variables:
+  - label: Title
+    token: '[neo:title]'
+  - label: 'Site title'
+    token: '[site:name]'
+  - label: Separator
+    token: '[neo-seo:separator]'
+  - label: Description
+    token: '[neo:description]'
+  - label: Tagline
+    token: '[site:slogan]'

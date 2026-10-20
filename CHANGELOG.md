@@ -1,5 +1,16 @@
 # Changelog
 
+## Titles and descriptions are edited with snippet variables
+
+**Tokens had to be typed by hand, and an empty title hid the template it fell back to.** The title,
+description and social title templates, and a page's own title and description, now edit tokens as
+named pills, Yoast style. *Insert variable* (or typing `[`) offers the snippet variables set in the
+SEO settings, then a search over every token. A page's empty field shows its template as pills; an
+edit equal to the template saves nothing, and *Use template* clears an override. A **Title
+separator** setting adds `[neo-seo:separator]`. Run `drush updatedb` (`neo_seo_update_11003`): it
+adds the separator (`|`, so no title changes) and the shipped variables, and moves the global title
+template onto the separator token only if it is still the one shipped.
+
 ## The SEO panel is one column, under a score ring
 
 **The SEO checks sat in two uneven columns.** The keyphrase, alt text and heading outline cards

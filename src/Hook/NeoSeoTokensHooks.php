@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\neo_seo\Hook;
 
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Hook\Attribute\Hook;
 use Drupal\Core\Render\BubbleableMetadata;
@@ -15,9 +16,20 @@ use Drupal\neo_seo\SeoOverrides;
  *
  * The token module only exposes base fields for its own entity types, so the
  * overrides need tokens of their own. Like [neo:*], they read the first
- * entity in the token data, whatever its type.
+ * entity in the token data, whatever its type. [neo-seo:separator] is the
+ * site's title separator, and needs no entity.
  */
 class NeoSeoTokensHooks {
+
+  /**
+   * Constructs the hooks.
+   *
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *   The config factory, for the separator.
+   */
+  public function __construct(
+    protected ConfigFactoryInterface $configFactory,
+  ) {}
 
   /**
    * The tokens, override property => label.
@@ -43,6 +55,10 @@ class NeoSeoTokensHooks {
         'description' => new TranslatableMarkup('The value an editor set for this page, if any.'),
       ];
     }
+    $tokens['separator'] = [
+      'name' => new TranslatableMarkup('Separator'),
+      'description' => new TranslatableMarkup('The title separator chosen in the SEO settings.'),
+    ];
     return [
       'types' => [
         'neo-seo' => [
@@ -62,6 +78,12 @@ class NeoSeoTokensHooks {
     if ($type !== 'neo-seo') {
       return [];
     }
+    $replacements = [];
+    if (isset($tokens['separator'])) {
+      $settings = $this->configFactory->get('neo_seo.settings');
+      $bubbleable->addCacheableDependency($settings);
+      $replacements[$tokens['separator']] = (string) ($settings->get('separator') ?? '|');
+    }
     $entity = NULL;
     foreach ($data as $value) {
       if ($value instanceof FieldableEntityInterface && $value->hasField(SeoOverrides::FIELD)) {
@@ -70,11 +92,10 @@ class NeoSeoTokensHooks {
       }
     }
     if (!$entity) {
-      return [];
+      return $replacements;
     }
     $bubbleable->addCacheableDependency($entity);
     $overrides = SeoOverrides::of($entity);
-    $replacements = [];
     foreach ($tokens as $name => $original) {
       $property = str_replace('-', '_', $name);
       if (isset(static::TOKENS[$name]) && $overrides[$property] !== NULL) {

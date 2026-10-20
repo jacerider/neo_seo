@@ -361,7 +361,10 @@ export class SeoPanel {
     this.rendering = true;
     this.again = false;
     try {
-      this.received(await this.host.render());
+      const render = await this.host.render();
+      // For the snippet inputs (neo_seo/snippet): what their tokens give.
+      document.dispatchEvent(new CustomEvent('neo-seo:render', { detail: render }));
+      this.received(render);
     }
     catch (e) {
       console.error(e);

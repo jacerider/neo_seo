@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Drupal\neo_seo\Plugin\Field\FieldWidget;
 
 use Drupal\Component\Utility\Html;
+use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\EntityFormInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Field\Attribute\FieldWidget;
 use Drupal\Core\Field\FieldItemListInterface;
@@ -19,6 +21,7 @@ use Drupal\neo_seo\Mapping\BundleMappingRepository;
 use Drupal\neo_seo\Plugin\Field\FieldType\SeoOverridesItem;
 use Drupal\neo_seo\Schema\SchemaTypes;
 use Drupal\neo_seo\SeoOverrides;
+use Drupal\neo_seo\Snippet;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -57,6 +60,11 @@ class SeoOverridesWidget extends WidgetBase {
   protected ElementInfoManagerInterface $elementInfo;
 
   /**
+   * The snippet input: the title and description with tokens as pills.
+   */
+  protected Snippet $snippet;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
@@ -64,6 +72,7 @@ class SeoOverridesWidget extends WidgetBase {
     $instance->entityTypeManager = $container->get('entity_type.manager');
     $instance->mapping = $container->get('neo_seo.bundle_mapping');
     $instance->elementInfo = $container->get('element_info');
+    $instance->snippet = $container->get('neo_seo.snippet');
     return $instance;
   }
 
@@ -106,6 +115,11 @@ class SeoOverridesWidget extends WidgetBase {
       '#rows' => 3,
       '#description' => $this->t('Replaces the description template. Search results show about 155 characters.'),
     ];
+    // Tokens as named pills; an empty field shows the template it overrides.
+    $templates = $this->snippet->templates($entity);
+    $types = [$this->snippet->tokenType($entity->getEntityTypeId())];
+    $this->snippet->attach($element['title'], $types, $templates['title']);
+    $this->snippet->attach($element['description'], $types, $templates['description']);
     // The media library where it is enabled; an autocomplete otherwise.
     $element['image'] = MediaPicker::available()
       ? [
@@ -253,7 +267,15 @@ class SeoOverridesWidget extends WidgetBase {
    * {@inheritdoc}
    */
   public function massageFormValues(array $values, array $form, FormStateInterface $form_state) {
+    $formObject = $form_state->getFormObject();
+    $entity = $formObject instanceof EntityFormInterface ? $formObject->getEntity() : NULL;
+    $templates = $entity instanceof ContentEntityInterface ? $this->snippet->templates($entity) : [];
     foreach ($values as &$value) {
+      // A title or description that is just the template it overrides is no
+      // override: later template changes still reach the page.
+      foreach (['title', 'description'] as $key) {
+        $value[$key] = Snippet::override($value[$key] ?? NULL, $templates[$key] ?? '');
+      }
       $value['image'] = !empty($value['image']) ? (int) $value['image'] : NULL;
       foreach (['page_type', 'article_type', 'title', 'description', 'keyphrase'] as $key) {
         $value[$key] = ($value[$key] ?? '') === '' ? NULL : $value[$key];

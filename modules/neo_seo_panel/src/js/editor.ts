@@ -78,6 +78,8 @@ export class AlchemistEditor implements NeoSeoEditor {
     try {
       const render = await this.host.render();
       this.render = render;
+      // For the snippet inputs (neo_seo/snippet): what their tokens give.
+      document.dispatchEvent(new CustomEvent('neo-seo:render', { detail: render }));
       this.renderListeners.forEach((listener) => {
         try {
           listener(render);

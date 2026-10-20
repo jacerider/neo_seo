@@ -41,6 +41,8 @@ interface NeoSeoDraftRender {
     site_name: string;
   };
   overrides: { keyphrase: string; cornerstone: boolean };
+  /** What each token in the title and description gives on the draft. */
+  tokens?: Record<string, string>;
 }
 
 /** Something to point at in the page preview (neo_seo_analysis highlights). */

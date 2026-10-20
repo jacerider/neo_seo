@@ -115,5 +115,7 @@ export function write(root: Scope, values: Partial<NeoSeoOverrides>, announce: b
       control.dispatchEvent(new Event('input', { bubbles: true }));
       control.dispatchEvent(new Event('change', { bubbles: true }));
     }
+    // Whatever draws the control (the snippet input) redraws from it.
+    control.dispatchEvent(new CustomEvent('neo-seo:written'));
   });
 }

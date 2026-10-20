@@ -12,3 +12,18 @@ media_picker:
     - core/drupal
     - core/drupal.ajax
     - core/once
+
+# The snippet input: a title or description with tokens as named pills, and a
+# picker of the snippet variables and every token (Drupal\neo_seo\Snippet).
+snippet:
+  version: VERSION
+  neo: { scope: back }
+  css:
+    component:
+      src/css/snippet.css: {}
+  js:
+    src/js/snippet.ts: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
+    - core/once

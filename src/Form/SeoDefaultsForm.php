@@ -10,6 +10,7 @@ use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\neo_seo\Entity\SeoDefaultsInterface;
 use Drupal\neo_seo\Head\HeadTagPluginManager;
+use Drupal\neo_seo\Snippet;
 use Drupal\token\TokenEntityMapperInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -40,6 +41,13 @@ class SeoDefaultsForm extends EntityForm {
   protected $tokenEntityMapper;
 
   /**
+   * The snippet input, for the text templates.
+   *
+   * @var \Drupal\neo_seo\Snippet
+   */
+  protected $snippet;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
@@ -47,6 +55,7 @@ class SeoDefaultsForm extends EntityForm {
     $instance->headTagManager = $container->get(HeadTagPluginManager::class);
     $instance->bundleInfo = $container->get(EntityTypeBundleInfoInterface::class);
     $instance->tokenEntityMapper = $container->get(TokenEntityMapperInterface::class);
+    $instance->snippet = $container->get(Snippet::class);
     return $instance;
   }
 
@@ -88,6 +97,12 @@ class SeoDefaultsForm extends EntityForm {
         '#maxlength' => 1024,
         '#description' => $defaults->id() === 'global' ? NULL : $this->t('Leave empty to keep the value from the sets below this one.'),
       ];
+    }
+    // Tokens as named pills in the text templates.
+    foreach (['title', 'description', 'social_title'] as $field) {
+      if (isset($form['values'][$field])) {
+        $this->snippet->attach($form['values'][$field], $this->tokenTypes($defaults));
+      }
     }
     $form['values']['tokens'] = [
       '#theme' => 'token_tree_link',
