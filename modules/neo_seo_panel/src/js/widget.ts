@@ -436,10 +436,51 @@ export class SeoPanel {
     this.measure('description', data.description, !values.description.trim());
     this.suggest(values);
     this.showAutoImage(values);
+    this.showUrl();
     const head = this.render.head;
     this.schema.textContent = head.article_type && head.article_type !== 'None'
       ? Drupal.t('Schema: @page with @article', { '@page': head.page_type, '@article': head.article_type })
       : Drupal.t('Schema: @page', { '@page': head.page_type });
+  }
+
+  /**
+   * The address the page will have once saved, under the URL controls
+   * (neo_seo's SeoOverridesWidget::urlPreview(), redrawn from each render):
+   * the pattern's part, the editor's part, and what they should know.
+   */
+  protected showUrl(): void {
+    const box = this.root.closest('form')?.querySelector<HTMLElement>('[data-neo-seo-url]');
+    const path = this.render?.path;
+    if (!box || !path) {
+      return;
+    }
+    const notes: Array<[string, string]> = [];
+    if (path.error) {
+      notes.push([path.error, 'is-error']);
+    }
+    else if (path.alias === null) {
+      notes.push([Drupal.t('The address is set when the page is first saved.'), '']);
+    }
+    if (path.notice) {
+      notes.push([path.notice, '']);
+    }
+    if (path.redirect) {
+      notes.push([Drupal.t('The old address will redirect here.'), '']);
+    }
+    const children: HTMLElement[] = [];
+    if (path.alias !== null) {
+      children.push(h('p', { class: 'neo-seo-url__address' }, [
+        h('span', { class: 'neo-seo-url__prefix' }, [path.prefix]),
+        h('strong', { class: 'neo-seo-url__slug' }, [path.slug]),
+      ]));
+    }
+    if (notes.length) {
+      // The error names the alias in markup (Drupal's %placeholder): as text.
+      children.push(h('ul', { class: 'neo-seo-url__notes' }, notes.map(([text, className]) => h('li', { class: className || null }, [
+        new DOMParser().parseFromString(text, 'text/html').body.textContent ?? '',
+      ]))));
+    }
+    box.replaceChildren(...children);
   }
 
   /**

@@ -178,6 +178,9 @@ neo_seo.bundle_mapping:
     same_as_field:
       type: string
       label: 'Social profiles field (person bundles)'
+    custom_url:
+      type: boolean
+      label: 'Editors may set a custom URL'
 
 node.type.*.third_party.neo_seo:
   type: neo_seo.bundle_mapping

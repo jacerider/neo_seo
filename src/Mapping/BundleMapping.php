@@ -28,6 +28,7 @@ final class BundleMapping {
     'author_field' => '',
     'job_title_field' => '',
     'same_as_field' => '',
+    'custom_url' => FALSE,
   ];
 
   /**
@@ -53,6 +54,8 @@ final class BundleMapping {
    *   On a person bundle, the field that supplies the job title, or ''.
    * @param string $sameAsField
    *   On a person bundle, the link field of their social profiles, or ''.
+   * @param bool $customUrl
+   *   Whether editors may give a page a URL of their own, not only a slug.
    */
   public function __construct(
     public readonly string $pageType = 'WebPage',
@@ -65,6 +68,7 @@ final class BundleMapping {
     public readonly string $authorField = '',
     public readonly string $jobTitleField = '',
     public readonly string $sameAsField = '',
+    public readonly bool $customUrl = FALSE,
   ) {}
 
   /**
@@ -88,6 +92,7 @@ final class BundleMapping {
       authorField: (string) $settings['author_field'],
       jobTitleField: (string) $settings['job_title_field'],
       sameAsField: (string) $settings['same_as_field'],
+      customUrl: (bool) $settings['custom_url'],
     );
   }
 

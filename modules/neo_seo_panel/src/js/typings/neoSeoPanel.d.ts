@@ -20,6 +20,14 @@ interface NeoSeoOverrides {
   cornerstone: boolean;
   seo_score: number | null;
   readability_score: number | null;
+  /** The editor's part of the page's address (ADR 0005). */
+  slug: string;
+  /**
+   * The URL controls: not overrides, but drafted and sent with them, and
+   * applied to the page's path (neo_seo's PageUrl).
+   */
+  url_custom: boolean;
+  url_alias: string;
 }
 
 type NeoSeoOverrideKey = keyof NeoSeoOverrides;
@@ -43,6 +51,25 @@ interface NeoSeoDraftRender {
   overrides: { keyphrase: string; cornerstone: boolean };
   /** What each token in the title and description gives on the draft. */
   tokens?: Record<string, string>;
+  /** The address the page will have once saved, where neo_seo manages it. */
+  path?: NeoSeoPagePath | null;
+}
+
+/** A page's address once saved (neo_seo's PageUrl::describe()). */
+interface NeoSeoPagePath {
+  custom: boolean;
+  /** Null until a new page is saved. */
+  alias: string | null;
+  url: string | null;
+  /** The pattern's part of the alias, and the editor's part after it. */
+  prefix: string;
+  slug: string;
+  saved: string | null;
+  changed: boolean;
+  /** Whether the old address will redirect to the new one. */
+  redirect: boolean;
+  notice: string | null;
+  error: string | null;
 }
 
 /** Something to point at in the page preview (neo_seo_analysis highlights). */

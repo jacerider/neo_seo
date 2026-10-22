@@ -20,6 +20,7 @@ use Drupal\Core\TypedData\DataDefinition;
  * @property string|null $description
  * @property int|null $image
  * @property string|null $keyphrase
+ * @property string|null $slug
  * @property string|null $page_type
  * @property string|null $article_type
  * @property bool|null $noindex
@@ -48,6 +49,7 @@ class SeoOverridesItem extends FieldItemBase {
     'article_type',
     'noindex',
     'cornerstone',
+    'slug',
   ];
 
   /**
@@ -67,6 +69,8 @@ class SeoOverridesItem extends FieldItemBase {
     $properties['article_type'] = DataDefinition::create('string')->setLabel(new TranslatableMarkup('Article type'));
     $properties['noindex'] = DataDefinition::create('boolean')->setLabel(new TranslatableMarkup('Hide from search results'));
     $properties['cornerstone'] = DataDefinition::create('boolean')->setLabel(new TranslatableMarkup('Cornerstone content'));
+    // The page's own part of its URL, fed to pathauto by [neo-seo:slug].
+    $properties['slug'] = DataDefinition::create('string')->setLabel(new TranslatableMarkup('URL slug'));
     // Written by content analysis: advisory, so a score is a 0–100 integer or
     // nothing, and never a reason to refuse a save.
     $properties['seo_score'] = DataDefinition::create('integer')
@@ -97,6 +101,7 @@ class SeoOverridesItem extends FieldItemBase {
         'cornerstone' => $flag,
         'seo_score' => $score,
         'readability_score' => $score,
+        'slug' => $string(255),
       ],
     ];
   }
@@ -119,7 +124,7 @@ class SeoOverridesItem extends FieldItemBase {
    */
   public function preSave() {
     parent::preSave();
-    foreach (['title', 'description', 'keyphrase'] as $property) {
+    foreach (['title', 'description', 'keyphrase', 'slug'] as $property) {
       if (is_string($this->{$property})) {
         $this->{$property} = trim($this->{$property}) ?: NULL;
       }

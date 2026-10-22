@@ -14,6 +14,7 @@ use Drupal\Core\Hook\Attribute\Hook;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\neo_seo\Mapping\BundleMapping;
+use Drupal\neo_seo\PageUrl;
 use Drupal\neo_seo\Schema\SchemaTypes;
 
 /**
@@ -44,12 +45,15 @@ class BundleMappingHooks {
    *   The current user.
    * @param \Drupal\Core\Config\TypedConfigManagerInterface $typedConfig
    *   The typed config manager, to see which bundle types have a schema.
+   * @param \Drupal\neo_seo\PageUrl $pageUrl
+   *   The page URL service, for the bundle's URL patterns.
    */
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
     protected EntityFieldManagerInterface $entityFieldManager,
     protected AccountInterface $currentUser,
     protected TypedConfigManagerInterface $typedConfig,
+    protected PageUrl $pageUrl,
   ) {}
 
   /**
@@ -172,7 +176,45 @@ class BundleMappingHooks {
       '#states' => $profileState,
       '#access' => !$bundleEntity->isNew(),
     ];
+    $form['neo_seo']['custom_url'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Editors may set a custom URL'),
+      '#default_value' => $mapping->customUrl,
+      '#description' => $this->t('Lets editors who may create URL aliases replace a page’s whole address. Otherwise they change only its slug, where the URL alias pattern allows it.'),
+    ];
+    $form['neo_seo']['url_patterns'] = $this->urlPatterns($entityTypeId, $bundleEntity->isNew() ? NULL : (string) $bundleEntity->id());
     $form['#entity_builders'][] = [static::class, 'buildBundleEntity'];
+  }
+
+  /**
+   * The URL alias patterns that build the bundle's addresses.
+   *
+   * Each with whether it lets editors change the slug. neo_seo never edits a
+   * pattern; a site builder adds the token in pathauto's own settings.
+   */
+  protected function urlPatterns(string $entityTypeId, ?string $bundle): array {
+    $patterns = $bundle !== NULL ? $this->pageUrl->bundlePatterns($entityTypeId, $bundle) : [];
+    $items = [];
+    foreach ($patterns as $label => $pattern) {
+      $items[] = [
+        '#type' => 'inline_template',
+        '#template' => '{{ label }}: <code>{{ pattern }}</code> — {{ verdict }}',
+        '#context' => [
+          'label' => $label,
+          'pattern' => $pattern,
+          'verdict' => str_contains($pattern, PageUrl::TOKEN)
+            ? $this->t('editors can change the slug.')
+            : $this->t('add @token where the title is to let editors change the slug.', ['@token' => PageUrl::TOKEN]),
+        ],
+      ];
+    }
+    return [
+      '#type' => 'item',
+      '#title' => $this->t('URL alias patterns'),
+      'list' => ['#theme' => 'item_list', '#items' => $items],
+      '#description' => $items ? NULL : $this->t('No URL alias pattern builds this type’s addresses, so editors have no slug to change.'),
+      '#access' => $bundle !== NULL,
+    ];
   }
 
   /**
@@ -184,7 +226,11 @@ class BundleMappingHooks {
       if (!array_key_exists($key, $values)) {
         continue;
       }
-      $value = is_array($default) ? array_values(array_filter((array) $values[$key])) : (string) $values[$key];
+      $value = match (TRUE) {
+        is_array($default) => array_values(array_filter((array) $values[$key])),
+        is_bool($default) => (bool) $values[$key],
+        default => (string) $values[$key],
+      };
       if ($value === $default) {
         $bundleEntity->unsetThirdPartySetting('neo_seo', $key);
       }

@@ -17,6 +17,7 @@ use Drupal\neo_alchemist\Attribute\AlchemistPanel;
 use Drupal\neo_alchemist\Panel\AlchemistPanelBase;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_seo\Mapping\BundleMappingRepository;
+use Drupal\neo_seo\PageUrl;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo_panel\Form\SeoPanelForm;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -27,7 +28,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * Its draft key holds SEO overrides keyed by the field's property names — only
  * those the editor changed, plus the analysis scores — so the draft render
  * reads it as "draft over saved" and Publish merges it onto the saved
- * overrides. Revert and Reset discard it with the layout.
+ * overrides. Revert and Reset discard it with the layout. Beside them it may
+ * hold the URL controls' values (PageUrl::KEYS), which Publish applies to the
+ * page's path, as far as the publishing editor may change it.
  */
 #[AlchemistPanel(
   id: 'neo_seo',
@@ -56,6 +59,8 @@ final class SeoPanel extends AlchemistPanelBase implements ContainerFactoryPlugi
     protected BundleMappingRepository $mapping,
     protected EntityTypeManagerInterface $entityTypeManager,
     protected ModuleHandlerInterface $moduleHandler,
+    protected PageUrl $pageUrl,
+    protected AccountInterface $currentUser,
     protected ?object $draftStore,
   ) {
     parent::__construct($configuration, $plugin_id, $plugin_definition);
@@ -73,6 +78,8 @@ final class SeoPanel extends AlchemistPanelBase implements ContainerFactoryPlugi
       $container->get('neo_seo.bundle_mapping'),
       $container->get('entity_type.manager'),
       $container->get('module_handler'),
+      $container->get('neo_seo.page_url'),
+      $container->get('current_user'),
       $container->has('neo_alchemist.shared_draft_store') ? $container->get('neo_alchemist.shared_draft_store') : NULL,
     );
   }
@@ -100,7 +107,7 @@ final class SeoPanel extends AlchemistPanelBase implements ContainerFactoryPlugi
       return [];
     }
     $draft = $this->draftStore?->getPanel($item, self::ID);
-    $draft = is_array($draft) ? $this->clean($entity, $draft) : NULL;
+    $draft = is_array($draft) ? $this->clean($entity, $draft) + static::url($draft) : NULL;
     return $this->formBuilder->getForm(SeoPanelForm::class, $entity, $draft);
   }
 
@@ -130,6 +137,14 @@ final class SeoPanel extends AlchemistPanelBase implements ContainerFactoryPlugi
     if ($clean) {
       $entity->set(SeoOverrides::FIELD, $clean + SeoOverrides::of($entity));
     }
+    $this->pageUrl->apply($entity, $this->currentUser, static::url($data));
+  }
+
+  /**
+   * The URL controls' values in drafted data: not overrides.
+   */
+  protected static function url(array $data): array {
+    return array_intersect_key($data, array_flip(PageUrl::KEYS));
   }
 
   /**

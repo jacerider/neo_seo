@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_seo\Hook;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Hook\Attribute\Hook;
 use Drupal\Core\Render\BubbleableMetadata;
@@ -17,7 +18,9 @@ use Drupal\neo_seo\SeoOverrides;
  * The token module only exposes base fields for its own entity types, so the
  * overrides need tokens of their own. Like [neo:*], they read the first
  * entity in the token data, whatever its type. [neo-seo:separator] is the
- * site's title separator, and needs no entity.
+ * site's title separator, and needs no entity. [neo-seo:slug] is the one that
+ * never comes back empty: a URL alias pattern built on it must not lose a
+ * segment, so it falls back to the entity's label.
  */
 class NeoSeoTokensHooks {
 
@@ -59,6 +62,10 @@ class NeoSeoTokensHooks {
       'name' => new TranslatableMarkup('Separator'),
       'description' => new TranslatableMarkup('The title separator chosen in the SEO settings.'),
     ];
+    $tokens['slug'] = [
+      'name' => new TranslatableMarkup('URL slug'),
+      'description' => new TranslatableMarkup('The slug an editor set for this page, else its title. Put it in a URL alias pattern where the title was to let editors change that part.'),
+    ];
     return [
       'types' => [
         'neo-seo' => [
@@ -85,11 +92,19 @@ class NeoSeoTokensHooks {
       $replacements[$tokens['separator']] = (string) ($settings->get('separator') ?? '|');
     }
     $entity = NULL;
+    $labelled = NULL;
     foreach ($data as $value) {
       if ($value instanceof FieldableEntityInterface && $value->hasField(SeoOverrides::FIELD)) {
         $entity = $value;
         break;
       }
+      $labelled ??= $value instanceof EntityInterface ? $value : NULL;
+    }
+    $labelled = $entity ?? $labelled;
+    if (isset($tokens['slug']) && $labelled) {
+      $bubbleable->addCacheableDependency($labelled);
+      $slug = trim((string) (SeoOverrides::of($entity)['slug'] ?? ''));
+      $replacements[$tokens['slug']] = $slug !== '' ? $slug : (string) $labelled->label();
     }
     if (!$entity) {
       return $replacements;

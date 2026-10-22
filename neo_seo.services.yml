@@ -111,6 +111,18 @@ services:
     arguments: ['@entity_type.manager', '@neo_seo.media_image']
   Drupal\neo_seo\Mapping\BundleMappingRepository: '@neo_seo.bundle_mapping'
 
+  # A page's slug and custom URL; path_alias and pathauto are optional.
+  neo_seo.page_url:
+    class: Drupal\neo_seo\PageUrl
+    arguments:
+      - '@entity_type.manager'
+      - '@neo_seo.bundle_mapping'
+      - '@module_handler'
+      - '@config.factory'
+      - '@?path_alias.repository'
+      - '@?pathauto.generator'
+  Drupal\neo_seo\PageUrl: '@neo_seo.page_url'
+
   neo_seo.breadcrumb_trail:
     class: Drupal\neo_seo\Graph\BreadcrumbTrail
     arguments: ['@breadcrumb', '@current_route_match']
@@ -210,5 +222,7 @@ services:
       - '@neo_seo.head_values'
       - '@neo_seo.breadcrumb_trail'
       - '@module_handler'
+      - '@neo_seo.page_url'
+      - '@current_user'
       - '@?neo_alchemist.shared_draft_store'
   Drupal\neo_seo\Draft\DraftRenderer: '@neo_seo.draft_renderer'

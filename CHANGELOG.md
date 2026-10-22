@@ -1,5 +1,19 @@
 # Changelog
 
+## Editors change a page's URL slug, or give it a URL of its own
+
+**Changing a URL meant unticking pathauto and retyping the whole path, and it could not be done in
+Alchemist.** A URL field now sits at the top of *Search & social*, in the edit form and in the
+Alchemist editor. Put `[neo-seo:slug]` in a pathauto pattern where the title was and editors change
+just that part, while the rest keeps following the pattern; an empty slug is the title, so no
+existing alias changes. A bundle's SEO section adds *Editors may set a custom URL* (off by
+default) for replacing the whole address, and lists the bundle's patterns and whether each uses
+the token. Under the field, the address the page will have once saved, as pathauto will build it,
+and a note when the old address will redirect; the previews and the keyphrase-in-slug check use
+it. On managed bundles the field replaces core's path widget. In Alchemist, URL edits are drafted
+with the layout and applied on Publish. Run `drush updatedb` (`neo_seo_update_11004`): it adds the
+`slug` column to the SEO overrides; nothing else changes until a pattern uses the token.
+
 ## Local businesses by their specific type, with opening hours
 
 - The organization type offers LocalBusiness subtypes, grouped apart from the other organizations:

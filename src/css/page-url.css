@@ -1,0 +1,36 @@
+/*
+ * The page URL under the slug and custom URL controls: the pattern's part of
+ * the address muted, the editor's part in full, then any notes.
+ */
+.neo-seo-url {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-block: -0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.neo-seo-url__address {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.neo-seo-url__prefix {
+  color: rgb(var(--color-base-500, 107 114 128));
+}
+
+.neo-seo-url__slug {
+  font-weight: 600;
+}
+
+.neo-seo-url__notes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: rgb(var(--color-base-600, 75 85 99));
+}
+
+.neo-seo-url__notes .is-error {
+  color: rgb(var(--color-alert-600, 220 38 38));
+}

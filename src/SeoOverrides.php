@@ -61,7 +61,7 @@ final class SeoOverrides {
    */
   public static function clean(array $values, BundleMapping $mapping): array {
     $clean = [];
-    foreach (['title' => 255, 'description' => 0, 'keyphrase' => 255] as $key => $length) {
+    foreach (['title' => 255, 'description' => 0, 'keyphrase' => 255, 'slug' => 255] as $key => $length) {
       if (array_key_exists($key, $values) && (is_string($values[$key]) || $values[$key] === NULL)) {
         $value = trim((string) $values[$key]);
         $clean[$key] = $value === '' ? NULL : ($length ? mb_substr($value, 0, $length) : $value);

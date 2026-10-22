@@ -10,11 +10,13 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Render\RendererInterface;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Theme\ThemeInitializationInterface;
 use Drupal\Core\Theme\ThemeManagerInterface;
 use Drupal\neo_seo\Graph\BreadcrumbTrail;
 use Drupal\neo_seo\Graph\PageContextFactory;
 use Drupal\neo_seo\Head\HeadValuesResolver;
+use Drupal\neo_seo\PageUrl;
 use Drupal\neo_seo\SeoOverrides;
 
 /**
@@ -50,6 +52,10 @@ class DraftRenderer {
    *   The breadcrumb trail.
    * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
    *   The module handler.
+   * @param \Drupal\neo_seo\PageUrl $pageUrl
+   *   The page URL service.
+   * @param \Drupal\Core\Session\AccountInterface $currentUser
+   *   The current user, whose drafted URL changes are applied.
    * @param \Drupal\neo_alchemist\EditorState\SharedDraftStore|null $draftStore
    *   The Alchemist shared draft store, when neo_alchemist is installed.
    */
@@ -63,6 +69,8 @@ class DraftRenderer {
     protected HeadValuesResolver $headValues,
     protected BreadcrumbTrail $breadcrumbTrail,
     protected ModuleHandlerInterface $moduleHandler,
+    protected PageUrl $pageUrl,
+    protected AccountInterface $currentUser,
     protected ?object $draftStore = NULL,
   ) {}
 
@@ -72,12 +80,14 @@ class DraftRenderer {
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity, carrying the unsaved values. It is marked as a preview.
    *
-   * @return array{html: string, url: string, language: string, head: array, overrides: array, tokens: object}
+   * @return array{html: string, url: string, language: string, head: array, overrides: array, tokens: object, path: ?array}
    *   The rendered body HTML (led by the title as an H1 unless the entity
    *   renders an H1 of its own), the page URL and language, the resolved head
    *   values (title, description, social title, robots, canonical, image,
-   *   page type, article type), the overrides the draft carries, and what
-   *   each token in the title and description gives on the draft.
+   *   page type, article type), the overrides the draft carries, what each
+   *   token in the title and description gives on the draft, and — where
+   *   neo_seo manages the page's URL — the URL it will have once saved
+   *   (PageUrl::describe()), which is then also its URL and canonical here.
    */
   public function render(ContentEntityInterface $entity): array {
     $entity->in_preview = TRUE;
@@ -96,16 +106,18 @@ class DraftRenderer {
     }
 
     $overrides = SeoOverrides::of($entity);
+    $path = $this->pageUrl->manages($entity) ? $this->pageUrl->describe($entity) : NULL;
+    $url = $path['url'] ?? $context->canonicalUrl;
     return [
       'html' => $html,
-      'url' => $context->canonicalUrl,
+      'url' => $url,
       'language' => $context->langcode,
       'head' => [
         'title' => $values->get('title'),
         'description' => $values->get('description'),
         'social_title' => $values->get('social_title') ?: $values->get('title'),
         'robots' => $values->get('robots'),
-        'canonical' => $context->canonicalUrl,
+        'canonical' => $url,
         'image' => $values->image(),
         'page_type' => $values->pageType,
         'article_type' => $values->articleType,
@@ -121,6 +133,7 @@ class DraftRenderer {
         array_intersect_key($this->headValues->templates($context), array_flip(['title', 'description', 'social_title'])),
         [(string) ($overrides['title'] ?? ''), (string) ($overrides['description'] ?? '')],
       ))),
+      'path' => $path,
     ];
   }
 
@@ -141,8 +154,9 @@ class DraftRenderer {
   /**
    * Applies an entity's Alchemist drafts: layout and SEO panel.
    *
-   * The shared layout draft goes into the tree field, and the SEO panel's
-   * drafted overrides into the overrides field.
+   * The shared layout draft goes into the tree field, the SEO panel's
+   * drafted overrides into the overrides field, and its drafted URL into the
+   * path — as far as the current user may change it.
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity; changed in memory only.
@@ -163,7 +177,9 @@ class DraftRenderer {
       }
       $panel = method_exists($store, 'getPanel') ? $store->getPanel($item, 'neo_seo') : NULL;
       if (is_array($panel) && $entity->hasField(SeoOverrides::FIELD)) {
-        $entity->set(SeoOverrides::FIELD, $panel + SeoOverrides::of($entity));
+        $url = array_intersect_key($panel, array_flip(PageUrl::KEYS));
+        $entity->set(SeoOverrides::FIELD, array_diff_key($panel, $url) + SeoOverrides::of($entity));
+        $this->pageUrl->apply($entity, $this->currentUser, $url);
       }
     }
   }

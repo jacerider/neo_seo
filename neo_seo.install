@@ -7,6 +7,8 @@
 
 declare(strict_types=1);
 
+use Drupal\Core\Entity\Sql\SqlContentEntityStorage;
+use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo\SiteIdentity\IdentitySources;
 
 /**
@@ -86,6 +88,51 @@ function neo_seo_update_11003(): string {
     return (string) t('Title separator added; the global title template now uses it.');
   }
   return (string) t('Title separator added. The global title template was edited, so it was left alone.');
+}
+
+/**
+ * Adds the URL slug to the SEO overrides.
+ *
+ * The field already holds data, which the entity definition update manager
+ * refuses to change, so the column is added to each of its tables by hand and
+ * the installed schema and definition are brought in line with it.
+ */
+function neo_seo_update_11004(): string {
+  $updateManager = \Drupal::entityDefinitionUpdateManager();
+  $entityTypeManager = \Drupal::entityTypeManager();
+  $schema = \Drupal::database()->schema();
+  $storageSchema = \Drupal::keyValue('entity.storage_schema.sql');
+  $spec = ['type' => 'varchar', 'length' => 255, 'not null' => FALSE];
+  $updated = [];
+  foreach ($entityTypeManager->getDefinitions() as $entityTypeId => $entityType) {
+    $installed = $updateManager->getFieldStorageDefinition(SeoOverrides::FIELD, $entityTypeId);
+    $storage = $entityTypeManager->getStorage($entityTypeId);
+    if (!$installed || $installed->getProvider() !== 'neo_seo' || !$storage instanceof SqlContentEntityStorage) {
+      continue;
+    }
+    $definition = SeoOverrides::definition($entityType->isRevisionable())
+      ->setName(SeoOverrides::FIELD)
+      ->setTargetEntityTypeId($entityTypeId)
+      ->setProvider('neo_seo');
+    $mapping = $storage->getTableMapping([SeoOverrides::FIELD => $definition]);
+    $column = $mapping->getFieldColumnName($definition, 'slug');
+    $key = $entityTypeId . '.field_schema_data.' . SeoOverrides::FIELD;
+    $tables = (array) $storageSchema->get($key, []);
+    foreach ($mapping->getAllFieldTableNames(SeoOverrides::FIELD) as $table) {
+      if (!$schema->fieldExists($table, $column)) {
+        $schema->addField($table, $column, $spec);
+      }
+      if (isset($tables[$table])) {
+        $tables[$table]['fields'][$column] = $spec;
+      }
+    }
+    $storageSchema->set($key, $tables);
+    \Drupal::service('entity.last_installed_schema.repository')->setLastInstalledFieldStorageDefinition($definition);
+    $updated[] = $entityTypeId;
+  }
+  return $updated
+    ? (string) t('URL slug added to the SEO overrides of: @types.', ['@types' => implode(', ', $updated)])
+    : (string) t('No entity type has SEO overrides; nothing to add.');
 }
 
 /**

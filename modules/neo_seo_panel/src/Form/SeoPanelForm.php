@@ -8,6 +8,7 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\neo_seo\PageUrl;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo_panel\PanelBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -32,12 +33,18 @@ class SeoPanelForm extends FormBase {
   protected PanelBuilder $builder;
 
   /**
+   * The page URL service, to show a drafted URL.
+   */
+  protected PageUrl $pageUrl;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
     $instance = new static();
     $instance->widgetManager = $container->get('plugin.manager.field.widget');
     $instance->builder = $container->get('neo_seo_panel.builder');
+    $instance->pageUrl = $container->get('neo_seo.page_url');
     return $instance;
   }
 
@@ -58,7 +65,8 @@ class SeoPanelForm extends FormBase {
    * @param \Drupal\Core\Entity\ContentEntityInterface|null $entity
    *   The entity being edited.
    * @param array|null $draft
-   *   The overrides drafted in the panel so far, if any.
+   *   The overrides drafted in the panel so far, if any, with the URL
+   *   controls' values (PageUrl::KEYS).
    */
   public function buildForm(array $form, FormStateInterface $form_state, ?ContentEntityInterface $entity = NULL, ?array $draft = NULL) {
     if (!$entity || !$entity->hasField(SeoOverrides::FIELD)) {
@@ -67,7 +75,9 @@ class SeoPanelForm extends FormBase {
     // The controls show the draft; the entity the editor holds is not touched.
     $entity = clone $entity;
     if ($draft) {
-      $entity->set(SeoOverrides::FIELD, $draft + SeoOverrides::of($entity));
+      $url = array_intersect_key($draft, array_flip(PageUrl::KEYS));
+      $entity->set(SeoOverrides::FIELD, array_diff_key($draft, $url) + SeoOverrides::of($entity));
+      $this->pageUrl->apply($entity, $this->currentUser(), $url);
     }
     $items = $entity->get(SeoOverrides::FIELD);
     /** @var \Drupal\Core\Field\WidgetInterface $widget */

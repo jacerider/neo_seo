@@ -15,9 +15,11 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Render\ElementInfoManagerInterface;
 use Drupal\Core\Render\Markup;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_seo\Element\MediaPicker;
 use Drupal\neo_seo\Mapping\BundleMappingRepository;
+use Drupal\neo_seo\PageUrl;
 use Drupal\neo_seo\Plugin\Field\FieldType\SeoOverridesItem;
 use Drupal\neo_seo\Schema\SchemaTypes;
 use Drupal\neo_seo\SeoOverrides;
@@ -65,6 +67,16 @@ class SeoOverridesWidget extends WidgetBase {
   protected Snippet $snippet;
 
   /**
+   * The page URL service, for the slug and custom URL.
+   */
+  protected PageUrl $pageUrl;
+
+  /**
+   * The current user, for what of the URL they may change.
+   */
+  protected AccountInterface $currentUser;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
@@ -73,6 +85,8 @@ class SeoOverridesWidget extends WidgetBase {
     $instance->mapping = $container->get('neo_seo.bundle_mapping');
     $instance->elementInfo = $container->get('element_info');
     $instance->snippet = $container->get('neo_seo.snippet');
+    $instance->pageUrl = $container->get('neo_seo.page_url');
+    $instance->currentUser = $container->get('current_user');
     return $instance;
   }
 
@@ -101,6 +115,7 @@ class SeoOverridesWidget extends WidgetBase {
         [[static::class, 'processSections']],
       ),
     ];
+    $this->urlControls($element, $item, array_merge($element['#field_parents'] ?? [], [$items->getName(), $delta]));
     $element['title'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Title'),
@@ -204,6 +219,114 @@ class SeoOverridesWidget extends WidgetBase {
   }
 
   /**
+   * The page's URL: the editor's slug, or a URL of the page's own.
+   *
+   * Only where neo_seo manages the page's URL (ADR 0005), which hides core's
+   * path widget (PageUrlHooks). The slug shows only where the pattern holds
+   * [neo-seo:slug]; the custom URL to those who may set one, and read-only to
+   * anyone else on a page that already has one, so they can hand it back to
+   * the pattern. Under them, the URL the page will have once saved, which the
+   * SEO panel keeps current from its renders.
+   *
+   * @param array $element
+   *   The widget element.
+   * @param \Drupal\neo_seo\Plugin\Field\FieldType\SeoOverridesItem $item
+   *   The overrides item.
+   * @param array $parents
+   *   The element's #parents, for the controls' #states.
+   */
+  protected function urlControls(array &$element, SeoOverridesItem $item, array $parents): void {
+    $entity = $item->getEntity();
+    if (!$entity instanceof ContentEntityInterface || !$this->pageUrl->manages($entity)) {
+      return;
+    }
+    $url = $this->pageUrl->describe($entity);
+    $mayCustomize = $this->pageUrl->mayCustomize($entity, $this->currentUser);
+    $hasPattern = $this->pageUrl->pattern($entity) !== NULL;
+    $name = array_shift($parents) . ($parents ? '[' . implode('][', $parents) . ']' : '') . '[url_custom]';
+    $customOn = [':input[name="' . $name . '"]' => ['checked' => TRUE]];
+
+    $element['slug'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('URL slug'),
+      '#default_value' => $item->slug,
+      '#maxlength' => 255,
+      '#placeholder' => !$url['custom'] && $url['prefix'] !== '' ? $url['slug'] : '',
+      '#access' => $this->pageUrl->usesSlug($entity),
+      '#states' => ['invisible' => $customOn],
+    ];
+    $this->help($element['slug'],
+      $this->t('The page’s own part of its address.'),
+      $this->t('Leave it empty to use the title. Lowercase words joined by hyphens read best, e.g. “water-treatment-upgrade”. The rest of the address is set by the site, often from where the page sits in the menu.'),
+    );
+    $element['url_custom'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Use a custom URL'),
+      '#default_value' => $url['custom'],
+      '#access' => $hasPattern && ($mayCustomize || $url['custom']),
+      '#neo_size' => 'xs',
+    ];
+    $element['url_alias'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Custom URL'),
+      '#default_value' => $url['alias'] ?? '',
+      '#maxlength' => 255,
+      '#access' => $mayCustomize || $url['custom'],
+      '#disabled' => !$mayCustomize,
+      '#states' => $hasPattern ? ['visible' => $customOn] : [],
+      '#description' => $mayCustomize
+        ? $this->t('The whole address after the domain, starting with a slash, e.g. /about-us.')
+        : $this->t('This page has an address of its own. Untick “Use a custom URL” to give it the automatic one.'),
+    ];
+    $element['url_preview'] = static::urlPreview($url);
+  }
+
+  /**
+   * The URL a page will have once saved, with what an editor should know.
+   *
+   * The SEO panel redraws it from each draft render (neo_seo_panel).
+   *
+   * @param array $url
+   *   The page's URL, as PageUrl::describe() gives it.
+   */
+  public static function urlPreview(array $url): array {
+    $notes = [];
+    if ($url['error']) {
+      $notes['error'] = ['#markup' => $url['error'], '#wrapper_attributes' => ['class' => ['is-error']]];
+    }
+    elseif ($url['alias'] === NULL) {
+      $notes['new'] = ['#markup' => new TranslatableMarkup('The address is set when the page is first saved.')];
+    }
+    if ($url['notice']) {
+      $notes['notice'] = ['#markup' => $url['notice']];
+    }
+    if ($url['redirect']) {
+      $notes['redirect'] = ['#markup' => new TranslatableMarkup('The old address will redirect here.')];
+    }
+    return [
+      '#type' => 'container',
+      '#attributes' => [
+        'class' => ['neo-seo-url'],
+        'data-neo-seo-url' => '',
+        'aria-live' => 'polite',
+      ],
+      '#attached' => ['library' => ['neo_seo/page_url']],
+      'address' => [
+        '#type' => 'inline_template',
+        '#template' => '<p class="neo-seo-url__address"><span class="neo-seo-url__prefix">{{ prefix }}</span><strong class="neo-seo-url__slug">{{ slug }}</strong></p>',
+        '#context' => ['prefix' => $url['prefix'], 'slug' => $url['slug']],
+        '#access' => $url['alias'] !== NULL,
+      ],
+      'notes' => [
+        '#theme' => 'item_list',
+        '#items' => $notes,
+        '#attributes' => ['class' => ['neo-seo-url__notes']],
+        '#access' => (bool) $notes,
+      ],
+    ];
+  }
+
+  /**
    * Moves the controls into their sections, as details elements.
    *
    * Each control keeps the name it has outside a section: its #parents are
@@ -277,9 +400,11 @@ class SeoOverridesWidget extends WidgetBase {
         $value[$key] = Snippet::override($value[$key] ?? NULL, $templates[$key] ?? '');
       }
       $value['image'] = !empty($value['image']) ? (int) $value['image'] : NULL;
-      foreach (['page_type', 'article_type', 'title', 'description', 'keyphrase'] as $key) {
+      foreach (['page_type', 'article_type', 'title', 'description', 'keyphrase', 'slug'] as $key) {
         $value[$key] = ($value[$key] ?? '') === '' ? NULL : $value[$key];
       }
+      // The URL controls write the page's path (PageUrlHooks), not the field.
+      unset($value['url_custom'], $value['url_alias'], $value['url_preview']);
       $value['noindex'] = (bool) ($value['noindex'] ?? FALSE);
       $value['cornerstone'] = (bool) ($value['cornerstone'] ?? FALSE);
       // Scores are advisory: one that is not a 0–100 integer is dropped, never

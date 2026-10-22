@@ -11,6 +11,7 @@ const PREFIX = 'neo_seo[0][';
 const KEYS: NeoSeoOverrideKey[] = [
   'title', 'description', 'image', 'keyphrase', 'page_type', 'article_type',
   'noindex', 'cornerstone', 'seo_score', 'readability_score',
+  'slug', 'url_custom', 'url_alias',
 ];
 
 type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
@@ -91,6 +92,9 @@ export function read(root: Scope): NeoSeoOverrides {
     cornerstone: checked('cornerstone'),
     seo_score: score(text('seo_score')),
     readability_score: score(text('readability_score')),
+    slug: text('slug'),
+    url_custom: checked('url_custom'),
+    url_alias: text('url_alias'),
   };
 }
 

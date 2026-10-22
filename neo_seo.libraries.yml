@@ -27,3 +27,12 @@ snippet:
     - core/drupal
     - core/drupalSettings
     - core/once
+
+# The page URL under the slug and custom URL controls (PageUrl): the address
+# the page will have once saved, and what an editor should know about it.
+page_url:
+  version: VERSION
+  neo: { scope: back }
+  css:
+    component:
+      src/css/page-url.css: {}
