@@ -110,6 +110,72 @@ class IdentitySourcesTest extends NeoSeoKernelTestBase {
   }
 
   /**
+   * A local business publishes its opening hours from site settings.
+   *
+   * Days with the same hours share one specification; a closed day and a
+   * second slot on a day are kept apart. Hours are only published for a
+   * local business type, which is where schema.org defines them.
+   */
+  public function testOpeningHoursFromSiteSettings(): void {
+    // office_hours is not a dependency: only sites that have it can run this.
+    if (!$this->container->get('extension.list.module')->exists('office_hours')) {
+      $this->markTestSkipped('The office_hours module is not available.');
+    }
+    $this->container->get('module_installer')->install(['office_hours']);
+    SiteSettingsType::create(['id' => 'general', 'label' => 'General'])->save();
+    FieldStorageConfig::create([
+      'field_name' => 'field_hours',
+      'entity_type' => 'neo_site_settings',
+      'type' => 'office_hours',
+      'cardinality' => -1,
+    ])->save();
+    FieldConfig::create([
+      'field_name' => 'field_hours',
+      'entity_type' => 'neo_site_settings',
+      'bundle' => 'general',
+      'label' => 'Hours',
+    ])->save();
+    $settings = $this->container->get('entity_type.manager')->getStorage('neo_site_settings')->loadOrCreateByType('general');
+    $hours = [['day' => 0, 'starthours' => NULL, 'endhours' => NULL, 'comment' => 'Closed']];
+    foreach ([1, 2, 3, 4, 5] as $day) {
+      $hours[] = ['day' => $day, 'starthours' => 900, 'endhours' => 1700];
+    }
+    $hours[] = ['day' => 6, 'starthours' => 830, 'endhours' => 1200];
+    $hours[] = ['day' => 6, 'starthours' => 1300, 'endhours' => 1530];
+    $settings->set('field_hours', $hours)->save();
+
+    $this->assertSame(['general.field_hours' => 'General: Hours'], $this->container->get('neo_seo.identity_sources')->hoursFields());
+
+    $this->setIdentity(['organization_type' => 'HVACBusiness', 'hours' => 'general.field_hours']);
+    $organization = $this->assertGraphNode($this->build($this->context()), 'https://example.com/#organization');
+    $this->assertSame([
+      [
+        '@type' => 'OpeningHoursSpecification',
+        'dayOfWeek' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        'opens' => '09:00',
+        'closes' => '17:00',
+      ],
+      [
+        '@type' => 'OpeningHoursSpecification',
+        'dayOfWeek' => ['Saturday'],
+        'opens' => '08:30',
+        'closes' => '12:00',
+      ],
+      [
+        '@type' => 'OpeningHoursSpecification',
+        'dayOfWeek' => ['Saturday'],
+        'opens' => '13:00',
+        'closes' => '15:30',
+      ],
+    ], $organization['openingHoursSpecification']);
+
+    // Not a local business: no hours.
+    $this->setIdentity(['organization_type' => 'Corporation']);
+    $organization = $this->assertGraphNode($this->build($this->context()), 'https://example.com/#organization');
+    $this->assertArrayNotHasKey('openingHoursSpecification', $organization);
+  }
+
+  /**
    * The favicon's largest icon is the logo, at its own size, named.
    */
   public function testLogoFromFavicon(): void {

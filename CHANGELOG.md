@@ -1,5 +1,18 @@
 # Changelog
 
+## Local businesses by their specific type, with opening hours
+
+- The organization type offers LocalBusiness subtypes, grouped apart from the other organizations:
+  HVAC business, plumber, electrician, roofing, general contractor, house painter, locksmith,
+  moving company, auto repair, dentist, legal, accounting and real estate. Search engines read the
+  kind of business from `@type`, and Google asks for the most specific LocalBusiness subtype.
+- A local business can publish its weekly opening hours (`openingHoursSpecification`) from an
+  office hours field in site settings, chosen under Site identity. Days with the same hours share
+  one specification. Off by default; nothing changes on an existing site until a field is chosen.
+- `neo-seo:migrate` turns schema_metatag's additional type into the organization type when it is
+  one neo_seo knows (an `Organization` with additional type `HVACBusiness` becomes an
+  `HVACBusiness`).
+
 ## Titles and descriptions are edited with snippet variables
 
 **Tokens had to be typed by hand, and an empty title hid the template it fell back to.** The title,

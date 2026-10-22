@@ -114,8 +114,9 @@ class SeoSettings extends SettingsBase {
     $form['identity']['organization_type'] = [
       '#type' => 'select',
       '#title' => $this->t('Organization type'),
-      '#options' => OrganizationTypes::options(),
+      '#options' => OrganizationTypes::grouped(),
       '#default_value' => $identity['organization_type'] ?? 'Organization',
+      '#description' => $this->t('A local business is best described by its most specific type: search engines read the kind of business from it.'),
       '#states' => [
         'visible' => [':input[name$="[identity][type]"]' => ['value' => 'organization']],
       ],
@@ -163,6 +164,21 @@ class SeoSettings extends SettingsBase {
         '#default_value' => $identity['address'][$key] ?? '',
       ];
     }
+    $hoursFields = $this->sources->hoursFields();
+    $form['identity']['hours'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Opening hours'),
+      '#description' => $hoursFields
+        ? $this->t('The office hours field in site settings that holds the weekly opening hours. Published for local business types only.')
+        : $this->t('Add an office hours field to a site settings type to publish opening hours. Published for local business types only.'),
+      '#options' => $hoursFields,
+      '#empty_option' => $this->t('- None -'),
+      '#default_value' => $identity['hours'] ?? '',
+      '#access' => (bool) $hoursFields || !empty($identity['hours']),
+      '#states' => [
+        'visible' => [':input[name$="[identity][type]"]' => ['value' => 'organization']],
+      ],
+    ];
     $options = [];
     foreach ($this->entityTypeManager->getDefinitions() as $id => $definition) {
       if ($definition instanceof ContentEntityTypeInterface && $definition->hasLinkTemplate('canonical')) {

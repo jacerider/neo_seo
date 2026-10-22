@@ -13,6 +13,7 @@ use Drupal\neo_seo\Mapping\BundleMappingRepository;
 use Drupal\neo_seo\Schema\SchemaTypes;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo\SiteIdentity\IdentitySources;
+use Drupal\neo_seo\SiteIdentity\OrganizationTypes;
 
 /**
  * Converts a site's metatag setup into neo_seo's.
@@ -381,6 +382,13 @@ class MetatagMigrator {
       }
       elseif ($tag === 'schema_organization_type') {
         $plan['report'][] = $line('derived', 'site identity type (kept as configured)');
+      }
+      elseif ($tag === 'schema_organization_additional_type' && is_string($value) && OrganizationTypes::isValid(trim($value))) {
+        // A more specific type kept beside a generic one ("Organization",
+        // additionalType "HVACBusiness") becomes the type itself: search
+        // engines read the kind of business from @type.
+        $plan['identity']['organization_type'] = trim($value);
+        $plan['report'][] = $line('converted', 'site identity type');
       }
       elseif ($tag === 'schema_organization_logo') {
         $url = is_array($value) ? (string) ($value['url'] ?? '') : (string) $value;

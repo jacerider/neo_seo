@@ -52,6 +52,9 @@ neo_seo:
         email:
           type: string
           label: 'Email (tokens allowed)'
+        hours:
+          type: string
+          label: 'The site settings office hours field holding the opening hours, as type.field'
         address:
           type: mapping
           label: 'Postal address (tokens allowed)'

@@ -65,6 +65,7 @@ class SiteIdentity extends GraphPieceBase {
         'postalCode' => $identity['address']['postal_code'] ?? NULL,
         'addressCountry' => $identity['address']['country'] ?? NULL,
       ] : NULL,
+      'openingHoursSpecification' => $identity['opening_hours'] ?: NULL,
     ];
 
     $nodes = [];

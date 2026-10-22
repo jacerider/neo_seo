@@ -45,10 +45,12 @@ class SiteIdentityResolver {
    * @param \Drupal\neo_seo\Graph\PageContext $context
    *   The page.
    *
-   * @return array{type: string, name: string, description: string, logo: ?array, same_as: string[], telephone: string, email: string, address: array<string, string>}
+   * @return array{type: string, name: string, description: string, logo: ?array, same_as: string[], telephone: string, email: string, address: array<string, string>, opening_hours: array}
    *   The identity. `type` is the schema.org type to emit: "Person", or the
    *   configured Organization type. `logo` is NULL or
    *   ['url' => …, 'width' => …, 'height' => …, 'caption' => …].
+   *   `opening_hours` are OpeningHoursSpecification nodes, only for a local
+   *   business type with an hours field chosen.
    */
   public function resolve(PageContext $context): array {
     $settings = $this->settings->getActive();
@@ -77,7 +79,21 @@ class SiteIdentityResolver {
       'telephone' => $this->replace((string) ($identity['telephone'] ?? ''), $context),
       'email' => $this->replace((string) ($identity['email'] ?? ''), $context),
       'address' => array_filter($address),
+      'opening_hours' => $this->openingHours($type, (string) ($identity['hours'] ?? ''), $context),
     ];
+  }
+
+  /**
+   * A local business's weekly opening hours, from the chosen hours field.
+   */
+  protected function openingHours(string $type, string $source, PageContext $context): array {
+    if ($source === '' || !OrganizationTypes::isLocalBusiness($type)) {
+      return [];
+    }
+    $cacheability = new CacheableMetadata();
+    $hours = $this->sources->openingHours($source, $cacheability);
+    $context->addCacheableDependency($cacheability);
+    return $hours;
   }
 
   /**

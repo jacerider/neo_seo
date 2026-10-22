@@ -122,6 +122,19 @@ class SiteIdentityTest extends NeoSeoKernelTestBase {
   }
 
   /**
+   * A local business is published as its most specific schema.org type.
+   *
+   * Search engines read the business type from @type; additionalType is
+   * largely ignored, so an HVAC contractor is an HVACBusiness, not an
+   * Organization that mentions it.
+   */
+  public function testSpecificBusinessType(): void {
+    $this->setIdentity(['organization_type' => 'HVACBusiness']);
+    $organization = $this->assertGraphNode($this->build($this->context()), 'https://example.com/#organization');
+    $this->assertSame('HVACBusiness', $organization['@type']);
+  }
+
+  /**
    * An unknown type or a deleted logo degrade instead of breaking the graph.
    */
   public function testInvalidValuesDegrade(): void {

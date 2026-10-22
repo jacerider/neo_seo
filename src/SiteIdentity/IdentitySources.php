@@ -21,7 +21,9 @@ use Drupal\Core\File\FileUrlGeneratorInterface;
  *   site settings type (a `social` type ships with the module), in the order
  *   its display gives them;
  * - neo_favicon: the logo, as the largest icon of the uploaded favicon, at
- *   its own size.
+ *   its own size;
+ * - neo_site_settings with office_hours: a local business's opening hours, as
+ *   the weekly hours of one office hours field.
  */
 class IdentitySources {
 
@@ -29,6 +31,11 @@ class IdentitySources {
    * The site settings type the social profiles are read from by default.
    */
   public const SOCIAL_TYPE = 'social';
+
+  /**
+   * Schema.org day names, by office_hours day number (0 is Sunday).
+   */
+  protected const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   public function __construct(
     protected ModuleHandlerInterface $moduleHandler,
@@ -133,6 +140,104 @@ class IdentitySources {
     }
     usort($links, fn(array $a, array $b) => $a['weight'] <=> $b['weight']);
     return array_map(fn(array $link) => ['label' => $link['label'], 'url' => $link['url']], $links);
+  }
+
+  /**
+   * The office hours fields site settings hold, as "type.field" => label.
+   *
+   * @return array<string, string>
+   *   Labels, "Type: Field".
+   */
+  public function hoursFields(): array {
+    if (!$this->hasSiteSettings()) {
+      return [];
+    }
+    $fields = [];
+    foreach ($this->entityTypeManager->getStorage('neo_site_settings_type')->loadMultiple() as $id => $type) {
+      foreach ($this->entityFieldManager->getFieldDefinitions('neo_site_settings', (string) $id) as $name => $definition) {
+        if ($definition->getType() === 'office_hours') {
+          $fields["$id.$name"] = $type->label() . ': ' . $definition->getLabel();
+        }
+      }
+    }
+    asort($fields);
+    return $fields;
+  }
+
+  /**
+   * The weekly opening hours an office hours field in site settings holds.
+   *
+   * Read as office_hours stores them: a day number (0 is Sunday; exception
+   * dates are left out), and start and end times as numbers (900 is 09:00).
+   * A row without both times is a closed day; an all-day row is open around
+   * the clock. Days with the same hours share one specification, so the
+   * result reads as a business would say it ("Monday to Friday, 9 to 5").
+   *
+   * @param string $source
+   *   The field, as "type.field".
+   * @param \Drupal\Core\Cache\CacheableMetadata|null $cacheability
+   *   Collects what the hours depend on.
+   *
+   * @return list<array{@type: string, dayOfWeek: string[], opens: string, closes: string}>
+   *   OpeningHoursSpecification nodes, in week order of their first day.
+   */
+  public function openingHours(string $source, ?CacheableMetadata $cacheability = NULL): array {
+    [$type, $field] = explode('.', $source, 2) + [1 => ''];
+    if (!$this->hasSiteSettings() || $type === '' || $field === '') {
+      return [];
+    }
+    $cacheability?->addCacheTags(['neo_site_settings_list:' . $type]);
+    $entity = $this->entityTypeManager->getStorage('neo_site_settings')->loadByType($type);
+    if (!$entity instanceof FieldableEntityInterface || !$entity->hasField($field) || $entity->get($field)->getFieldDefinition()->getType() !== 'office_hours') {
+      return [];
+    }
+    $cacheability?->addCacheableDependency($entity);
+    $groups = [];
+    // Monday first, as a week of opening hours is read.
+    $rows = $entity->get($field)->getValue();
+    $order = fn(array $row) => [((int) ($row['day'] ?? 0) + 6) % 7, (int) ($row['starthours'] ?? 0)];
+    usort($rows, fn(array $a, array $b) => $order($a) <=> $order($b));
+    foreach ($rows as $row) {
+      $day = $row['day'] ?? NULL;
+      if (!is_numeric($day) || (int) $day < 0 || (int) $day > 6) {
+        continue;
+      }
+      $times = $this->schemaTimes($row);
+      if ($times === NULL) {
+        continue;
+      }
+      $key = implode('-', $times);
+      $groups[$key] ??= [
+        '@type' => 'OpeningHoursSpecification',
+        'dayOfWeek' => [],
+        'opens' => $times[0],
+        'closes' => $times[1],
+      ];
+      $groups[$key]['dayOfWeek'][] = static::DAYS[(int) $day];
+    }
+    foreach ($groups as &$group) {
+      $group['dayOfWeek'] = array_values(array_unique($group['dayOfWeek']));
+    }
+    return array_values($groups);
+  }
+
+  /**
+   * An office hours row's opening and closing times, or NULL when closed.
+   *
+   * @return array{0: string, 1: string}|null
+   *   "HH:MM" times.
+   */
+  protected function schemaTimes(array $row): ?array {
+    if (!empty($row['all_day'])) {
+      return ['00:00', '23:59'];
+    }
+    $start = $row['starthours'] ?? NULL;
+    $end = $row['endhours'] ?? NULL;
+    if (!is_numeric($start) || !is_numeric($end) || (int) $start < 0 || (int) $end < 0) {
+      return NULL;
+    }
+    $format = fn(int $time) => sprintf('%02d:%02d', intdiv($time, 100) % 24, $time % 100);
+    return [$format((int) $start), $format((int) $end)];
   }
 
   /**

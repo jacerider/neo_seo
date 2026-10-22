@@ -55,6 +55,7 @@ class MetatagMigratorTest extends NeoSeoKernelTestBase {
       'og_type' => 'website',
       'abstract' => 'Acme',
       'schema_organization_type' => 'Organization',
+      'schema_organization_additional_type' => 'HVACBusiness',
       'schema_organization_name' => '[site:name]',
       'schema_organization_telephone' => '[site:phone]',
       'schema_organization_same_as' => 'https://www.facebook.com/x,https://www.youtube.com/y',
@@ -122,6 +123,8 @@ class MetatagMigratorTest extends NeoSeoKernelTestBase {
     $this->assertSame('unconverted', $this->outcome($plan, 'node__insight', 'schema_article_author'));
     $this->assertSame(['page_type' => 'ProfilePage', 'job_title_field' => 'field_job_title'], $plan['mappings']['node:person']);
 
+    $this->assertSame('HVACBusiness', $plan['identity']['organization_type'], 'A known additional type is the more specific type.');
+    $this->assertSame('converted', $this->outcome($plan, 'global', 'schema_organization_additional_type'));
     $this->assertSame('[site:name]', $plan['identity']['name']);
     $this->assertSame('[site:phone]', $plan['identity']['telephone']);
     $this->assertSame(['https://www.facebook.com/x', 'https://www.youtube.com/y'], $plan['identity']['same_as']);

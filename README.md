@@ -67,8 +67,12 @@ only to compare the two side by side. See [Moving a site off metatag](#moving-a-
 Settings live at **Configuration → Neo → SEO** (`/admin/config/neo/seo`).
 
 1. **Site identity.** Say whether the site represents an organization or a person.
-   - Pick an organization type: Organization, Corporation, Professional service, Local business, NGO,
-     and others.
+   - Pick an organization type: Organization, Corporation, NGO and others, or a local business down
+     to its specific type (HVAC business, plumber, electrician, roofing contractor…). A local
+     business is best described by its most specific type: search engines read the kind of business
+     from `@type`.
+   - **Opening hours** (local business types): pick an office hours field in site settings. Its
+     weekly hours are published as `openingHoursSpecification`, days with the same hours together.
    - Fill in the name, description, logo, social profiles, telephone, email and postal address.
    - **Logo:** an image media item, or, with `neo_favicon`, *the site favicon*: its largest icon, at
      its own size (never cropped to a share card). Until a favicon is uploaded there is no logo, and

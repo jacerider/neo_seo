@@ -10,6 +10,7 @@ identity:
   same_as: []
   telephone: ''
   email: ''
+  hours: ''
   address:
     street: ''
     locality: ''
