@@ -6,12 +6,16 @@ namespace Drupal\neo_seo;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityPublishedInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Menu\MenuLinkManagerInterface;
+use Drupal\Core\Render\BubbleableMetadata;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Url;
+use Drupal\Core\Utility\Token;
 use Drupal\neo_seo\Mapping\BundleMappingRepository;
 use Drupal\path_alias\AliasRepositoryInterface;
 use Drupal\pathauto\PathautoGeneratorInterface;
@@ -20,7 +24,9 @@ use Drupal\pathauto\PathautoGeneratorInterface;
  * A page's URL: the slug an editor may change, or a URL of their own.
  *
  * Pathauto builds a page's alias from its pattern, and a pattern holding
- * [neo-seo:slug] lets editors change that part of it (ADR 0005). A bundle
+ * [neo:slug] lets editors change that part of it (ADR 0005). With
+ * [neo:parents:join-path] a page's parents give their slugs too, and a page
+ * whose segment changes takes the pages under it along (cascade()). A bundle
  * may also let them replace the whole alias — a custom URL, stored the way
  * core stores any alias, with pathauto turned off for the page. On a bundle
  * neo_seo manages, its URL controls replace core's path widget.
@@ -35,7 +41,12 @@ class PageUrl {
   /**
    * The token a pattern holds where editors may change the alias.
    */
-  public const TOKEN = '[neo-seo:slug]';
+  public const TOKEN = '[neo:slug]';
+
+  /**
+   * The token for a page's parents: each one's slug, else its title.
+   */
+  public const PARENTS_TOKEN = '[neo:parents:join-path]';
 
   /**
    * The URL values the controls send besides the slug: not overrides.
@@ -64,6 +75,10 @@ class PageUrl {
    *   The module handler.
    * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
    *   The config factory.
+   * @param \Drupal\Core\Utility\Token $token
+   *   The token service, to find a page's menu link as pathauto's tokens do.
+   * @param \Drupal\Core\Menu\MenuLinkManagerInterface $menuLinkManager
+   *   The menu link manager.
    * @param \Drupal\path_alias\AliasRepositoryInterface|null $aliasRepository
    *   The alias repository, when path_alias is installed.
    * @param \Drupal\pathauto\PathautoGeneratorInterface|null $generator
@@ -74,6 +89,8 @@ class PageUrl {
     protected BundleMappingRepository $mapping,
     protected ModuleHandlerInterface $moduleHandler,
     protected ConfigFactoryInterface $configFactory,
+    protected Token $token,
+    protected MenuLinkManagerInterface $menuLinkManager,
     protected ?AliasRepositoryInterface $aliasRepository = NULL,
     protected ?PathautoGeneratorInterface $generator = NULL,
   ) {}
@@ -134,7 +151,7 @@ class PageUrl {
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The page, saved or a draft of it.
    *
-   * @return array{custom: bool, alias: ?string, url: ?string, prefix: string, slug: string, saved: ?string, changed: bool, redirect: bool, notice: ?string, error: ?string}
+   * @return array{custom: bool, alias: ?string, url: ?string, prefix: string, slug: string, saved: ?string, changed: bool, redirect: bool, children: int, notice: ?string, error: ?string}
    *   - custom: whether it is a URL of the page's own.
    *   - alias: the alias, NULL until a new page is saved.
    *   - url: the alias as an absolute URL.
@@ -144,6 +161,8 @@ class PageUrl {
    *   - changed: whether saving moves the page.
    *   - redirect: whether the old URL will then redirect (the redirect module
    *     makes one).
+   *   - children: how many pages under this one move with it, when its own
+   *     segment (slug, else title) changes.
    *   - notice, error: what an editor should know, and what keeps a custom
    *     URL from being saved.
    */
@@ -181,6 +200,7 @@ class PageUrl {
       'saved' => $saved,
       'changed' => $changed,
       'redirect' => $changed && $error === NULL && $this->redirects($entity),
+      'children' => $this->segmentChanged($entity) ? count($this->descendants($entity)) : 0,
       'notice' => $notice,
       'error' => $error,
     ];
@@ -229,6 +249,149 @@ class PageUrl {
   }
 
   /**
+   * A page's own segment, before pathauto cleans it: its slug, else its label.
+   */
+  public static function segment(EntityInterface $entity): string {
+    $slug = static::slugOf($entity);
+    return $slug !== '' ? $slug : (string) $entity->label();
+  }
+
+  /**
+   * The slug an editor set for a page, or ''.
+   */
+  public static function slugOf(?EntityInterface $entity): string {
+    return $entity instanceof ContentEntityInterface ? trim((string) (SeoOverrides::of($entity)['slug'] ?? '')) : '';
+  }
+
+  /**
+   * A page's parents' segments, outermost first, before pathauto cleans them.
+   *
+   * A content page's parents are its menu link's (the link pathauto's own
+   * menu tokens use); a term's are its parent terms. Each is the parent's
+   * slug, else what core's parents tokens give — the menu link's title, the
+   * term's name — so a site without slugs gets the aliases it has today. A
+   * parent's custom URL is its own and gives its children nothing.
+   *
+   * @return string[]
+   *   The segments.
+   */
+  public function parents(EntityInterface $entity, ?string $langcode = NULL): array {
+    $langcode ??= $entity->language()->getId();
+    $segments = [];
+    if ($entity->getEntityTypeId() === 'taxonomy_term' && !$entity->isNew()) {
+      $storage = $this->entityTypeManager->getStorage('taxonomy_term');
+      foreach (token_taxonomy_term_load_all_parents($entity->id(), $langcode) as $tid => $name) {
+        $slug = static::slugOf($storage->load($tid));
+        $segments[] = $slug !== '' ? $slug : (string) $name;
+      }
+    }
+    elseif ($id = $this->menuLinkId($entity)) {
+      foreach (token_menu_link_load_all_parents($id, $langcode) as $parentId => $title) {
+        $slug = static::slugOf($this->linkedEntity((string) $parentId));
+        $segments[] = $slug !== '' ? $slug : (string) $title;
+      }
+    }
+    return $segments;
+  }
+
+  /**
+   * The pages whose addresses follow this one's.
+   *
+   * Its menu descendants, or its descendant terms, that follow their pattern;
+   * a page with a custom URL keeps it.
+   *
+   * @return \Drupal\Core\Entity\ContentEntityInterface[]
+   *   The pages.
+   */
+  public function descendants(ContentEntityInterface $entity): array {
+    if (!$this->generator || $entity->isNew()) {
+      return [];
+    }
+    $found = [];
+    if ($entity->getEntityTypeId() === 'taxonomy_term') {
+      $found = $this->entityTypeManager->getStorage('taxonomy_term')->loadTree($entity->bundle(), (int) $entity->id(), NULL, TRUE);
+    }
+    elseif ($id = $this->menuLinkId($entity)) {
+      foreach ($this->menuLinkManager->getChildIds($id) as $childId) {
+        $found[] = $this->linkedEntity((string) $childId);
+      }
+    }
+    return array_values(array_filter($found, fn($page) => $page instanceof ContentEntityInterface
+      && $page->hasField('path')
+      && $this->pattern($page) !== NULL
+      && !$this->isCustom($page)));
+  }
+
+  /**
+   * Re-aliases the pages under a page, after its segment changed.
+   *
+   * Pathauto re-aliases a term's children when it re-aliases the term, but
+   * never a page's menu children, and not a term's children while the term
+   * itself keeps a custom URL.
+   *
+   * @return int
+   *   How many pages were re-aliased.
+   */
+  public function cascade(ContentEntityInterface $entity): int {
+    $this->forgetParents();
+    $pages = $this->descendants($entity);
+    array_walk($pages, [$this, 'realias']);
+    return count($pages);
+  }
+
+  /**
+   * Re-aliases one page from its pattern, unless it keeps a custom URL.
+   */
+  public function realias(ContentEntityInterface $page): void {
+    $this->forgetParents();
+    $this->generator?->updateEntityAlias($page, 'update');
+  }
+
+  /**
+   * Forgets the parents the token module remembered earlier in the request.
+   *
+   * A menu link saved in this request may have moved since they were read.
+   */
+  protected function forgetParents(): void {
+    drupal_static_reset('token_menu_link_load_all_parents');
+    drupal_static_reset('token_taxonomy_term_load_all_parents');
+  }
+
+  /**
+   * Whether saving a page changes its segment, and so its children's.
+   */
+  public function segmentChanged(ContentEntityInterface $entity): bool {
+    if ($entity->isNew()) {
+      return FALSE;
+    }
+    $saved = $this->entityTypeManager->getStorage($entity->getEntityTypeId())->loadUnchanged($entity->id());
+    if ($saved instanceof ContentEntityInterface && $saved->hasTranslation($entity->language()->getId())) {
+      $saved = $saved->getTranslation($entity->language()->getId());
+    }
+    return $saved !== NULL && static::segment($saved) !== static::segment($entity);
+  }
+
+  /**
+   * The page a menu link points at, if it is an entity's canonical page.
+   */
+  public function linkedEntity(string $pluginId): ?ContentEntityInterface {
+    try {
+      $url = $this->menuLinkManager->createInstance($pluginId)->getUrlObject();
+    }
+    catch (\Exception) {
+      return NULL;
+    }
+    if (!$url->isRouted() || !preg_match('/^entity\.(\w+)\.canonical$/', $url->getRouteName(), $match)) {
+      return NULL;
+    }
+    $id = $url->getRouteParameters()[$match[1]] ?? NULL;
+    $entity = $id !== NULL && $this->entityTypeManager->hasDefinition($match[1])
+      ? $this->entityTypeManager->getStorage($match[1])->load($id)
+      : NULL;
+    return $entity instanceof ContentEntityInterface ? $entity : NULL;
+  }
+
+  /**
    * The pathauto patterns that build a bundle's aliases, keyed by label.
    *
    * @return array<string, string>
@@ -246,13 +409,8 @@ class PageUrl {
     uasort($patterns, fn($a, $b) => $a->getWeight() <=> $b->getWeight());
     $found = [];
     foreach ($patterns as $pattern) {
-      $bundles = NULL;
-      foreach ($pattern->getSelectionConditions() as $condition) {
-        if (str_starts_with($condition->getPluginId(), 'entity_bundle')) {
-          $bundles = (array) ($condition->getConfiguration()['bundles'] ?? []);
-        }
-      }
-      if ($bundles === NULL || isset($bundles[$bundle]) || in_array($bundle, $bundles, TRUE)) {
+      $bundles = PageUrlPatterns::bundlesOf($pattern);
+      if ($bundles === NULL || in_array($bundle, $bundles, TRUE)) {
         $found[(string) $pattern->label()] = $pattern->getPattern();
       }
     }
@@ -265,6 +423,17 @@ class PageUrl {
   public static function normalize(string $alias): string {
     $alias = trim(preg_replace('/\s+/u', '-', trim($alias)) ?? '', '/');
     return $alias === '' ? '' : '/' . preg_replace('#/{2,}#', '/', $alias);
+  }
+
+  /**
+   * The menu link pathauto's tokens use for a content page, if any.
+   */
+  protected function menuLinkId(EntityInterface $entity): ?string {
+    if ($entity->getEntityTypeId() !== 'node' || $entity->isNew()) {
+      return NULL;
+    }
+    $id = $this->token->replace('[node:menu-link:id]', ['node' => $entity], ['clear' => TRUE], new BubbleableMetadata());
+    return $id !== '' ? $id : NULL;
   }
 
   /**

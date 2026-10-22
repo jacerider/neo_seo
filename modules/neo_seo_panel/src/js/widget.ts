@@ -467,6 +467,9 @@ export class SeoPanel {
     if (path.redirect) {
       notes.push([Drupal.t('The old address will redirect here.'), '']);
     }
+    if (path.children) {
+      notes.push([Drupal.formatPlural(path.children, 'The page under this one moves with it.', 'The @count pages under this one move with it.'), '']);
+    }
     const children: HTMLElement[] = [];
     if (path.alias !== null) {
       children.push(h('p', { class: 'neo-seo-url__address' }, [

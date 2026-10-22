@@ -69,7 +69,7 @@ class SeoOverridesItem extends FieldItemBase {
     $properties['article_type'] = DataDefinition::create('string')->setLabel(new TranslatableMarkup('Article type'));
     $properties['noindex'] = DataDefinition::create('boolean')->setLabel(new TranslatableMarkup('Hide from search results'));
     $properties['cornerstone'] = DataDefinition::create('boolean')->setLabel(new TranslatableMarkup('Cornerstone content'));
-    // The page's own part of its URL, fed to pathauto by [neo-seo:slug].
+    // The page's own part of its URL, fed to pathauto by [neo:slug].
     $properties['slug'] = DataDefinition::create('string')->setLabel(new TranslatableMarkup('URL slug'));
     // Written by content analysis: advisory, so a score is a 0–100 integer or
     // nothing, and never a reason to refuse a save.

@@ -68,6 +68,8 @@ interface NeoSeoPagePath {
   changed: boolean;
   /** Whether the old address will redirect to the new one. */
   redirect: boolean;
+  /** How many pages under this one move with it. */
+  children: number;
   notice: string | null;
   error: string | null;
 }

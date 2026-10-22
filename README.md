@@ -32,7 +32,8 @@ It replaces `metatag`, `schema_metatag` and `neo_metatag`.
 | **Per-page overrides** | Editors can set a page's search title, description, share image, page type, article type, noindex, focus keyphrase and cornerstone flag. These are stored on the entity, revisioned and translatable. |
 | **SEO panel** | Google desktop and mobile previews, a Facebook/LinkedIn card and an X card, with live length and pixel-width feedback. Shown in the edit form sidebar and inside the Alchemist editor, where SEO edits are drafted with the layout. |
 | **Content analysis** | Yoast-style focus-keyphrase and readability checks run against the page as it will render, scored with traffic lights. Scores are advisory. |
-| **Tooling** | `drush neo-seo:validate` checks pages against schema.org and Google's rich-result rules. `drush neo-seo:migrate` converts a metatag setup and diffs the head before and after. |
+| **Page URLs** | Editors change a page's slug (or, where allowed, its whole URL) in the edit form and in Alchemist; pathauto builds the rest, and parents' slugs carry into their children's addresses. |
+| **Tooling** | `drush neo-seo:validate` checks pages against schema.org and Google's rich-result rules. `drush neo-seo:migrate` converts a metatag setup and diffs the head before and after. `drush neo-seo:slugs` moves pathauto patterns onto the slug tokens. |
 
 The package has three modules:
 
@@ -216,7 +217,8 @@ a module adding a section of its own (`#neo_seo_sections` on the widget element,
 
 Overrides are stored in one base field, `neo_seo`. They are translatable and revisioned with the
 entity, and also available as tokens: `[neo-seo:title]`, `[neo-seo:description]`,
-`[neo-seo:keyphrase]`, `[neo-seo:page-type]`, `[neo-seo:article-type]`, and `[neo-seo:slug]` (see
+`[neo-seo:keyphrase]`, `[neo-seo:page-type]`, `[neo-seo:article-type]`. The URL tokens,
+`[neo:slug]` and `[neo:parents]`, join the neo token type (see
 [Page URLs](#page-urls-the-slug-and-a-custom-url)).
 
 Editing them takes the *Edit SEO overrides* permission.
@@ -227,18 +229,39 @@ Editors can change the part of a page's address a site builder allows, from a UR
 of **Search & social**, in the edit form and in the Alchemist editor. Pathauto still builds the
 rest (ADR 0005).
 
-**The slug.** `[neo-seo:slug]` is the slug an editor set for the page, else its label. Put it in a
-pathauto pattern where `[node:title]` (or `[term:name]`) was:
+**The slug.** `[neo:slug]` is the slug an editor set for the page, else its label. Put it in a
+pathauto pattern where `[node:title]` (or `[term:name]`) was, and use `[neo:parents:join-path]` where
+core's parents path was:
 
 ```
-/projects/[node:menu-link:parents:join-path]/[neo-seo:slug]
+/projects/[neo:parents:join-path]/[neo:slug]
 ```
 
-The pattern is the control: a page's slug is editable only where its pattern holds the token, and
-the rest of the address keeps following the pattern — move the page in the menu and its prefix
-moves with it. An empty slug follows the title, so swapping the token into a pattern changes no
-existing alias. Pathauto cleans the slug like any token value (lowercase, punctuation and ignored
-words removed, made unique with `-0`).
+The pattern is the control: a page's slug is editable only where its pattern holds `[neo:slug]`.
+An empty slug follows the title, so swapping the tokens into a pattern changes no existing alias.
+Pathauto cleans the slug like any token value (lowercase, punctuation and ignored words removed,
+made unique with `-0`).
+
+**Parents.** `[neo:parents:join-path]` is a page's menu parents (the menu link pathauto's own
+tokens use), or a term's parent terms, each by its slug — else by exactly what core's parents path
+gives: the menu link's title, the term's name. So a parent's new slug carries into its children's
+addresses. A parent's custom URL does not: it is that page's own address, not a segment. A parent
+without a slug gives its menu link's title even where its own address uses its page title, as
+core's tokens always have.
+
+**Children move with their parent.** When a page's segment changes (a new slug, or a new title),
+neo_seo re-aliases the pages under it: its menu descendants, or its descendant terms. Saving a menu
+link with a new title or parent does the same for its page and the pages under it, which pathauto
+alone never did. Pages with a custom URL keep it. The URL field says how many pages move with the
+one being edited.
+
+**Moving a site onto the tokens.** `drush neo-seo:slugs` shows what it would change in each enabled
+pattern, and which pages' addresses that would move, then asks (`-y` to skip, `--pattern=ID` for
+one). It swaps only what is exact: a last segment that is the label token, and core's two parents
+paths. Anything else is listed for a person to edit, as is a pattern whose content has no SEO
+overrides or whose form hides them. It builds every page's alias from the old pattern and the new
+(`--no-check` skips that), writes active configuration only — export it — and never re-aliases a
+page.
 
 **A custom URL.** A bundle's SEO section has *Editors may set a custom URL* (off by default). Where
 it is on, editors who may *create URL aliases* get *Use a custom URL*, which replaces the whole
@@ -278,7 +301,7 @@ the bundle as third-party settings, so it is exported with the bundle.
 | Date published / Date modified | Timestamp or date fields; by default *created* and *changed*. A date-only field is published as a date, never an invented time. |
 | Authors | A reference to content whose own type is a **Profile page**. Each referenced, visible entity becomes an author of this page's Article. |
 | Job title, Social profiles | On a profile-page bundle: the fields for the Person's job title and `sameAs` links. |
-| Editors may set a custom URL | Lets editors who may create URL aliases replace a page's whole address, not only its slug. Below it, the bundle's pathauto patterns and whether each uses `[neo-seo:slug]`. See [Page URLs](#page-urls-the-slug-and-a-custom-url). |
+| Editors may set a custom URL | Lets editors who may create URL aliases replace a page's whole address, not only its slug. Below it, the bundle's pathauto patterns and which of the URL tokens each uses. See [Page URLs](#page-urls-the-slug-and-a-custom-url). |
 
 **People.** Any bundle mapped as a *Profile page* describes a person. Their page gets a Person as
 the WebPage's `mainEntity`. When another page names them in its Authors field, the same Person

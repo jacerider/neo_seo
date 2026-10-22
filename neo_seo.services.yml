@@ -119,9 +119,26 @@ services:
       - '@neo_seo.bundle_mapping'
       - '@module_handler'
       - '@config.factory'
+      - '@token'
+      - '@plugin.manager.menu.link'
       - '@?path_alias.repository'
       - '@?pathauto.generator'
   Drupal\neo_seo\PageUrl: '@neo_seo.page_url'
+
+  # Moves pathauto patterns onto the slug tokens (drush neo-seo:slugs).
+  neo_seo.page_url_patterns:
+    class: Drupal\neo_seo\PageUrlPatterns
+    arguments:
+      - '@entity_type.manager'
+      - '@entity_field.manager'
+      - '@entity_display.repository'
+      - '@entity_type.bundle.info'
+      - '@token'
+      - '@token.entity_mapper'
+      - '@neo_seo.page_url'
+      - '@?pathauto.alias_cleaner'
+      - '@?pathauto.alias_uniquifier'
+  Drupal\neo_seo\PageUrlPatterns: '@neo_seo.page_url_patterns'
 
   neo_seo.breadcrumb_trail:
     class: Drupal\neo_seo\Graph\BreadcrumbTrail

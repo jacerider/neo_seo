@@ -223,7 +223,7 @@ class SeoOverridesWidget extends WidgetBase {
    *
    * Only where neo_seo manages the page's URL (ADR 0005), which hides core's
    * path widget (PageUrlHooks). The slug shows only where the pattern holds
-   * [neo-seo:slug]; the custom URL to those who may set one, and read-only to
+   * [neo:slug]; the custom URL to those who may set one, and read-only to
    * anyone else on a page that already has one, so they can hand it back to
    * the pattern. Under them, the URL the page will have once saved, which the
    * SEO panel keeps current from its renders.
@@ -302,6 +302,9 @@ class SeoOverridesWidget extends WidgetBase {
     }
     if ($url['redirect']) {
       $notes['redirect'] = ['#markup' => new TranslatableMarkup('The old address will redirect here.')];
+    }
+    if ($url['children']) {
+      $notes['children'] = ['#markup' => \Drupal::translation()->formatPlural($url['children'], 'The page under this one moves with it.', 'The @count pages under this one move with it.')];
     }
     return [
       '#type' => 'container',

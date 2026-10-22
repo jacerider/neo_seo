@@ -202,9 +202,11 @@ class BundleMappingHooks {
         '#context' => [
           'label' => $label,
           'pattern' => $pattern,
-          'verdict' => str_contains($pattern, PageUrl::TOKEN)
-            ? $this->t('editors can change the slug.')
-            : $this->t('add @token where the title is to let editors change the slug.', ['@token' => PageUrl::TOKEN]),
+          'verdict' => match (TRUE) {
+            str_contains($pattern, PageUrl::TOKEN) && str_contains($pattern, PageUrl::PARENTS_TOKEN) => $this->t('editors can change the slug, and parents give theirs.'),
+            str_contains($pattern, PageUrl::TOKEN) => $this->t('editors can change the slug.'),
+            default => $this->t('run drush neo-seo:slugs, or add @token where the title is, to let editors change the slug.', ['@token' => PageUrl::TOKEN]),
+          },
         ],
       ];
     }
