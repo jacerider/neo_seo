@@ -246,9 +246,12 @@ class SeoOverridesWidget extends WidgetBase {
     $name = array_shift($parents) . ($parents ? '[' . implode('][', $parents) . ']' : '') . '[url_custom]';
     $customOn = [':input[name="' . $name . '"]' => ['checked' => TRUE]];
 
+    // One URL field: the slug and the custom URL share its place, one shown at
+    // a time, with the address they make under them and the switch between
+    // them last, so switching moves nothing the editor is looking at.
     $element['slug'] = [
       '#type' => 'textfield',
-      '#title' => $this->t('URL slug'),
+      '#title' => $this->t('URL'),
       '#default_value' => $item->slug,
       '#maxlength' => 255,
       '#placeholder' => !$url['custom'] && $url['prefix'] !== '' ? $url['slug'] : '',
@@ -259,16 +262,9 @@ class SeoOverridesWidget extends WidgetBase {
       $this->t('The page’s own part of its address.'),
       $this->t('Leave it empty to use the title. Lowercase words joined by hyphens read best, e.g. “water-treatment-upgrade”. The rest of the address is set by the site, often from where the page sits in the menu.'),
     );
-    $element['url_custom'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Use a custom URL'),
-      '#default_value' => $url['custom'],
-      '#access' => $hasPattern && ($mayCustomize || $url['custom']),
-      '#neo_size' => 'xs',
-    ];
     $element['url_alias'] = [
       '#type' => 'textfield',
-      '#title' => $this->t('Custom URL'),
+      '#title' => $this->t('URL'),
       '#default_value' => $url['alias'] ?? '',
       '#maxlength' => 255,
       '#access' => $mayCustomize || $url['custom'],
@@ -279,6 +275,13 @@ class SeoOverridesWidget extends WidgetBase {
         : $this->t('This page has an address of its own. Untick “Use a custom URL” to give it the automatic one.'),
     ];
     $element['url_preview'] = static::urlPreview($url);
+    $element['url_custom'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Use a custom URL'),
+      '#default_value' => $url['custom'],
+      '#access' => $hasPattern && ($mayCustomize || $url['custom']),
+      '#neo_size' => 'xs',
+    ];
   }
 
   /**
