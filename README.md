@@ -285,9 +285,10 @@ one being edited.
 pattern, and which pages' addresses that would move, then asks (`-y` to skip, `--pattern=ID` for
 one). It swaps only what is exact: a last segment that is the label token, and core's two parents
 paths. Anything else is listed for a person to edit, as is a pattern whose content has no SEO
-overrides or whose form hides them. It builds every page's alias from the old pattern and the new
-(`--no-check` skips that), writes active configuration only — export it — and never re-aliases a
-page.
+overrides. It builds every page's alias from the old pattern and the new (`--no-check` skips that).
+Then it lists the form displays that still show core's *URL alias* field where neo_seo's URL field
+takes its place, and offers to disable it there (with `--pattern`, only for what that pattern
+builds). It writes active configuration only — export it — and never re-aliases a page.
 
 **A custom URL.** A bundle's URL section has *Editors may set a custom URL* (off by default). Where
 it is on, editors who may *create URL aliases* get the *Automatic | Custom* choice; *Custom*

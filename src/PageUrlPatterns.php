@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Drupal\neo_seo;
 
 use Drupal\Core\Entity\ContentEntityInterface;
-use Drupal\Core\Entity\EntityDisplayRepositoryInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
-use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\Core\Render\BubbleableMetadata;
@@ -26,12 +24,15 @@ use Drupal\token\TokenEntityMapperInterface;
  * core's parents path ([node:menu-link:parents:join-path],
  * [term:parents:join-path]) becomes [neo:parents:join-path]. Anything else is
  * left for a person. A pattern is left alone, and the reason given, where
- * editors could not use a slug: the entity type has no SEO overrides, or a
- * bundle's form hides them.
+ * editors could not use a slug: the entity type has no SEO overrides.
  *
  * Both tokens give today's values while no slug is set, which the plan checks
  * page by page: it builds every page's alias from the old pattern and the new
  * and lists any that differ. It never re-aliases a page.
+ *
+ * It also finds the form displays that still show core's URL alias field
+ * where neo_seo's URL field takes its place, so the command can offer to
+ * disable it: a row in Manage form display that does nothing.
  */
 class PageUrlPatterns {
 
@@ -57,10 +58,6 @@ class PageUrlPatterns {
    *   The entity type manager.
    * @param \Drupal\Core\Entity\EntityFieldManagerInterface $entityFieldManager
    *   The entity field manager.
-   * @param \Drupal\Core\Entity\EntityDisplayRepositoryInterface $displayRepository
-   *   The entity display repository, for the bundles' forms.
-   * @param \Drupal\Core\Entity\EntityTypeBundleInfoInterface $bundleInfo
-   *   The bundle info, for a pattern that holds for every bundle.
    * @param \Drupal\Core\Utility\Token $token
    *   The token service.
    * @param \Drupal\token\TokenEntityMapperInterface $tokenEntityMapper
@@ -75,8 +72,6 @@ class PageUrlPatterns {
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
     protected EntityFieldManagerInterface $entityFieldManager,
-    protected EntityDisplayRepositoryInterface $displayRepository,
-    protected EntityTypeBundleInfoInterface $bundleInfo,
     protected Token $token,
     protected TokenEntityMapperInterface $tokenEntityMapper,
     protected PageUrl $pageUrl,
@@ -149,6 +144,84 @@ class PageUrlPatterns {
   }
 
   /**
+   * The form displays that still show core's URL alias field, unused.
+   *
+   * On a bundle whose pages neo_seo's URL field serves (managesBundle()),
+   * core's path widget is always hidden, so its row in Manage form display
+   * does nothing.
+   *
+   * @param string|null $only
+   *   One pattern's machine name: only the bundles it builds aliases for.
+   *
+   * @return string[]
+   *   The form displays' ids, such as node.page.default.
+   */
+  public function pathWidgets(?string $only = NULL): array {
+    $scope = NULL;
+    if ($only !== NULL) {
+      $pattern = $this->available() ? $this->entityTypeManager->getStorage('pathauto_pattern')->load($only) : NULL;
+      if (!$pattern instanceof PathautoPatternInterface) {
+        return [];
+      }
+      $scope = [substr((string) $pattern->getType(), strlen('canonical_entities:')), static::bundlesOf($pattern)];
+    }
+    $found = [];
+    /** @var \Drupal\Core\Entity\Display\EntityFormDisplayInterface $display */
+    foreach ($this->entityTypeManager->getStorage('entity_form_display')->loadMultiple() as $id => $display) {
+      $entityTypeId = $display->getTargetEntityTypeId();
+      $bundle = $display->getTargetBundle();
+      if (!$display->status() || $display->getComponent('path') === NULL) {
+        continue;
+      }
+      if ($scope && ($entityTypeId !== $scope[0] || ($scope[1] !== NULL && !in_array($bundle, $scope[1], TRUE)))) {
+        continue;
+      }
+      if ($this->managesBundle($entityTypeId, $bundle)) {
+        $found[] = (string) $id;
+      }
+    }
+    sort($found);
+    return $found;
+  }
+
+  /**
+   * Hides core's URL alias field in these form displays.
+   *
+   * @param string[] $ids
+   *   The form displays' ids, as pathWidgets() gives them.
+   *
+   * @return int
+   *   How many form displays were changed.
+   */
+  public function disablePathWidgets(array $ids): int {
+    $count = 0;
+    foreach ($this->entityTypeManager->getStorage('entity_form_display')->loadMultiple($ids) as $display) {
+      $display->removeComponent('path')->save();
+      $count++;
+    }
+    return $count;
+  }
+
+  /**
+   * Whether neo_seo's URL field serves a bundle's pages.
+   *
+   * As PageUrl::manages() decides for a page: SEO overrides and a path, and
+   * a pattern that holds the slug or custom URLs allowed.
+   */
+  public function managesBundle(string $entityTypeId, string $bundle): bool {
+    $fields = $this->entityFieldManager->getBaseFieldDefinitions($entityTypeId);
+    if (!isset($fields[SeoOverrides::FIELD], $fields['path'])) {
+      return FALSE;
+    }
+    foreach ($this->pageUrl->bundlePatterns($entityTypeId, $bundle) as $pattern) {
+      if (str_contains($pattern, PageUrl::TOKEN)) {
+        return TRUE;
+      }
+    }
+    return $this->pageUrl->allowsCustom($entityTypeId, $bundle);
+  }
+
+  /**
    * The bundles a pattern is limited to, or NULL for every bundle.
    *
    * @return string[]|null
@@ -198,12 +271,6 @@ class PageUrlPatterns {
     }
     if (!isset($this->entityFieldManager->getFieldStorageDefinitions($entityTypeId)[SeoOverrides::FIELD])) {
       return ['reason' => (string) $this->t('@type has no SEO overrides; turn them on in the SEO settings.', ['@type' => $entityType->getLabel()])] + $row;
-    }
-    $bundles = static::bundlesOf($pattern) ?? array_keys($this->bundleInfo->getBundleInfo($entityTypeId));
-    foreach ($bundles as $bundle) {
-      if (!$this->displayRepository->getFormDisplay($entityTypeId, $bundle)->getComponent(SeoOverrides::FIELD)) {
-        return ['reason' => (string) $this->t('The SEO field is hidden on the @bundle form.', ['@bundle' => $bundle])] + $row;
-      }
     }
     $row['status'] = 'swap';
     return $check ? $this->check($pattern, $entityTypeId, static::bundlesOf($pattern), $row) : $row;

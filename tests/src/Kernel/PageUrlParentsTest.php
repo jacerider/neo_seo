@@ -150,13 +150,34 @@ class PageUrlParentsTest extends NeoSeoKernelTestBase {
     $this->assertSame('swap', $plan['market']['status']);
     $this->assertSame([], $plan['market']['moving']);
     $this->assertSame('skip', $plan['news']['status'], 'A title that is not the whole last segment is left alone.');
-    $this->assertSame('skip', $plan['hidden']['status']);
-    $this->assertStringContainsString('hidden', $plan['hidden']['reason']);
+    $this->assertSame('swap', $plan['hidden']['status'], 'A form without the SEO field still gets the URL field.');
 
-    $this->assertSame(2, $this->patterns()->apply($plan));
+    $this->assertSame(3, $this->patterns()->apply($plan));
     $this->assertSame('/' . PageUrl::PARENTS_TOKEN . '/' . PageUrl::TOKEN, PathautoPattern::load('page')->getPattern());
     $this->assertSame('/news/[node:title]-[node:nid]', PathautoPattern::load('news')->getPattern());
     $this->assertSame('done', $this->patterns()->plan('page')['page']['status'], 'Run again, it has nothing left to do.');
+  }
+
+  /**
+   * Core's URL alias row is found, and disabled, where neo_seo's field serves.
+   */
+  public function testPathWidgets(): void {
+    NodeType::create(['type' => 'news', 'name' => 'News'])->save();
+    $this->pattern('page', 'node', '/[neo:parents:join-path]/[neo:slug]');
+    $this->pattern('news', 'node', '/news/[node:title]');
+    $repository = \Drupal::service('entity_display.repository');
+    foreach (['page', 'news'] as $bundle) {
+      $repository->getFormDisplay('node', $bundle)->setComponent('path', ['type' => 'path'])->save();
+    }
+
+    $this->assertSame(['node.page.default'], $this->patterns()->pathWidgets(), 'Not news: its pattern has no slug.');
+    $this->assertSame([], $this->patterns()->pathWidgets('news'), 'Only what the pattern builds.');
+    NodeType::load('news')->setThirdPartySetting('neo_seo', 'custom_url', TRUE)->save();
+    $this->assertSame(['node.news.default', 'node.page.default'], $this->patterns()->pathWidgets(), 'Custom URLs: neo_seo serves it too.');
+
+    $this->assertSame(1, $this->patterns()->disablePathWidgets(['node.page.default']));
+    $this->assertNull($repository->getFormDisplay('node', 'page')->getComponent('path'));
+    $this->assertSame(['node.news.default'], $this->patterns()->pathWidgets());
   }
 
   /**

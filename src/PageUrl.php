@@ -572,7 +572,14 @@ class PageUrl {
    * Whether the bundle lets editors give a page a URL of its own.
    */
   protected function bundleAllowsCustom(ContentEntityInterface $entity): bool {
-    return $this->mapping->forBundle($entity->getEntityTypeId(), $entity->bundle())->customUrl;
+    return $this->allowsCustom($entity->getEntityTypeId(), $entity->bundle());
+  }
+
+  /**
+   * Whether a bundle lets editors give its pages URLs of their own.
+   */
+  public function allowsCustom(string $entityTypeId, string $bundle): bool {
+    return $this->mapping->forBundle($entityTypeId, $bundle)->customUrl;
   }
 
   /**
