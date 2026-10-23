@@ -29,12 +29,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * The SEO overrides as sidebar sections of the edit form.
  *
- * Two sections, each a details element of its own: "Search & social" (how the
- * page is listed and shared) and "SEO" (what it is analysed for). Other
- * modules add theirs to #neo_seo_sections and place an element in one with
- * #neo_seo_section; anything placed in none is in the first. The controls are
- * moved into their sections as the form is built, keeping their names, so
- * values are submitted as one flat set wherever they are shown.
+ * Sections, each a details element of its own: "Search & social" (how the
+ * page is listed and shared), "SEO" (what it is analysed for) and, where
+ * neo_seo manages the page's URL, "URL" (where core's URL alias section was).
+ * Other modules add theirs to #neo_seo_sections and place an element in one
+ * with #neo_seo_section; anything placed in none is in the first. The
+ * controls are moved into their sections as the form is built, keeping their
+ * names, so values are submitted as one flat set wherever they are shown.
  *
  * The plain form. The SEO panel (neo_seo_panel) adds previews and analysis
  * to it, and still writes these same values.
@@ -226,7 +227,8 @@ class SeoOverridesWidget extends WidgetBase {
    * [neo:slug]; the custom URL to those who may set one, and read-only to
    * anyone else on a page that already has one, so they can hand it back to
    * the pattern. Under them, the URL the page will have once saved, which the
-   * SEO panel keeps current from its renders.
+   * SEO panel keeps current from its renders. All of it in one container,
+   * url_field, placed in the URL section; each control keeps its flat name.
    *
    * @param array $element
    *   The widget element.
@@ -243,13 +245,21 @@ class SeoOverridesWidget extends WidgetBase {
     $url = $this->pageUrl->describe($entity);
     $mayCustomize = $this->pageUrl->mayCustomize($entity, $this->currentUser);
     $hasPattern = $this->pageUrl->pattern($entity) !== NULL;
-    $name = array_shift($parents) . ($parents ? '[' . implode('][', $parents) . ']' : '') . '[url_custom]';
+    $first = $parents;
+    $name = array_shift($first) . ($first ? '[' . implode('][', $first) . ']' : '') . '[url_custom]';
     $customOn = [':input[name="' . $name . '"]' => ['checked' => TRUE]];
 
     // One URL field: the slug and the custom URL share its place, one shown at
     // a time, with the address they make under them and the switch between
     // them last, so switching moves nothing the editor is looking at.
-    $element['slug'] = [
+    $field = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['neo-seo-url-field']],
+      '#neo_seo_section' => 'url',
+      '#attached' => ['library' => ['neo_seo/page_url']],
+    ];
+    $field['actions'] = static::urlActions($entity);
+    $field['slug'] = [
       '#type' => 'textfield',
       '#title' => $this->t('URL slug'),
       '#default_value' => $item->slug,
@@ -259,11 +269,11 @@ class SeoOverridesWidget extends WidgetBase {
       '#access' => $this->pageUrl->usesSlug($entity),
       '#states' => ['invisible' => $customOn],
     ];
-    $this->help($element['slug'],
+    $this->help($field['slug'],
       $this->t('The last part of this page’s address.'),
       $this->t('Leave empty to follow the title.'),
     );
-    $element['url_alias'] = [
+    $field['url_alias'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Custom URL'),
       '#default_value' => $url['alias'] ?? '',
@@ -275,13 +285,46 @@ class SeoOverridesWidget extends WidgetBase {
         ? $this->t('The whole address after the domain, starting with a slash, e.g. /about-us.')
         : $this->t('This page has an address of its own. Untick “Use a custom URL” to give it the automatic one.'),
     ];
-    $element['url_preview'] = static::urlPreview($url);
-    $element['url_custom'] = [
+    $field['url_preview'] = static::urlPreview($url);
+    $field['url_custom'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Use a custom URL'),
       '#default_value' => $url['custom'],
       '#access' => $hasPattern && ($mayCustomize || $url['custom']),
       '#neo_size' => 'xs',
+    ];
+    foreach (['slug', 'url_alias', 'url_preview', 'url_custom'] as $key) {
+      $field[$key]['#parents'] = array_merge($parents, [$key]);
+    }
+    $element['url_field'] = $field;
+    // Where core's URL alias section was, beside URL redirects.
+    $element['#neo_seo_sections']['url'] = ['#title' => $this->t('URL'), '#weight' => 3, '#neo_seo_weight' => 30];
+  }
+
+  /**
+   * Open the live page, and copy its address: once the page has one.
+   *
+   * The address it has now, not the one a draft would give it.
+   */
+  protected static function urlActions(ContentEntityInterface $entity): array {
+    $url = !$entity->isNew() ? $entity->toUrl('canonical', ['absolute' => TRUE])->toString() : NULL;
+    return [
+      '#type' => 'inline_template',
+      '#template' => '<div class="neo-seo-url-actions">'
+        . '<a class="neo-seo-url-actions__action" href="{{ url }}" target="_blank" rel="noopener" title="{{ open }}" aria-label="{{ open }}">'
+        . '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v3.5a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V5a.5.5 0 0 1 .5-.5h3.5"/></svg>'
+        . '</a>'
+        . '<button type="button" class="neo-seo-url-actions__action" data-neo-seo-url-copy="{{ url }}" title="{{ copy }}" aria-label="{{ copy }}">'
+        . '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 3.5V3a.5.5 0 0 0-.5-.5H3a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h.5"/></svg>'
+        . '</button>'
+        . '<span class="visually-hidden" role="status" data-neo-seo-url-copied></span>'
+        . '</div>',
+      '#context' => [
+        'url' => $url,
+        'open' => new TranslatableMarkup('Open the page in a new tab'),
+        'copy' => new TranslatableMarkup('Copy the page’s address'),
+      ],
+      '#access' => $url !== NULL,
     ];
   }
 
@@ -338,12 +381,24 @@ class SeoOverridesWidget extends WidgetBase {
    *
    * Each control keeps the name it has outside a section: its #parents are
    * set before it moves, so the sections add nothing to them. The sections
-   * start closed. With no sections (the Alchemist panel's form) the controls
-   * stay where they are.
+   * start closed, after the field's others in the sidebar unless one sets
+   * its own place there (#neo_seo_weight). With no sections (the Alchemist
+   * panel's form) the controls stay where they are, the URL first under a
+   * heading of its own.
    */
   public static function processSections(array $element, FormStateInterface $form_state, array &$complete_form): array {
     $sections = $element['#neo_seo_sections'] ?? [];
     if (!$sections) {
+      if (isset($element['url_field'])) {
+        $element['url_field']['#weight'] = -200;
+        $element['url_field']['heading'] = [
+          '#type' => 'html_tag',
+          '#tag' => 'h3',
+          '#value' => new TranslatableMarkup('URL'),
+          '#attributes' => ['class' => ['neo-seo-url-field__heading']],
+          '#weight' => -10,
+        ];
+      }
       return $element;
     }
     uasort($sections, fn(array $a, array $b) => ($a['#weight'] ?? 0) <=> ($b['#weight'] ?? 0));
@@ -360,7 +415,7 @@ class SeoOverridesWidget extends WidgetBase {
         ],
       ];
       // After the field's other sections, in the sidebar's order.
-      $element[$id]['#weight'] = 90 + ($section['#weight'] ?? 0);
+      $element[$id]['#weight'] = $section['#neo_seo_weight'] ?? 90 + ($section['#weight'] ?? 0);
     }
     foreach ($children as $key) {
       $id = $element[$key]['#neo_seo_section'] ?? $first;

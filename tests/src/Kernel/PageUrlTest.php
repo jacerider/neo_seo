@@ -184,15 +184,15 @@ class PageUrlTest extends NeoSeoKernelTestBase {
   public function testEditFormReplacesThePathWidget(): void {
     $project = $this->form($this->node('project', 'A'));
     $this->assertFalse($project['path']['#access'], 'Core’s path widget is hidden.');
-    // The controls sit in the field's first section, "Search & social".
-    $element = $project[SeoOverrides::FIELD]['widget'][0]['search_social'];
+    // The controls sit in a URL section of their own.
+    $element = $project[SeoOverrides::FIELD]['widget'][0]['url']['url_field'];
     $this->assertNotFalse($element['slug']['#access'] ?? TRUE);
     $this->assertFalse($element['url_custom']['#access'], 'No custom URL for a slug-only editor.');
     $this->assertArrayHasKey('url_preview', $element);
 
     $article = $this->form($this->node('article', 'B'));
     $this->assertNotFalse($article['path']['#access'] ?? TRUE, 'Core’s widget stays where neo_seo has nothing to offer.');
-    $this->assertArrayNotHasKey('slug', $article[SeoOverrides::FIELD]['widget'][0]['search_social']);
+    $this->assertArrayNotHasKey('url', $article[SeoOverrides::FIELD]['widget'][0], 'No URL section either.');
   }
 
   /**
