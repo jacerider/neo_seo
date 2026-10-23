@@ -225,9 +225,17 @@ Editing them takes the *Edit SEO overrides* permission.
 
 ## Page URLs: the slug and a custom URL
 
-Editors can change the part of a page's address a site builder allows, from a URL field at the top
-of **Search & social**, in the edit form and in the Alchemist editor. Pathauto still builds the
-rest (ADR 0005).
+Editors can change the part of a page's address a site builder allows, from a URL field in the edit
+form and in the Alchemist editor. Pathauto still builds the rest (ADR 0005).
+
+**Where the field is.** In the edit form, a **URL** section of the sidebar, where core's URL alias
+section was (beside *URL redirects*); it starts closed. In Alchemist, the SEO panel has no sections,
+so the field leads it under a **URL** heading. Once a page is saved, two icons beside the field open
+it in a new tab and copy its address — the address it has now, not the one a draft would give it.
+
+**Automatic | Custom.** A choice leads the field. *Automatic* shows **URL slug**, the last part of
+the page's address; *Custom* shows **Custom URL**, the whole address after the domain. Editors who
+may not set a custom URL see no choice (see *A custom URL* below).
 
 **The slug.** `[neo:slug]` is the slug an editor set for the page, else its label. Put it in a
 pathauto pattern where `[node:title]` (or `[term:name]`) was, and use `[neo:parents:join-path]` where
@@ -240,7 +248,23 @@ core's parents path was:
 The pattern is the control: a page's slug is editable only where its pattern holds `[neo:slug]`.
 An empty slug follows the title, so swapping the tokens into a pattern changes no existing alias.
 Pathauto cleans the slug like any token value (lowercase, punctuation and ignored words removed,
-made unique with `-0`).
+made unique with `-0`). Where the pattern has no slug, *Automatic* shows the address read-only, with
+a note that the site sets it.
+
+**The slug in its address.** The slug input sits under the rest of its address, in one bordered
+box: the pattern's part muted on its own lines, wrapping however deep the page is
+(`/services/water/treatment/municipal/facilities/`), then the input.
+A screen reader reads the prefix with the input (`aria-describedby`). An empty input shows the slug
+the title gives as its placeholder, and follows a new title from each draft render, before saving.
+
+**Cleaned as it will be saved.** Leaving the slug input replaces what was typed with the slug as it
+will be saved, from the draft render ("Phase 2: The Plan!" becomes `phase-2-plan`), as WordPress
+does. Pathauto's `-0` is never written into it: where the address is another page's, the slug stays
+clean and a note says "Another page has this address, so this one will be …-0". A custom URL is
+cleaned the same way, segment by segment, by pathauto's own rules — "/About Us/Team!" becomes
+`/about-us/team`, one leading slash and none trailing — on leaving the input, and again on save
+(`PageUrl::apply()`), so a posted draft cannot skip it. A page's existing custom URL is left as it
+is, however it is written: cleaning it would move a page no one asked to move.
 
 **Parents.** `[neo:parents:join-path]` is a page's menu parents (the menu link pathauto's own
 tokens use), or a term's parent terms, each by its slug — else by exactly what core's parents path
@@ -264,17 +288,20 @@ overrides or whose form hides them. It builds every page's alias from the old pa
 page.
 
 **A custom URL.** A bundle's SEO section has *Editors may set a custom URL* (off by default). Where
-it is on, editors who may *create URL aliases* get *Use a custom URL*, which replaces the whole
-address and turns pathauto off for the page; unticking it hands the page back to the pattern.
-*Administer URL aliases* allows a custom URL on any bundle. Anyone else sees a page's existing
-custom URL read-only, and may still untick it. A URL that is already another page's is refused.
+it is on, editors who may *create URL aliases* get the *Automatic | Custom* choice; *Custom*
+replaces the whole address and turns pathauto off for the page, and choosing *Automatic* again hands
+the page back to the pattern. *Administer URL aliases* allows a custom URL on any bundle. Anyone
+else sees a page's existing custom URL with *Custom* chosen and the address read-only, and may still
+choose *Automatic*. A URL that is already another page's is refused.
 
-**What the editor sees.** Under the field, the address the page will have once saved, the
-pattern's part muted and the editor's in full, as pathauto will actually build it. The SEO panel
-redraws it from every draft render, and the Google and social previews and the keyphrase-in-slug
-check use it. When `redirect` is installed with *Automatically create redirects*, a change to a
-published page's address notes that the old one will redirect. On a site whose pathauto keeps every
-page's first alias (*Do nothing* on update), the field says a new slug only applies to new pages.
+**What the editor is told.** Under the field, notes about the address the page will have once
+saved, as pathauto will actually build it. When saving would move a published page — a new slug, a
+new custom URL, or a new title with no slug — "This page's address will change from /old to /new",
+then "The old address will redirect here" when `redirect` is installed with *Automatically create
+redirects*, else "Links to the old address will stop working". The SEO panel redraws the prefix, the
+placeholder and the notes from every draft render, and the Google and social previews and the
+keyphrase-in-slug check use the new address. On a site whose pathauto keeps every page's first alias
+(*Do nothing* on update), the field says a new slug only applies to new pages.
 
 **Where it applies.** neo_seo manages the URL of a page whose entity type has per-page SEO and a
 path, when its pattern uses the token or its bundle allows custom URLs. There its field replaces

@@ -277,7 +277,10 @@ class PageUrl {
       $notes[] = $this->t('Another page has this address, so this one will be @alias.', ['@alias' => $url['alias']]);
     }
     if ($url['moving']) {
-      $notes[] = $this->t('This page’s address will change from @old to @new.', ['@old' => $url['saved'], '@new' => $url['alias']]);
+      $notes[] = $this->t('This page’s address will change from @old to @new.', [
+        '@old' => $url['saved'],
+        '@new' => $url['alias'],
+      ]);
       $notes[] = $url['redirect']
         ? $this->t('The old address will redirect here.')
         : $this->t('Links to the old address will stop working.');

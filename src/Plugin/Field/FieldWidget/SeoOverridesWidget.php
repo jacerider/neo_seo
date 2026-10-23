@@ -227,9 +227,10 @@ class SeoOverridesWidget extends WidgetBase {
    * shows under Automatic, where the pattern holds [neo:slug]; the custom URL
    * under Custom, to those who may set one, and read-only to anyone else on a
    * page that already has one, who may still choose Automatic to hand it
-   * back to the pattern. Under them, the URL the page will have once saved, which the
-   * SEO panel keeps current from its renders. All of it in one container,
-   * url_field, placed in the URL section; each control keeps its flat name.
+   * back to the pattern. Under them, what to know about the URL the page will
+   * have once saved, which the SEO panel keeps current from its renders. All
+   * of it in one container, url_field, placed in the URL section; each
+   * control keeps its flat name.
    *
    * @param array $element
    *   The widget element.
@@ -334,14 +335,14 @@ class SeoOverridesWidget extends WidgetBase {
     return [
       '#type' => 'inline_template',
       '#template' => '<div class="neo-seo-url-actions">'
-        . '<a class="neo-seo-url-actions__action" href="{{ url }}" target="_blank" rel="noopener" title="{{ open }}" aria-label="{{ open }}">'
-        . '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v3.5a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V5a.5.5 0 0 1 .5-.5h3.5"/></svg>'
-        . '</a>'
-        . '<button type="button" class="neo-seo-url-actions__action" data-neo-seo-url-copy="{{ url }}" title="{{ copy }}" aria-label="{{ copy }}">'
-        . '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 3.5V3a.5.5 0 0 0-.5-.5H3a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h.5"/></svg>'
-        . '</button>'
-        . '<span class="visually-hidden" role="status" data-neo-seo-url-copied></span>'
-        . '</div>',
+      . '<a class="neo-seo-url-actions__action" href="{{ url }}" target="_blank" rel="noopener" title="{{ open }}" aria-label="{{ open }}">'
+      . '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v3.5a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V5a.5.5 0 0 1 .5-.5h3.5"/></svg>'
+      . '</a>'
+      . '<button type="button" class="neo-seo-url-actions__action" data-neo-seo-url-copy="{{ url }}" title="{{ copy }}" aria-label="{{ copy }}">'
+      . '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 3.5V3a.5.5 0 0 0-.5-.5H3a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h.5"/></svg>'
+      . '</button>'
+      . '<span class="visually-hidden" role="status" data-neo-seo-url-copied></span>'
+      . '</div>',
       '#context' => [
         'url' => $url,
         'open' => new TranslatableMarkup('Open the page in a new tab'),
