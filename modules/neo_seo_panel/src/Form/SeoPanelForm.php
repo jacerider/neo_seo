@@ -80,6 +80,10 @@ class SeoPanelForm extends FormBase {
       $this->pageUrl->apply($entity, $this->currentUser(), $url);
     }
     $items = $entity->get(SeoOverrides::FIELD);
+    // The widget is built for item 0: a page with no overrides yet has none.
+    if ($items->isEmpty()) {
+      $items->appendItem();
+    }
     /** @var \Drupal\Core\Field\WidgetInterface $widget */
     $widget = $this->widgetManager->getInstance([
       'field_definition' => $items->getFieldDefinition(),
