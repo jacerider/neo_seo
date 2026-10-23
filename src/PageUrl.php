@@ -174,7 +174,7 @@ class PageUrl {
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The page, saved or a draft of it.
    *
-   * @return array{custom: bool, alias: ?string, url: ?string, prefix: string, slug: string, input: string, placeholder: string, automatic: bool, taken: bool, saved: ?string, changed: bool, moving: bool, redirect: bool, children: int, notice: ?string, error: ?string, notes: list<array{text: string, error: bool}>}
+   * @return array{custom: bool, alias: ?string, url: ?string, prefix: string, slug: string, input: string, placeholder: string, automatic: bool, taken: bool, wanted: ?string, saved: ?string, changed: bool, cause: ?string, keep: ?array, moving: bool, redirect: bool, children: int, notice: ?string, error: ?string, callouts: list<array>}
    *   - custom: whether it is a URL of the page's own.
    *   - alias: the alias, NULL until a new page is saved.
    *   - url: the alias as an absolute URL.
@@ -189,8 +189,13 @@ class PageUrl {
    *     slug.
    *   - taken: whether the slug's address is another page's, so pathauto
    *     makes it unique.
+   *   - wanted: the address the slug asks for, before pathauto makes it
+   *     unique.
    *   - saved: the alias the page has now.
    *   - changed: whether saving moves the page.
+   *   - cause: 'title' where a new title moves a page with no slug.
+   *   - keep: what the URL controls hold to keep the address the page has
+   *     now (url_custom, slug, url_alias), where saving would change it.
    *   - moving: whether saving moves a published page, which visitors and
    *     links may know by its old address.
    *   - redirect: whether the old URL will then redirect (the redirect module
@@ -199,7 +204,8 @@ class PageUrl {
    *     segment (slug, else title) changes.
    *   - notice, error: what an editor should know, and what keeps a custom
    *     URL from being saved.
-   *   - notes: all an editor should know, in the order to show it, as text.
+   *   - callouts: all an editor should know, grouped and in the order to
+   *     show it (callouts()).
    */
   public function describe(ContentEntityInterface $entity): array {
     $custom = $this->isCustom($entity);
@@ -207,6 +213,7 @@ class PageUrl {
     $usesSlug = $this->usesSlug($entity);
     $notice = $error = NULL;
     $prefix = $slug = '';
+    $wanted = NULL;
     $taken = FALSE;
     if ($custom) {
       $input = $this->sent[$entity] ?? (string) ($entity->get('path')->first()?->get('alias')->getValue() ?? '');
@@ -233,12 +240,16 @@ class PageUrl {
           // a suffix where the address is another page's: the editor's slug
           // stays clean, and the suffix is only noted.
           $slug = $this->clean(static::segment($entity), $entity);
-          $taken = $alias !== $prefix . $slug . substr($marked, $at + strlen(self::MARKER));
+          $wanted = $prefix . $slug . substr($marked, $at + strlen(self::MARKER));
+          $taken = $alias !== $wanted;
         }
       }
     }
     $changed = $saved !== NULL && $alias !== NULL && $alias !== $saved;
     $moving = $changed && $error === NULL && (!$entity instanceof EntityPublishedInterface || $entity->isPublished());
+    $before = $changed ? $this->savedVersion($entity) : NULL;
+    // A page with no slug, before or now, moved by a new title.
+    $cause = $before && !$custom && $input === '' && static::slugOf($before) === '' && $before->label() !== $entity->label() ? 'title' : NULL;
     $url = [
       'custom' => $custom,
       'alias' => $alias,
@@ -249,56 +260,117 @@ class PageUrl {
       'placeholder' => $usesSlug ? $this->clean((string) $entity->label(), $entity) : '',
       'automatic' => !$custom && !$usesSlug,
       'taken' => $taken,
+      'wanted' => $wanted,
       'saved' => $saved,
       'changed' => $changed,
+      'cause' => $cause,
+      'keep' => $before ? $this->keep($before, (string) $saved, $prefix, $cause) : NULL,
       'moving' => $moving,
       'redirect' => $moving && $this->redirects(),
       'children' => $this->segmentChanged($entity) ? count($this->descendants($entity)) : 0,
       'notice' => $notice,
       'error' => $error,
     ];
-    return $url + ['notes' => $this->notes($url)];
+    return $url + ['callouts' => $this->callouts($url)];
   }
 
   /**
-   * What an editor should know about a page's URL, in the order to show it.
+   * What the URL controls hold to keep the address a page has now.
+   *
+   * The values they would show for the page as saved. Where a new title
+   * moves a page with no slug, putting them back changes nothing, so the
+   * slug pins the address instead: its last part as it is now.
+   */
+  protected function keep(ContentEntityInterface $saved, string $alias, string $prefix, ?string $cause): array {
+    if ($cause === 'title') {
+      $slug = $prefix !== '' && str_starts_with($alias, $prefix) ? substr($alias, strlen($prefix)) : basename($alias);
+      return ['url_custom' => FALSE, 'slug' => $slug, 'url_alias' => $alias];
+    }
+    return [
+      'url_custom' => $this->isCustom($saved),
+      'slug' => static::slugOf($saved),
+      'url_alias' => $alias,
+    ];
+  }
+
+  /**
+   * What an editor should know about a page's URL, grouped into callouts.
+   *
+   * A move is one callout: from where to where, why (a new title), whether
+   * the slug's address was taken, what happens to links to the old address
+   * (a published page), and the pages under it that move too — warning where
+   * links will break or pathauto changes the slug, else information. Anything
+   * else is a callout of its own: an error, a warning or information.
    *
    * @param array $url
    *   The page's URL, as describe() gives it.
    *
-   * @return list<array{text: string, error: bool}>
-   *   Each note, as plain text, and whether it keeps the URL from saving.
+   * @return list<array{kind: string, tone: string, lines: list<array{icon: string, text: string}>, cause?: ?string, from?: string, to?: string, keep?: ?array}>
+   *   Each callout. Its texts are HTML, escaped by the translation.
    */
-  protected function notes(array $url): array {
-    $notes = [];
+  protected function callouts(array $url): array {
+    $line = fn(string $icon, $text): array => ['icon' => $icon, 'text' => (string) $text];
+    $taken = $url['taken']
+      ? $line('taken', $this->t('Another page is @wanted, so this one gets @suffix.', [
+        '@wanted' => $url['wanted'],
+        '@suffix' => substr((string) $url['alias'], strlen((string) $url['wanted'])),
+      ]))
+      : NULL;
+    $children = $url['children']
+      ? $line('children', $this->formatPlural($url['children'], 'The page under this one moves with it.', 'The @count pages under this one move with it.'))
+      : NULL;
+    $callouts = [];
     if ($url['error']) {
-      $notes[] = ['text' => $url['error'], 'error' => TRUE];
+      $callouts[] = ['kind' => 'error', 'tone' => 'error', 'lines' => [$line('error', $url['error'])]];
     }
-    elseif ($url['alias'] === NULL) {
-      $notes[] = $this->t('The address is set when the page is first saved.');
+    if ($url['changed'] && !$url['error']) {
+      $lines = array_filter([$taken]);
+      if ($url['moving']) {
+        $lines[] = $url['redirect']
+          ? $line('redirect', $this->t('The old address will redirect here.'))
+          : $line('broken', $this->t('Links to the old address will stop working.'));
+      }
+      $lines[] = $children;
+      $callouts[] = [
+        'kind' => 'move',
+        'tone' => $taken || ($url['moving'] && !$url['redirect']) ? 'warning' : 'info',
+        'cause' => $url['cause'] === 'title' ? (string) $this->t('Because the title changed.') : NULL,
+        'from' => $url['saved'],
+        'to' => $url['alias'],
+        'lines' => array_values(array_filter($lines)),
+        'keep' => $url['keep'],
+      ];
+      $taken = $children = NULL;
     }
-    if ($url['notice']) {
-      $notes[] = $url['notice'];
+    if ($taken) {
+      $callouts[] = ['kind' => 'taken', 'tone' => 'warning', 'lines' => [$taken]];
     }
-    if ($url['automatic'] && $url['alias'] !== NULL) {
-      $notes[] = $this->t('The site sets this page’s address.');
+    if ($children) {
+      $callouts[] = ['kind' => 'children', 'tone' => 'info', 'lines' => [$children]];
     }
-    if ($url['taken']) {
-      $notes[] = $this->t('Another page has this address, so this one will be @alias.', ['@alias' => $url['alias']]);
+    $info = array_filter([
+      'new' => !$url['error'] && $url['alias'] === NULL ? $this->t('The address is set when the page is first saved.') : NULL,
+      'notice' => $url['notice'],
+      'automatic' => $url['automatic'] && $url['alias'] !== NULL ? $this->t('The site sets this page’s address.') : NULL,
+    ]);
+    foreach ($info as $kind => $text) {
+      $callouts[] = ['kind' => $kind, 'tone' => 'info', 'lines' => [$line('info', $text)]];
     }
-    if ($url['moving']) {
-      $notes[] = $this->t('This page’s address will change from @old to @new.', [
-        '@old' => $url['saved'],
-        '@new' => $url['alias'],
-      ]);
-      $notes[] = $url['redirect']
-        ? $this->t('The old address will redirect here.')
-        : $this->t('Links to the old address will stop working.');
+    return $callouts;
+  }
+
+  /**
+   * A page as it is saved, in the same language; NULL for a new page.
+   */
+  protected function savedVersion(ContentEntityInterface $entity): ?ContentEntityInterface {
+    if ($entity->isNew()) {
+      return NULL;
     }
-    if ($url['children']) {
-      $notes[] = $this->formatPlural($url['children'], 'The page under this one moves with it.', 'The @count pages under this one move with it.');
+    $saved = $this->entityTypeManager->getStorage($entity->getEntityTypeId())->loadUnchanged($entity->id());
+    if ($saved instanceof ContentEntityInterface && $saved->hasTranslation($entity->language()->getId())) {
+      $saved = $saved->getTranslation($entity->language()->getId());
     }
-    return array_map(fn($note) => is_array($note) ? $note : ['text' => (string) $note, 'error' => FALSE], $notes);
+    return $saved instanceof ContentEntityInterface ? $saved : NULL;
   }
 
   /**
@@ -463,13 +535,7 @@ class PageUrl {
    * Whether saving a page changes its segment, and so its children's.
    */
   public function segmentChanged(ContentEntityInterface $entity): bool {
-    if ($entity->isNew()) {
-      return FALSE;
-    }
-    $saved = $this->entityTypeManager->getStorage($entity->getEntityTypeId())->loadUnchanged($entity->id());
-    if ($saved instanceof ContentEntityInterface && $saved->hasTranslation($entity->language()->getId())) {
-      $saved = $saved->getTranslation($entity->language()->getId());
-    }
+    $saved = $this->savedVersion($entity);
     return $saved !== NULL && static::segment($saved) !== static::segment($entity);
   }
 

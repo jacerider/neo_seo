@@ -41,7 +41,8 @@ class DraftRenderController implements ContainerInjectionInterface {
     // A fresh copy: the draft is applied in memory and never saved.
     $draft = $this->draftRenderer->freshCopy($entity);
     $this->draftRenderer->applyAlchemistDrafts($draft);
-    $response = new CacheableJsonResponse($this->draftRenderer->render($draft));
+    // Alchemist's render: its URL changes go live on Publish.
+    $response = new CacheableJsonResponse($this->draftRenderer->render($draft, TRUE));
     $response->addCacheableDependency((new CacheableMetadata())->setCacheMaxAge(0));
     return $response;
   }

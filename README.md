@@ -297,14 +297,22 @@ the page back to the pattern. *Administer URL aliases* allows a custom URL on an
 else sees a page's existing custom URL with *Custom* chosen and the address read-only, and may still
 choose *Automatic*. A URL that is already another page's is refused.
 
-**What the editor is told.** Under the field, notes about the address the page will have once
-saved, as pathauto will actually build it. When saving would move a published page — a new slug, a
-new custom URL, or a new title with no slug — "This page's address will change from /old to /new",
-then "The old address will redirect here" when `redirect` is installed with *Automatically create
-redirects*, else "Links to the old address will stop working". The SEO panel redraws the prefix, the
-placeholder and the notes from every draft render, and the Google and social previews and the
-keyphrase-in-slug check use the new address. On a site whose pathauto keeps every page's first alias
-(*Do nothing* on update), the field says a new slug only applies to new pages.
+**What the editor is told.** Under the field, callouts about the address the page will have once
+saved, as pathauto will actually build it, each toned by what it means: information, a warning, or
+an error. When saving would move a page — a new slug, a new custom URL, or a new title with no slug
+— one callout, "Address changes when saved" ("…when published" in Alchemist), says it all: the old
+address struck through and the new one, each on one line with a long start cut in the middle (the
+whole address on hover and for screen readers); "Because the title changed." when that is why;
+"Another page is /x, so this one gets -0." when the slug was taken; for a published page, "The old
+address will redirect here" when `redirect` is installed with *Automatically create redirects*, else
+"Links to the old address will stop working"; and how many pages under it move too. It is a warning
+when links will break or the slug was taken. Its *Keep current address* puts the URL controls back
+to what the page has now — or, when the title moved it, pins the slug to its current last part.
+Apart from a move: an error when a custom URL is another page's, a warning for a taken slug, and
+information when the address is set on first save, set by the site, or kept by a site whose pathauto
+keeps every page's first alias (*Do nothing* on update). The SEO panel redraws the prefix, the
+placeholder and the callouts from every draft render, and the Google and social previews and the
+keyphrase-in-slug check use the new address.
 
 **Where it applies.** neo_seo manages the URL of a page whose entity type has per-page SEO and a
 path, when its pattern uses the token or its bundle allows custom URLs. There its field replaces

@@ -118,7 +118,7 @@ class SeoPanelForm extends FormBase {
     // result shows them, address, title, description. Only for editors who
     // may change the page's URL.
     if ($this->pageUrlField->access($entity, $this->currentUser())) {
-      $element['url_field'] = $this->pageUrlField->build($entity, $this->currentUser()) + ['#weight' => -50];
+      $element['url_field'] = $this->pageUrlField->build($entity, $this->currentUser(), NULL, TRUE) + ['#weight' => -50];
       $element['url_field']['heading'] = [
         '#type' => 'html_tag',
         '#tag' => 'h3',

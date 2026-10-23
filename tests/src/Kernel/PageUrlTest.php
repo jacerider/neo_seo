@@ -7,6 +7,7 @@ namespace Drupal\Tests\neo_seo\Kernel;
 use Drupal\Core\Form\FormState;
 use Drupal\neo_seo\Hook\BundleMappingHooks;
 use Drupal\neo_seo\PageUrl;
+use Drupal\neo_seo\PageUrlField;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo_panel\Form\SeoPanelForm;
 use Drupal\node\Entity\Node;
@@ -154,13 +155,25 @@ class PageUrlTest extends NeoSeoKernelTestBase {
     $this->assertSame('/projects/', $described['prefix']);
     $this->assertSame('same', $described['slug'], 'The slug as the editor keeps it: never with the -0.');
     $this->assertTrue($described['taken']);
-    $this->assertContains('Another page has this address, so this one will be /projects/same-0.', array_column($described['notes'], 'text'));
+    $this->assertSame('/projects/same', $described['wanted']);
+    $move = $this->move($node);
+    $this->assertSame('warning', $move['tone'], 'pathauto changes what the editor asked for.');
+    $this->assertSame('/projects/same-0', $move['to'], 'The diff shows the real address.');
+    $this->assertContains('Another page is /projects/same, so this one gets -0.', $this->notes($node));
+
     $this->assertTrue($described['changed']);
     $this->assertSame('/projects/other', $described['saved']);
     $this->assertStringEndsWith('/projects/same-0', (string) $described['url']);
 
     $node->save();
     $this->assertSame($described['alias'], $this->alias($this->reload($node)));
+
+    // A page already made unique does not move: the taken slug is a warning
+    // of its own.
+    $twin = $this->reload($this->node('project', 'Same'));
+    $this->assertNull($this->move($twin));
+    $callouts = $url->describe($twin)['callouts'];
+    $this->assertSame([['taken', 'warning']], array_map(fn($callout) => [$callout['kind'], $callout['tone']], $callouts));
   }
 
   /**
@@ -283,28 +296,46 @@ class PageUrlTest extends NeoSeoKernelTestBase {
   }
 
   /**
-   * Moving a published page says where to, and whether old links still work.
+   * A move is one callout: from where to where, why, and what links do.
    */
-  public function testMovingPageNotes(): void {
+  public function testMoveCallout(): void {
     $node = $this->node('project', 'Plant Expansion');
     $node->set(SeoOverrides::FIELD, ['slug' => 'phase two']);
-    $this->assertContains('This page’s address will change from /projects/plant-expansion to /projects/phase-two.', $this->notes($node));
-    $this->assertContains('Links to the old address will stop working.', $this->notes($node), 'No redirect module.');
+    $move = $this->move($node);
+    $this->assertSame(['/projects/plant-expansion', '/projects/phase-two'], [$move['from'], $move['to']]);
+    $this->assertNull($move['cause']);
+    $this->assertSame('warning', $move['tone'], 'Links will break: no redirect module.');
+    $this->assertContains('Links to the old address will stop working.', $this->notes($node));
+    $this->assertSame(['url_custom' => FALSE, 'slug' => '', 'url_alias' => '/projects/plant-expansion'], $move['keep'], 'Keeping the address puts the controls back.');
 
-    // A new title moves a page with no slug just the same.
+    // A new title moves a page with no slug, and the slug can pin it.
     $retitled = $this->reload($node)->setTitle('Plant Upgrade');
-    $this->assertContains('This page’s address will change from /projects/plant-expansion to /projects/plant-upgrade.', $this->notes($retitled));
+    $move = $this->move($retitled);
+    $this->assertSame('/projects/plant-upgrade', $move['to']);
+    $this->assertSame('Because the title changed.', (string) $move['cause']);
+    $this->assertSame('plant-expansion', $move['keep']['slug'], 'Keeping it pins the slug the page has now.');
 
     $this->enableModules(['link', 'views', 'redirect']);
     $this->installConfig(['redirect']);
     $this->config('redirect.settings')->set('auto_redirect', TRUE)->save();
+    $this->assertSame('info', $this->move($node)['tone']);
     $this->assertContains('The old address will redirect here.', $this->notes($node));
     $this->assertNotContains('Links to the old address will stop working.', $this->notes($node));
 
-    // An unpublished page has no visitors to lose.
+    // An unpublished page has no visitors to lose: the diff, no link line.
     $node->setUnpublished();
-    $this->assertFalse($this->pageUrl()->describe($node)['moving']);
-    $this->assertEmpty(array_filter($this->notes($node), fn($note) => str_contains($note, 'address will change')));
+    $move = $this->move($node);
+    $this->assertSame('/projects/phase-two', $move['to']);
+    $this->assertSame('info', $move['tone']);
+    $this->assertSame([], $move['lines']);
+
+    // The markup: heading by host, the diff, and the button.
+    $html = (string) $this->container->get('renderer')->renderInIsolation(PageUrlField::notes($this->pageUrl()->describe($node))['callouts']);
+    $this->assertStringContainsString('Address changes when saved', $html);
+    $this->assertStringContainsString('neo-seo-url-address__end', $html);
+    $this->assertStringContainsString('data-neo-seo-url-keep=', $html);
+    $alchemist = (string) $this->container->get('renderer')->renderInIsolation(PageUrlField::notes($this->pageUrl()->describe($node), TRUE)['callouts']);
+    $this->assertStringContainsString('Address changes when published', $alchemist);
   }
 
   /**
@@ -514,13 +545,26 @@ class PageUrlTest extends NeoSeoKernelTestBase {
   }
 
   /**
-   * The notes describe() gives a page, as text.
+   * Every line of the callouts describe() gives a page, as text.
    *
    * @return string[]
-   *   The notes.
+   *   The lines.
    */
   protected function notes(NodeInterface $node): array {
-    return array_map('html_entity_decode', array_column($this->pageUrl()->describe($node)['notes'], 'text'));
+    $lines = array_merge(...array_column($this->pageUrl()->describe($node)['callouts'], 'lines'));
+    return array_map('html_entity_decode', array_column($lines, 'text'));
+  }
+
+  /**
+   * The move callout describe() gives a page, if it moves.
+   */
+  protected function move(NodeInterface $node): ?array {
+    foreach ($this->pageUrl()->describe($node)['callouts'] as $callout) {
+      if ($callout['kind'] === 'move') {
+        return $callout;
+      }
+    }
+    return NULL;
   }
 
   /**

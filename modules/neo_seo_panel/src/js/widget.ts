@@ -40,6 +40,8 @@ export class SeoPanel {
   protected suggestion: { element: HTMLElement; text: HTMLElement } | null = null;
   /** The image shared while none is chosen, under the share image control. */
   protected autoImage: { element: HTMLElement; image: HTMLImageElement } | null = null;
+  /** The URL notes last drawn, so an unchanged render leaves them be. */
+  protected urlNotes = '';
   /** The render the paragraphs below were read from. */
   protected suggestFrom: NeoSeoDraftRender | null = null;
   protected suggestBlocks: SuggestBlock[] = [];
@@ -476,11 +478,11 @@ export class SeoPanel {
       slug.placeholder = path.placeholder;
     }
     const box = form.querySelector<HTMLElement>('[data-neo-seo-url]');
-    if (box) {
-      // The notes are escaped HTML (Drupal's @placeholders): as text.
-      box.replaceChildren(...(path.notes.length ? [h('ul', { class: 'neo-seo-url__notes' }, path.notes.map((note) => h('li', { class: note.error ? 'is-error' : null }, [
-        new DOMParser().parseFromString(note.text, 'text/html').body.textContent ?? '',
-      ])))] : []));
+    if (box && this.urlNotes !== path.notes_html) {
+      // Markup neo_seo rendered, every text in it escaped there, as Drupal's
+      // own AJAX inserts it.
+      this.urlNotes = path.notes_html;
+      box.innerHTML = path.notes_html;
     }
   }
 

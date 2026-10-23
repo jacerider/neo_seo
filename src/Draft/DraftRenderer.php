@@ -17,6 +17,7 @@ use Drupal\neo_seo\Graph\BreadcrumbTrail;
 use Drupal\neo_seo\Graph\PageContextFactory;
 use Drupal\neo_seo\Head\HeadValuesResolver;
 use Drupal\neo_seo\PageUrl;
+use Drupal\neo_seo\PageUrlField;
 use Drupal\neo_seo\SeoOverrides;
 
 /**
@@ -79,6 +80,9 @@ class DraftRenderer {
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The entity, carrying the unsaved values. It is marked as a preview.
+   * @param bool $publish
+   *   Whether its changes go live on Publish (Alchemist), not on Save: how
+   *   the URL notes word a move.
    *
    * @return array{html: string, url: string, language: string, head: array, overrides: array, tokens: object, path: ?array}
    *   The rendered body HTML (led by the title as an H1 unless the entity
@@ -87,9 +91,10 @@ class DraftRenderer {
    *   page type, article type), the overrides the draft carries, what each
    *   token in the title and description gives on the draft, and — where
    *   neo_seo manages the page's URL — the URL it will have once saved
-   *   (PageUrl::describe()), which is then also its URL and canonical here.
+   *   (PageUrl::describe()), which is then also its URL and canonical here,
+   *   with what the editor should know about it as markup (notes_html).
    */
-  public function render(ContentEntityInterface $entity): array {
+  public function render(ContentEntityInterface $entity, bool $publish = FALSE): array {
     $entity->in_preview = TRUE;
     $context = $this->pageContextFactory->forEntity($entity);
     $values = $this->headValues->resolve($context);
@@ -107,6 +112,10 @@ class DraftRenderer {
 
     $overrides = SeoOverrides::of($entity);
     $path = $this->pageUrl->manages($entity) ? $this->pageUrl->describe($entity) : NULL;
+    if ($path !== NULL) {
+      $notes = PageUrlField::notes($path, $publish)['callouts'];
+      $path['notes_html'] = (string) $this->renderer->renderInIsolation($notes);
+    }
     $url = $path['url'] ?? $context->canonicalUrl;
     return [
       'html' => $html,

@@ -28,6 +28,21 @@ class PageUrlField {
   use StringTranslationTrait;
 
   /**
+   * The icons the field shows, from neo_icon's own regular library.
+   */
+  protected const ICONS = [
+    'open' => 'arrow-up-right-from-square',
+    'copy' => 'copy',
+    'move' => 'arrow-right',
+    'redirect' => 'arrow-turn-down-right',
+    'broken' => 'link-slash',
+    'taken' => 'clone',
+    'children' => 'folder-tree',
+    'error' => 'circle-xmark',
+    'info' => 'circle-info',
+  ];
+
+  /**
    * Constructs the service.
    *
    * @param \Drupal\neo_seo\PageUrl $pageUrl
@@ -67,8 +82,10 @@ class PageUrlField {
    *   Who is editing it.
    * @param array|null $parents
    *   Where the values go; by default the overrides' item (['neo_seo', 0]).
+   * @param bool $publish
+   *   Whether changes go live on Publish (Alchemist), not on Save.
    */
-  public function build(ContentEntityInterface $entity, AccountInterface $account, ?array $parents = NULL): array {
+  public function build(ContentEntityInterface $entity, AccountInterface $account, ?array $parents = NULL, bool $publish = FALSE): array {
     $parents ??= [SeoOverrides::FIELD, 0];
     $url = $this->pageUrl->describe($entity);
     $mayCustomize = $this->pageUrl->mayCustomize($entity, $account);
@@ -142,7 +159,7 @@ class PageUrlField {
       '#access' => $hasPattern && !$usesSlug,
       '#states' => ['invisible' => $customOn],
     ];
-    $field['url_preview'] = static::notes($url);
+    $field['url_preview'] = static::notes($url, $publish);
     foreach (['url_custom', 'slug', 'url_alias', 'url_auto', 'url_preview'] as $key) {
       $field[$key]['#parents'] = array_merge($parents, [$key]);
     }
@@ -159,18 +176,16 @@ class PageUrlField {
     return [
       '#type' => 'inline_template',
       '#template' => '<div class="neo-seo-url-actions">'
-      . '<a class="neo-seo-url-actions__action" href="{{ url }}" target="_blank" rel="noopener" title="{{ open }}" aria-label="{{ open }}">'
-      . '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v3.5a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V5a.5.5 0 0 1 .5-.5h3.5"/></svg>'
-      . '</a>'
-      . '<button type="button" class="neo-seo-url-actions__action" data-neo-seo-url-copy="{{ url }}" title="{{ copy }}" aria-label="{{ copy }}">'
-      . '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 3.5V3a.5.5 0 0 0-.5-.5H3a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h.5"/></svg>'
-      . '</button>'
+      . '<a class="neo-seo-url-actions__action" href="{{ url }}" target="_blank" rel="noopener" title="{{ open }}" aria-label="{{ open }}">{{ open_icon }}</a>'
+      . '<button type="button" class="neo-seo-url-actions__action" data-neo-seo-url-copy="{{ url }}" title="{{ copy }}" aria-label="{{ copy }}">{{ copy_icon }}</button>'
       . '<span class="visually-hidden" role="status" data-neo-seo-url-copied></span>'
       . '</div>',
       '#context' => [
         'url' => $url,
         'open' => new TranslatableMarkup('Open the page in a new tab'),
         'copy' => new TranslatableMarkup('Copy the page’s address'),
+        'open_icon' => static::icon('open'),
+        'copy_icon' => static::icon('copy'),
       ],
       '#access' => $url !== NULL,
     ];
@@ -194,19 +209,35 @@ class PageUrlField {
   /**
    * What an editor should know about the URL the page will have once saved.
    *
-   * The SEO panel redraws it from each draft render (neo_seo_panel).
+   * PageUrl::describe()'s callouts, each a box toned by what it means: a move
+   * from the old address to the new (when saved, or when published in
+   * Alchemist), with why and what happens to links, and a button that keeps
+   * the address the page has now; errors, warnings and information apart.
+   * The SEO panel replaces it with each draft render's (neo_seo_panel).
    *
    * @param array $url
    *   The page's URL, as PageUrl::describe() gives it.
+   * @param bool $publish
+   *   Whether the change goes live on Publish (Alchemist), not on Save.
    */
-  public static function notes(array $url): array {
-    $notes = [];
-    foreach ($url['notes'] as $note) {
-      // Text, its placeholders escaped by the translation.
-      $notes[] = [
-        '#markup' => $note['text'],
-        '#wrapper_attributes' => ['class' => $note['error'] ? ['is-error'] : []],
-      ];
+  public static function notes(array $url, bool $publish = FALSE): array {
+    $callouts = [];
+    foreach ($url['callouts'] as $callout) {
+      // Texts are HTML already, their placeholders escaped by the translation.
+      foreach ($callout['lines'] as &$line) {
+        $line['text'] = Markup::create($line['text']);
+        $line['icon'] = static::icon($line['icon']);
+      }
+      unset($line);
+      if (!empty($callout['cause'])) {
+        $callout['cause'] = Markup::create($callout['cause']);
+      }
+      if ($callout['kind'] === 'move') {
+        $callout['from'] = static::address((string) $callout['from']);
+        $callout['to'] = static::address((string) $callout['to']);
+        $callout['keep'] = $callout['keep'] ? json_encode($callout['keep']) : NULL;
+      }
+      $callouts[] = $callout;
     }
     return [
       '#type' => 'container',
@@ -216,14 +247,87 @@ class PageUrlField {
         'aria-live' => 'polite',
       ],
       '#attached' => ['library' => ['neo_seo/page_url']],
-      'notes' => [
-        '#theme' => 'item_list',
-        '#items' => $notes,
-        '#attributes' => ['class' => ['neo-seo-url__notes']],
-        '#access' => (bool) $notes,
+      'callouts' => [
+        '#type' => 'inline_template',
+        '#template' => static::TEMPLATE,
+        '#context' => [
+          'callouts' => $callouts,
+          'heading' => $publish
+            ? new TranslatableMarkup('Address changes when published')
+            : new TranslatableMarkup('Address changes when saved'),
+          'from_label' => new TranslatableMarkup('Old address:'),
+          'to_label' => new TranslatableMarkup('New address:'),
+          'keep_label' => new TranslatableMarkup('Keep current address'),
+          'move_icon' => static::icon('move'),
+        ],
       ],
     ];
   }
+
+  /**
+   * An address for one line: its start, which may be cut, and its end.
+   *
+   * The end (the part that changed, usually) always shows; the start gives
+   * way with an ellipsis in the middle (page-url.css). The whole address is
+   * still the text, for screen readers, and its title.
+   *
+   * @return array{full: string, start: string, end: string}
+   *   The parts.
+   */
+  protected static function address(string $address): array {
+    // The last segment, or as much of its end as fits, from a word's start.
+    $tail = mb_substr($address, -24);
+    $break = max((int) strrpos($tail, '/'), 0) ?: strpos($tail, '-');
+    $tail = mb_strlen($address) > 24 && $break !== FALSE ? substr($tail, $break + (int) ($tail[$break] === '-')) : $tail;
+    return [
+      'full' => $address,
+      'start' => mb_substr($address, 0, mb_strlen($address) - mb_strlen($tail)),
+      'end' => $tail,
+    ];
+  }
+
+  /**
+   * One of the field's icons, beside text that says what it means.
+   */
+  protected static function icon(string $key): array {
+    return [
+      '#type' => 'neo_icon',
+      '#icon' => static::ICONS[$key],
+      '#icon_library' => 'regular',
+      '#icon_attributes' => [
+        'class' => ['neo-seo-url-icon', 'neo-seo-url-icon--' . $key],
+        'aria-hidden' => 'true',
+      ],
+    ];
+  }
+
+  /**
+   * The callouts' markup.
+   */
+  protected const TEMPLATE = <<<'TWIG'
+{% for callout in callouts %}
+  <div class="neo-seo-url-callout is-{{ callout.tone }}" data-kind="{{ callout.kind }}"{% if callout.tone == 'error' %} role="alert"{% endif %}>
+    {% if callout.kind == 'move' %}
+      <p class="neo-seo-url-callout__heading">{{ move_icon }}<span>{{ heading }}</span></p>
+      {% if callout.cause %}<p class="neo-seo-url-callout__cause">{{ callout.cause }}</p>{% endif %}
+      <dl class="neo-seo-url-diff">
+        {% for row in [{class: 'is-from', mark: '−', label: from_label, address: callout.from}, {class: 'is-to', mark: '+', label: to_label, address: callout.to}] %}
+          <div class="neo-seo-url-diff__row {{ row.class }}">
+            <dt><span aria-hidden="true">{{ row.mark }}</span><span class="visually-hidden">{{ row.label }}</span></dt>
+            <dd class="neo-seo-url-address" title="{{ row.address.full }}"><span class="neo-seo-url-address__start">{{ row.address.start }}</span><span class="neo-seo-url-address__end">{{ row.address.end }}</span></dd>
+          </div>
+        {% endfor %}
+      </dl>
+    {% endif %}
+    {% for line in callout.lines %}
+      <p class="neo-seo-url-callout__line">{{ line.icon }}<span>{{ line.text }}</span></p>
+    {% endfor %}
+    {% if callout.keep %}
+      <button type="button" class="neo-seo-url-callout__keep" data-neo-seo-url-keep="{{ callout.keep }}">{{ keep_label }}</button>
+    {% endif %}
+  </div>
+{% endfor %}
+TWIG;
 
   /**
    * A control's help, as the SEO overrides give theirs: hint, then more.

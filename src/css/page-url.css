@@ -1,18 +1,157 @@
 /*
- * The notes under the slug and custom URL controls: what an editor should
- * know about the address the page will have once saved.
+ * What an editor should know about the address, as callouts (PageUrlField::
+ * notes()): toned by what it means — information, a warning (links will
+ * break, the slug was taken), or an error that keeps the URL from saving.
+ * A move shows the old address and the new, each on one line: the start of a
+ * long address gives way with an ellipsis, so the end that changed shows.
  */
 .neo-seo-url {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  margin-block: -0.25rem 0.75rem;
+  gap: 0.5rem;
+  margin-block: 0.5rem 0.75rem;
   font-size: 0.8125rem;
   line-height: 1.4;
 }
 
-.neo-seo-url:not(:has(li)) {
+.neo-seo-url:not(:has(.neo-seo-url-callout:not([hidden]))) {
   display: none;
+}
+
+.neo-seo-url-callout {
+  --neo-seo-url-tone: var(--color-base-500, 107 114 128);
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid rgb(var(--color-base-200, 229 231 235));
+  border-radius: 0.375rem;
+  background: rgb(var(--color-base-50, 249 250 251));
+  color: rgb(var(--color-base-700, 55 65 81));
+}
+
+.neo-seo-url-callout.is-warning {
+  --neo-seo-url-tone: var(--color-warning-600, 217 119 6);
+  border-color: rgb(var(--color-warning-200, 253 230 138));
+  background: rgb(var(--color-warning-50, 255 251 235));
+}
+
+.neo-seo-url-callout.is-error {
+  --neo-seo-url-tone: var(--color-alert-600, 220 38 38);
+  border-color: rgb(var(--color-alert-200, 254 202 202));
+  background: rgb(var(--color-alert-50, 254 242 242));
+  color: rgb(var(--color-alert-700, 185 28 28));
+}
+
+.neo-seo-url-callout[hidden] {
+  display: none;
+}
+
+.neo-seo-url-callout p {
+  margin: 0;
+}
+
+.neo-seo-url-callout__heading,
+.neo-seo-url-callout__line {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+}
+
+.neo-seo-url-callout__heading {
+  font-weight: 600;
+  color: rgb(var(--color-base-900, 17 24 39));
+}
+
+.neo-seo-url-callout__cause {
+  color: rgb(var(--color-base-600, 75 85 99));
+}
+
+.neo-seo-url-callout .neo-seo-url-icon {
+  flex: none;
+  width: 1rem;
+  font-size: 0.875rem;
+  line-height: inherit;
+  text-align: center;
+  color: rgb(var(--neo-seo-url-tone));
+}
+
+.neo-seo-url-callout .neo-seo-url-icon--redirect {
+  color: rgb(var(--color-success-600, 22 163 74));
+}
+
+.neo-seo-url-diff {
+  display: grid;
+  gap: 0.125rem;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+}
+
+.neo-seo-url-diff__row {
+  display: flex;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.neo-seo-url-diff dt {
+  flex: none;
+  width: 1rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.neo-seo-url-diff dd {
+  margin: 0;
+}
+
+.neo-seo-url-diff__row.is-from {
+  color: rgb(var(--color-base-500, 107 114 128));
+}
+
+.neo-seo-url-diff__row.is-from .neo-seo-url-address {
+  text-decoration: line-through;
+  text-decoration-color: rgb(var(--color-base-400, 156 163 175));
+}
+
+.neo-seo-url-diff__row.is-to {
+  color: rgb(var(--color-base-900, 17 24 39));
+  font-weight: 600;
+}
+
+.neo-seo-url-address {
+  display: flex;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.neo-seo-url-address__start {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neo-seo-url-address__end {
+  flex: none;
+}
+
+.neo-seo-url-callout__keep {
+  align-self: flex-start;
+  margin-block-start: 0.125rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgb(var(--color-primary-600, 37 99 235));
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.neo-seo-url-callout__keep:hover,
+.neo-seo-url-callout__keep:focus-visible {
+  color: rgb(var(--color-primary-800, 30 64 175));
 }
 
 /*
@@ -72,20 +211,9 @@
   background: rgb(var(--color-base-50, 249 250 251));
 }
 
-.neo-seo-url__notes {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  color: rgb(var(--color-base-600, 75 85 99));
-}
-
-.neo-seo-url__notes .is-error {
-  color: rgb(var(--color-alert-600, 220 38 38));
-}
-
 /*
  * The field: open and copy at the top right, beside the first label. In the
- * Alchemist panel, which has no sections, it leads under a heading of its own.
+ * Alchemist panel, which has no sections, it has a heading of its own.
  */
 .neo-seo-url-field {
   position: relative;
@@ -133,14 +261,8 @@
   color: rgb(var(--color-base-900, 17 24 39));
 }
 
-.neo-seo-url-actions__action svg {
-  width: 1rem;
-  height: 1rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.25;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.neo-seo-url-actions__action .neo-seo-url-icon {
+  font-size: 0.875rem;
 }
 
 .neo-seo-url-actions__action.is-copied {

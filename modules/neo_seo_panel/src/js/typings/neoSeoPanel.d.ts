@@ -86,8 +86,11 @@ interface NeoSeoPagePath {
   children: number;
   notice: string | null;
   error: string | null;
-  /** All an editor should know, in order; the text is escaped HTML. */
-  notes: Array<{ text: string; error: boolean }>;
+  /**
+   * What the editor should know about it, as callouts: markup neo_seo
+   * renders (PageUrlField::notes()), its texts escaped there.
+   */
+  notes_html: string;
 }
 
 /** Something to point at in the page preview (neo_seo_analysis highlights). */
