@@ -123,6 +123,7 @@ services:
       - '@plugin.manager.menu.link'
       - '@?path_alias.repository'
       - '@?pathauto.generator'
+      - '@?pathauto.alias_cleaner'
   Drupal\neo_seo\PageUrl: '@neo_seo.page_url'
 
   # Moves pathauto patterns onto the slug tokens (drush neo-seo:slugs).

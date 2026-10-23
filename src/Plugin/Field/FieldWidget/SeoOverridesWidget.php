@@ -251,20 +251,21 @@ class SeoOverridesWidget extends WidgetBase {
     // them last, so switching moves nothing the editor is looking at.
     $element['slug'] = [
       '#type' => 'textfield',
-      '#title' => $this->t('URL'),
+      '#title' => $this->t('URL slug'),
       '#default_value' => $item->slug,
       '#maxlength' => 255,
-      '#placeholder' => !$url['custom'] && $url['prefix'] !== '' ? $url['slug'] : '',
+      // The slug an empty field follows: the title's.
+      '#placeholder' => $url['placeholder'],
       '#access' => $this->pageUrl->usesSlug($entity),
       '#states' => ['invisible' => $customOn],
     ];
     $this->help($element['slug'],
-      $this->t('The page’s own part of its address.'),
-      $this->t('Leave it empty to use the title. Lowercase words joined by hyphens read best, e.g. “water-treatment-upgrade”. The rest of the address is set by the site, often from where the page sits in the menu.'),
+      $this->t('The last part of this page’s address.'),
+      $this->t('Leave empty to follow the title.'),
     );
     $element['url_alias'] = [
       '#type' => 'textfield',
-      '#title' => $this->t('URL'),
+      '#title' => $this->t('Custom URL'),
       '#default_value' => $url['alias'] ?? '',
       '#maxlength' => 255,
       '#access' => $mayCustomize || $url['custom'],

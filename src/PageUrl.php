@@ -18,6 +18,7 @@ use Drupal\Core\Url;
 use Drupal\Core\Utility\Token;
 use Drupal\neo_seo\Mapping\BundleMappingRepository;
 use Drupal\path_alias\AliasRepositoryInterface;
+use Drupal\pathauto\AliasCleanerInterface;
 use Drupal\pathauto\PathautoGeneratorInterface;
 
 /**
@@ -83,6 +84,8 @@ class PageUrl {
    *   The alias repository, when path_alias is installed.
    * @param \Drupal\pathauto\PathautoGeneratorInterface|null $generator
    *   The pathauto generator, when pathauto is installed.
+   * @param \Drupal\pathauto\AliasCleanerInterface|null $aliasCleaner
+   *   Pathauto's alias cleaner, when pathauto is installed.
    */
   public function __construct(
     protected EntityTypeManagerInterface $entityTypeManager,
@@ -93,6 +96,7 @@ class PageUrl {
     protected MenuLinkManagerInterface $menuLinkManager,
     protected ?AliasRepositoryInterface $aliasRepository = NULL,
     protected ?PathautoGeneratorInterface $generator = NULL,
+    protected ?AliasCleanerInterface $aliasCleaner = NULL,
   ) {}
 
   /**
@@ -151,12 +155,14 @@ class PageUrl {
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The page, saved or a draft of it.
    *
-   * @return array{custom: bool, alias: ?string, url: ?string, prefix: string, slug: string, saved: ?string, changed: bool, redirect: bool, children: int, notice: ?string, error: ?string}
+   * @return array{custom: bool, alias: ?string, url: ?string, prefix: string, slug: string, placeholder: string, saved: ?string, changed: bool, redirect: bool, children: int, notice: ?string, error: ?string}
    *   - custom: whether it is a URL of the page's own.
    *   - alias: the alias, NULL until a new page is saved.
    *   - url: the alias as an absolute URL.
    *   - prefix, slug: the alias split where the slug starts; the prefix is
    *     the pattern's, the slug the editor's part (all of it when custom).
+   *   - placeholder: the slug the page's title gives, which an empty slug
+   *     follows ('' where the pattern has no slug).
    *   - saved: the alias the page has now.
    *   - changed: whether saving moves the page.
    *   - redirect: whether the old URL will then redirect (the redirect module
@@ -197,6 +203,7 @@ class PageUrl {
       'url' => $alias !== NULL ? $this->absolute($entity, $alias) : NULL,
       'prefix' => $prefix,
       'slug' => $alias !== NULL ? substr($alias, strlen($prefix)) : '',
+      'placeholder' => $this->usesSlug($entity) ? $this->clean((string) $entity->label(), $entity) : '',
       'saved' => $saved,
       'changed' => $changed,
       'redirect' => $changed && $error === NULL && $this->redirects($entity),
@@ -423,6 +430,13 @@ class PageUrl {
   public static function normalize(string $alias): string {
     $alias = trim(preg_replace('/\s+/u', '-', trim($alias)) ?? '', '/');
     return $alias === '' ? '' : '/' . preg_replace('#/{2,}#', '/', $alias);
+  }
+
+  /**
+   * Text as pathauto cleans a token's value into a slug.
+   */
+  protected function clean(string $text, EntityInterface $entity): string {
+    return $this->aliasCleaner?->cleanString($text, ['langcode' => $entity->language()->getId()]) ?? $text;
   }
 
   /**

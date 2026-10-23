@@ -4,7 +4,8 @@
 
 **Changing a URL meant unticking pathauto and retyping the whole path, and it could not be done in
 Alchemist.** A URL field now sits at the top of *Search & social*, in the edit form and in the
-Alchemist editor. Put `[neo:slug]` in a pathauto pattern where the title was, and
+Alchemist editor: *URL slug* for the page's part of its address, and *Custom URL* for a whole
+address of its own. An empty slug shows the slug its title gives as a placeholder. Put `[neo:slug]` in a pathauto pattern where the title was, and
 `[neo:parents:join-path]` where core's parents path was: editors change just their page's part, and
 a parent's slug carries into its children's addresses. Without slugs both give exactly today's
 values, so no existing alias changes. When a page's slug or title changes, or its menu link is
