@@ -150,7 +150,9 @@ class PageUrlTest extends NeoSeoKernelTestBase {
     $described = $url->describe($node);
     $this->assertSame('/projects/same-0', $described['alias'], 'Made unique as pathauto would.');
     $this->assertSame('/projects/', $described['prefix']);
-    $this->assertSame('same-0', $described['slug']);
+    $this->assertSame('same', $described['slug'], 'The slug as the editor keeps it: never with the -0.');
+    $this->assertTrue($described['taken']);
+    $this->assertContains('Another page has this address, so this one will be /projects/same-0.', array_column($described['notes'], 'text'));
     $this->assertTrue($described['changed']);
     $this->assertSame('/projects/other', $described['saved']);
     $this->assertStringEndsWith('/projects/same-0', (string) $described['url']);

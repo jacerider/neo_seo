@@ -66,6 +66,13 @@ class PageUrl {
   protected const CREATE = 1;
 
   /**
+   * The custom URL each page was sent, before it was cleaned (apply()).
+   *
+   * @var \WeakMap<\Drupal\Core\Entity\ContentEntityInterface, string>
+   */
+  protected \WeakMap $sent;
+
+  /**
    * Constructs the service.
    *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
@@ -97,7 +104,9 @@ class PageUrl {
     protected ?AliasRepositoryInterface $aliasRepository = NULL,
     protected ?PathautoGeneratorInterface $generator = NULL,
     protected ?AliasCleanerInterface $aliasCleaner = NULL,
-  ) {}
+  ) {
+    $this->sent = new \WeakMap();
+  }
 
   /**
    * The pathauto pattern a page's alias is built from, if any.
@@ -155,62 +164,128 @@ class PageUrl {
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The page, saved or a draft of it.
    *
-   * @return array{custom: bool, alias: ?string, url: ?string, prefix: string, slug: string, placeholder: string, saved: ?string, changed: bool, redirect: bool, children: int, notice: ?string, error: ?string}
+   * @return array{custom: bool, alias: ?string, url: ?string, prefix: string, slug: string, input: string, placeholder: string, automatic: bool, taken: bool, saved: ?string, changed: bool, moving: bool, redirect: bool, children: int, notice: ?string, error: ?string, notes: list<array{text: string, error: bool}>}
    *   - custom: whether it is a URL of the page's own.
    *   - alias: the alias, NULL until a new page is saved.
    *   - url: the alias as an absolute URL.
-   *   - prefix, slug: the alias split where the slug starts; the prefix is
-   *     the pattern's, the slug the editor's part (all of it when custom).
+   *   - prefix: the pattern's part of the alias, before the slug.
+   *   - slug: the slug as it will be saved: cleaned, but without the suffix
+   *     pathauto adds when the address is another page's (all of the alias
+   *     when custom).
+   *   - input: what the editor sent: the slug, or the custom URL as typed.
    *   - placeholder: the slug the page's title gives, which an empty slug
    *     follows ('' where the pattern has no slug).
+   *   - automatic: whether the site sets the whole alias: its pattern has no
+   *     slug.
+   *   - taken: whether the slug's address is another page's, so pathauto
+   *     makes it unique.
    *   - saved: the alias the page has now.
    *   - changed: whether saving moves the page.
+   *   - moving: whether saving moves a published page, which visitors and
+   *     links may know by its old address.
    *   - redirect: whether the old URL will then redirect (the redirect module
    *     makes one).
    *   - children: how many pages under this one move with it, when its own
    *     segment (slug, else title) changes.
    *   - notice, error: what an editor should know, and what keeps a custom
    *     URL from being saved.
+   *   - notes: all an editor should know, in the order to show it, as text.
    */
   public function describe(ContentEntityInterface $entity): array {
     $custom = $this->isCustom($entity);
     $saved = $this->savedAlias($entity);
+    $usesSlug = $this->usesSlug($entity);
     $notice = $error = NULL;
-    $prefix = '';
+    $prefix = $slug = '';
+    $taken = FALSE;
     if ($custom) {
-      $alias = static::normalize((string) ($entity->get('path')->first()?->get('alias')->getValue() ?? '')) ?: NULL;
+      $input = $this->sent[$entity] ?? (string) ($entity->get('path')->first()?->get('alias')->getValue() ?? '');
+      $alias = $this->cleanCustom($input, $saved, $entity) ?: NULL;
+      $slug = (string) $alias;
       if ($alias !== NULL && $this->taken($entity, $alias)) {
-        $error = (string) $this->t('%alias is already another page’s URL.', ['%alias' => $alias]);
+        $error = (string) $this->t('@alias is already another page’s URL.', ['@alias' => $alias]);
       }
     }
-    elseif ($saved !== NULL && (int) $this->configFactory->get('pathauto.settings')->get('update_action') === 0) {
-      // Pathauto keeps every page's first alias on this site.
-      $alias = $saved;
-      $notice = (string) $this->t('This site keeps a page’s first URL, so a new slug only applies to new pages.');
-    }
     else {
-      $alias = $this->generate($entity);
-      $marked = $alias !== NULL && $this->usesSlug($entity) ? $this->generate($entity, self::MARKER) : NULL;
-      $at = $marked !== NULL ? strpos($marked, self::MARKER) : FALSE;
-      if ($at !== FALSE && str_starts_with($alias, substr($marked, 0, $at))) {
-        $prefix = substr($marked, 0, $at);
+      $input = static::slugOf($entity);
+      if ($saved !== NULL && (int) $this->configFactory->get('pathauto.settings')->get('update_action') === 0) {
+        // Pathauto keeps every page's first alias on this site.
+        $alias = $saved;
+        $notice = (string) $this->t('This site keeps a page’s first URL, so a new slug only applies to new pages.');
+      }
+      else {
+        $alias = $this->generate($entity);
+        $marked = $alias !== NULL && $usesSlug ? $this->generate($entity, self::MARKER) : NULL;
+        $at = $marked !== NULL ? strpos($marked, self::MARKER) : FALSE;
+        if ($at !== FALSE && str_starts_with($alias, substr($marked, 0, $at))) {
+          $prefix = substr($marked, 0, $at);
+          // Pathauto cleans the slug as it does any token's value, then adds
+          // a suffix where the address is another page's: the editor's slug
+          // stays clean, and the suffix is only noted.
+          $slug = $this->clean(static::segment($entity), $entity);
+          $taken = $alias !== $prefix . $slug . substr($marked, $at + strlen(self::MARKER));
+        }
       }
     }
     $changed = $saved !== NULL && $alias !== NULL && $alias !== $saved;
-    return [
+    $moving = $changed && $error === NULL && (!$entity instanceof EntityPublishedInterface || $entity->isPublished());
+    $url = [
       'custom' => $custom,
       'alias' => $alias,
       'url' => $alias !== NULL ? $this->absolute($entity, $alias) : NULL,
       'prefix' => $prefix,
-      'slug' => $alias !== NULL ? substr($alias, strlen($prefix)) : '',
-      'placeholder' => $this->usesSlug($entity) ? $this->clean((string) $entity->label(), $entity) : '',
+      'slug' => $slug,
+      'input' => $input,
+      'placeholder' => $usesSlug ? $this->clean((string) $entity->label(), $entity) : '',
+      'automatic' => !$custom && !$usesSlug,
+      'taken' => $taken,
       'saved' => $saved,
       'changed' => $changed,
-      'redirect' => $changed && $error === NULL && $this->redirects($entity),
+      'moving' => $moving,
+      'redirect' => $moving && $this->redirects(),
       'children' => $this->segmentChanged($entity) ? count($this->descendants($entity)) : 0,
       'notice' => $notice,
       'error' => $error,
     ];
+    return $url + ['notes' => $this->notes($url)];
+  }
+
+  /**
+   * What an editor should know about a page's URL, in the order to show it.
+   *
+   * @param array $url
+   *   The page's URL, as describe() gives it.
+   *
+   * @return list<array{text: string, error: bool}>
+   *   Each note, as plain text, and whether it keeps the URL from saving.
+   */
+  protected function notes(array $url): array {
+    $notes = [];
+    if ($url['error']) {
+      $notes[] = ['text' => $url['error'], 'error' => TRUE];
+    }
+    elseif ($url['alias'] === NULL) {
+      $notes[] = $this->t('The address is set when the page is first saved.');
+    }
+    if ($url['notice']) {
+      $notes[] = $url['notice'];
+    }
+    if ($url['automatic'] && $url['alias'] !== NULL) {
+      $notes[] = $this->t('The site sets this page’s address.');
+    }
+    if ($url['taken']) {
+      $notes[] = $this->t('Another page has this address, so this one will be @alias.', ['@alias' => $url['alias']]);
+    }
+    if ($url['moving']) {
+      $notes[] = $this->t('This page’s address will change from @old to @new.', ['@old' => $url['saved'], '@new' => $url['alias']]);
+      $notes[] = $url['redirect']
+        ? $this->t('The old address will redirect here.')
+        : $this->t('Links to the old address will stop working.');
+    }
+    if ($url['children']) {
+      $notes[] = $this->formatPlural($url['children'], 'The page under this one moves with it.', 'The @count pages under this one move with it.');
+    }
+    return array_map(fn($note) => is_array($note) ? $note : ['text' => (string) $note, 'error' => FALSE], $notes);
   }
 
   /**
@@ -245,8 +320,15 @@ class PageUrl {
     if (!$this->mayCustomize($entity, $account)) {
       return;
     }
-    // Turning a custom URL on without one keeps the page where it is.
-    $alias = static::normalize($hasAlias && is_scalar($values['url_alias']) ? (string) $values['url_alias'] : (string) ($this->describe($entity)['alias'] ?? ''));
+    // Turning a custom URL on without one keeps the page where it is. What
+    // was typed is cleaned here too, so a posted draft cannot skip it.
+    $sent = $hasAlias && is_scalar($values['url_alias']) ? (string) $values['url_alias'] : NULL;
+    $alias = $sent !== NULL
+      ? $this->cleanCustom($sent, $this->savedAlias($entity), $entity)
+      : (string) ($this->describe($entity)['alias'] ?? '');
+    if ($sent !== NULL) {
+      $this->sent[$entity] = $sent;
+    }
     if ($alias === '' && $pattern) {
       $this->setPath($entity, NULL);
     }
@@ -425,11 +507,34 @@ class PageUrl {
   }
 
   /**
-   * An alias as core stores one: one leading slash, none trailing.
+   * A custom URL as it is saved: each segment cleaned like a slug.
+   *
+   * Lowercase, punctuation removed and spaces made hyphens, by pathauto's
+   * own rules where it is installed; one leading slash and none trailing.
+   * "/About Us/Team!" is "/about-us/team".
    */
-  public static function normalize(string $alias): string {
-    $alias = trim(preg_replace('/\s+/u', '-', trim($alias)) ?? '', '/');
-    return $alias === '' ? '' : '/' . preg_replace('#/{2,}#', '/', $alias);
+  public function normalize(string $alias, ?string $langcode = NULL): string {
+    $segments = [];
+    foreach (explode('/', $alias) as $segment) {
+      $segment = $this->aliasCleaner
+        ? $this->aliasCleaner->cleanString($segment, ['langcode' => $langcode ?? 'en'])
+        : trim(preg_replace('/[^\p{L}\p{N}]+/u', '-', mb_strtolower($segment)) ?? '', '-');
+      if ($segment !== '') {
+        $segments[] = $segment;
+      }
+    }
+    return $segments ? '/' . implode('/', $segments) : '';
+  }
+
+  /**
+   * A custom URL as typed, cleaned unless it is the one the page has.
+   *
+   * A page's existing address is left alone, however it is written: cleaning
+   * it would move a page no one asked to move.
+   */
+  protected function cleanCustom(string $typed, ?string $saved, EntityInterface $entity): string {
+    $typed = trim($typed);
+    return $saved !== NULL && $typed === $saved ? $saved : $this->normalize($typed, $entity->language()->getId());
   }
 
   /**
@@ -497,11 +602,9 @@ class PageUrl {
   /**
    * Whether the redirect module will send a moved page's old URL on.
    */
-  protected function redirects(ContentEntityInterface $entity): bool {
-    if (!$this->moduleHandler->moduleExists('redirect') || !$this->configFactory->get('redirect.settings')->get('auto_redirect')) {
-      return FALSE;
-    }
-    return !$entity instanceof EntityPublishedInterface || $entity->isPublished();
+  protected function redirects(): bool {
+    return $this->moduleHandler->moduleExists('redirect')
+      && $this->configFactory->get('redirect.settings')->get('auto_redirect');
   }
 
   /**

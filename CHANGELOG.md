@@ -3,23 +3,33 @@
 ## Editors change a page's URL slug, or give it a URL of its own
 
 **Changing a URL meant unticking pathauto and retyping the whole path, and it could not be done in
-Alchemist.** A URL field now has a *URL* section of its own in the edit form's sidebar, where
-core's URL alias section was, and leads the Alchemist SEO panel under a *URL* heading. Icons beside
-it open the saved page in a new tab and copy its address. It holds *URL slug* for the page's part of its address, and *Custom URL* for a whole
-address of its own. An empty slug shows the slug its title gives as a placeholder. Put `[neo:slug]` in a pathauto pattern where the title was, and
-`[neo:parents:join-path]` where core's parents path was: editors change just their page's part, and
-a parent's slug carries into its children's addresses. Without slugs both give exactly today's
-values, so no existing alias changes. When a page's slug or title changes, or its menu link is
-renamed or moved, the pages under it are re-aliased (pathauto never did this for menu children),
-and the URL field says how many will move. `drush neo-seo:slugs` moves a site's patterns onto the
-tokens: it shows the change and which pages would move, then asks. A bundle's SEO section adds
-*Editors may set a custom URL* (off by default) for replacing the whole address, and lists the
-bundle's patterns and the URL tokens each uses. Under the field, the address the page will have once
-saved, as pathauto will build it, and a note when the old address will redirect; the previews and
-the keyphrase-in-slug check use it. On managed bundles the field replaces core's path widget. In
-Alchemist, URL edits are drafted with the layout and applied on Publish. Run `drush updatedb`
-(`neo_seo_update_11004`): it adds the `slug` column to the SEO overrides; nothing else changes
-until a pattern uses the tokens.
+Alchemist.** A URL field now has a *URL* section of its own in the edit form's sidebar, where core's
+URL alias section was, and leads the Alchemist SEO panel under a *URL* heading. Icons beside it open
+the saved page in a new tab and copy its address. It holds *URL slug* for the page's part of its
+address, and *Custom URL* for a whole address of its own. Put `[neo:slug]` in a pathauto pattern
+where the title was, and `[neo:parents:join-path]` where core's parents path was: editors change just
+their page's part, and a parent's slug carries into its children's addresses. Without slugs both
+give exactly today's values, so no existing alias changes. When a page's slug or title changes, or
+its menu link is renamed or moved, the pages under it are re-aliased (pathauto never did this for
+menu children), and the URL field says how many will move. `drush neo-seo:slugs` moves a site's
+patterns onto the tokens: it shows the change and which pages would move, then asks. A bundle's SEO
+section adds *Editors may set a custom URL* (off by default) for replacing the whole address, and
+lists the bundle's patterns and the URL tokens each uses. On managed bundles the field replaces
+core's path widget. In Alchemist, URL edits are drafted with the layout and applied on Publish. Run
+`drush updatedb` (`neo_seo_update_11004`): it adds the `slug` column to the SEO overrides; nothing
+else changes until a pattern uses the tokens.
+
+The slug sits under the rest of its address, in one box: the pattern's part, muted and wrapping
+however deep the page is, then the input. An empty slug shows the slug its title gives, and follows
+a new title before it is saved. Leaving the input replaces what was typed with the slug as it will
+be saved ("Phase 2: The Plan!" becomes `phase-2-plan`); where that address is another page's, the
+slug stays clean and a note names the `-0` address pathauto will use. A custom URL is cleaned the
+same way, segment by segment ("/About Us/Team!" becomes `/about-us/team`), on leaving the input and
+again on save; a page's existing custom URL is left as it is. Where saving moves a published page —
+a new slug, a new custom URL, or a new title with no slug — a note says from where to where, and
+whether the old address will redirect (with the redirect module's automatic redirects) or its links
+will stop working. Where a bundle's pattern has no slug, the address shows read-only, set by the
+site. The previews and the keyphrase-in-slug check use the address the page will have.
 
 ## Local businesses by their specific type, with opening hours
 

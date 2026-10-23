@@ -259,6 +259,8 @@ class SeoOverridesWidget extends WidgetBase {
       '#attached' => ['library' => ['neo_seo/page_url']],
     ];
     $field['actions'] = static::urlActions($entity);
+    // The slug under the address it ends, in one box: the pattern's part
+    // above, read with the input (processSlug()).
     $field['slug'] = [
       '#type' => 'textfield',
       '#title' => $this->t('URL slug'),
@@ -268,6 +270,13 @@ class SeoOverridesWidget extends WidgetBase {
       '#placeholder' => $url['placeholder'],
       '#access' => $this->pageUrl->usesSlug($entity),
       '#states' => ['invisible' => $customOn],
+      '#neo_seo_prefix' => $url['prefix'],
+      '#attributes' => ['data-neo-seo-url-input' => 'slug'],
+      '#wrapper_attributes' => ['class' => ['neo-seo-url-slug']],
+      '#process' => array_merge(
+        $this->elementInfo->getInfoProperty('textfield', '#process', []),
+        [[static::class, 'processSlug']],
+      ),
     ];
     $this->help($field['slug'],
       $this->t('The last part of this page’s address.'),
@@ -278,12 +287,22 @@ class SeoOverridesWidget extends WidgetBase {
       '#title' => $this->t('Custom URL'),
       '#default_value' => $url['alias'] ?? '',
       '#maxlength' => 255,
+      '#attributes' => ['data-neo-seo-url-input' => 'alias'],
       '#access' => $mayCustomize || $url['custom'],
       '#disabled' => !$mayCustomize,
       '#states' => $hasPattern ? ['visible' => $customOn] : [],
       '#description' => $mayCustomize
         ? $this->t('The whole address after the domain, starting with a slash, e.g. /about-us.')
         : $this->t('This page has an address of its own. Untick “Use a custom URL” to give it the automatic one.'),
+    ];
+    // A pattern without the slug: the site sets the whole address.
+    $field['url_auto'] = [
+      '#type' => 'item',
+      '#title' => $this->t('URL'),
+      '#markup' => '<span class="neo-seo-url-box__address" data-neo-seo-url-auto>' . Html::escape((string) $url['alias']) . '</span>',
+      '#wrapper_attributes' => ['class' => ['neo-seo-url-box', 'is-readonly']],
+      '#access' => $hasPattern && !$this->pageUrl->usesSlug($entity),
+      '#states' => ['invisible' => $customOn],
     ];
     $field['url_preview'] = static::urlPreview($url);
     $field['url_custom'] = [
@@ -293,7 +312,7 @@ class SeoOverridesWidget extends WidgetBase {
       '#access' => $hasPattern && ($mayCustomize || $url['custom']),
       '#neo_size' => 'xs',
     ];
-    foreach (['slug', 'url_alias', 'url_preview', 'url_custom'] as $key) {
+    foreach (['slug', 'url_alias', 'url_auto', 'url_preview', 'url_custom'] as $key) {
       $field[$key]['#parents'] = array_merge($parents, [$key]);
     }
     $element['url_field'] = $field;
@@ -329,7 +348,22 @@ class SeoOverridesWidget extends WidgetBase {
   }
 
   /**
-   * The URL a page will have once saved, with what an editor should know.
+   * The slug input's address: the pattern's part, stacked above it.
+   *
+   * In the field prefix, which the input reads first (aria-describedby), so
+   * a screen reader hears the whole address. The SEO panel redraws it from
+   * each draft render (data-neo-seo-url-prefix).
+   */
+  public static function processSlug(array $element): array {
+    $id = $element['#id'] . '--prefix';
+    $element['#field_prefix'] = Markup::create('<span class="neo-seo-url-slug__prefix" id="' . $id . '" data-neo-seo-url-prefix>' . Html::escape((string) ($element['#neo_seo_prefix'] ?? '')) . '</span>');
+    $describedBy = $element['#attributes']['aria-describedby'] ?? NULL;
+    $element['#attributes']['aria-describedby'] = $describedBy ? $id . ' ' . $describedBy : $id;
+    return $element;
+  }
+
+  /**
+   * What an editor should know about the URL the page will have once saved.
    *
    * The SEO panel redraws it from each draft render (neo_seo_panel).
    *
@@ -338,20 +372,12 @@ class SeoOverridesWidget extends WidgetBase {
    */
   public static function urlPreview(array $url): array {
     $notes = [];
-    if ($url['error']) {
-      $notes['error'] = ['#markup' => $url['error'], '#wrapper_attributes' => ['class' => ['is-error']]];
-    }
-    elseif ($url['alias'] === NULL) {
-      $notes['new'] = ['#markup' => new TranslatableMarkup('The address is set when the page is first saved.')];
-    }
-    if ($url['notice']) {
-      $notes['notice'] = ['#markup' => $url['notice']];
-    }
-    if ($url['redirect']) {
-      $notes['redirect'] = ['#markup' => new TranslatableMarkup('The old address will redirect here.')];
-    }
-    if ($url['children']) {
-      $notes['children'] = ['#markup' => \Drupal::translation()->formatPlural($url['children'], 'The page under this one moves with it.', 'The @count pages under this one move with it.')];
+    foreach ($url['notes'] as $note) {
+      // Text, its placeholders escaped by the translation.
+      $notes[] = [
+        '#markup' => $note['text'],
+        '#wrapper_attributes' => ['class' => $note['error'] ? ['is-error'] : []],
+      ];
     }
     return [
       '#type' => 'container',
@@ -361,12 +387,6 @@ class SeoOverridesWidget extends WidgetBase {
         'aria-live' => 'polite',
       ],
       '#attached' => ['library' => ['neo_seo/page_url']],
-      'address' => [
-        '#type' => 'inline_template',
-        '#template' => '<p class="neo-seo-url__address"><span class="neo-seo-url__prefix">{{ prefix }}</span><strong class="neo-seo-url__slug">{{ slug }}</strong></p>',
-        '#context' => ['prefix' => $url['prefix'], 'slug' => $url['slug']],
-        '#access' => $url['alias'] !== NULL,
-      ],
       'notes' => [
         '#theme' => 'item_list',
         '#items' => $notes,

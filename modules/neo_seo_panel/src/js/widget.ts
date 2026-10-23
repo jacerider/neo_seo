@@ -190,6 +190,13 @@ export class SeoPanel {
     // Extension sections follow the controls.
     this.sections = h('div', { class: 'neo-seo-panel__sections' });
     this.root.parentElement?.append(this.sections);
+
+    // Leaving a URL input cleans it, from the render of what was typed.
+    this.root.closest('form')?.addEventListener('focusout', (event) => {
+      if (event.target instanceof Element && event.target.hasAttribute('data-neo-seo-url-input')) {
+        window.setTimeout(() => this.cleanUrl(), 0);
+      }
+    });
     this.setStatus(Drupal.t('Rendering preview…'));
   }
 
@@ -384,6 +391,7 @@ export class SeoPanel {
   protected received(render: NeoSeoDraftRender): void {
     this.render = render;
     this.draw();
+    this.cleanUrl();
     this.setStatus(Drupal.t('Preview of the page as it will be saved.'));
     this.renderListeners.forEach((listener) => {
       try {
@@ -444,46 +452,66 @@ export class SeoPanel {
   }
 
   /**
-   * The address the page will have once saved, under the URL controls
-   * (neo_seo's SeoOverridesWidget::urlPreview(), redrawn from each render):
-   * the pattern's part, the editor's part, and what they should know.
+   * The address the page will have once saved, at the URL controls
+   * (neo_seo's SeoOverridesWidget, redrawn from each render): the pattern's
+   * part above the slug, the slug the title gives as its placeholder, the
+   * whole address where the site sets it, and what the editor should know.
    */
   protected showUrl(): void {
-    const box = this.root.closest('form')?.querySelector<HTMLElement>('[data-neo-seo-url]');
+    const form = this.root.closest('form');
     const path = this.render?.path;
-    if (!box || !path) {
+    if (!form || !path) {
       return;
     }
-    const notes: Array<[string, string]> = [];
-    if (path.error) {
-      notes.push([path.error, 'is-error']);
+    const prefix = form.querySelector<HTMLElement>('[data-neo-seo-url-prefix]');
+    if (prefix) {
+      prefix.textContent = path.prefix;
     }
-    else if (path.alias === null) {
-      notes.push([Drupal.t('The address is set when the page is first saved.'), '']);
+    const auto = form.querySelector<HTMLElement>('[data-neo-seo-url-auto]');
+    if (auto) {
+      auto.textContent = path.alias ?? '';
     }
-    if (path.notice) {
-      notes.push([path.notice, '']);
+    const slug = urlInput(form, 'slug');
+    if (slug) {
+      slug.placeholder = path.placeholder;
     }
-    if (path.redirect) {
-      notes.push([Drupal.t('The old address will redirect here.'), '']);
+    const box = form.querySelector<HTMLElement>('[data-neo-seo-url]');
+    if (box) {
+      // The notes are escaped HTML (Drupal's @placeholders): as text.
+      box.replaceChildren(...(path.notes.length ? [h('ul', { class: 'neo-seo-url__notes' }, path.notes.map((note) => h('li', { class: note.error ? 'is-error' : null }, [
+        new DOMParser().parseFromString(note.text, 'text/html').body.textContent ?? '',
+      ])))] : []));
     }
-    if (path.children) {
-      notes.push([Drupal.formatPlural(path.children, 'The page under this one moves with it.', 'The @count pages under this one move with it.'), '']);
+  }
+
+  /**
+   * Replaces what was typed with what will be saved, once the editor has left
+   * the field and a render of what they typed has arrived: the slug cleaned
+   * (never with the suffix of a taken address), or the custom URL cleaned.
+   */
+  protected cleanUrl(): void {
+    const form = this.root.closest('form');
+    const path = this.render?.path;
+    if (!form || !path || path.alias === null) {
+      return;
     }
-    const children: HTMLElement[] = [];
-    if (path.alias !== null) {
-      children.push(h('p', { class: 'neo-seo-url__address' }, [
-        h('span', { class: 'neo-seo-url__prefix' }, [path.prefix]),
-        h('strong', { class: 'neo-seo-url__slug' }, [path.slug]),
-      ]));
+    const slug = urlInput(form, 'slug');
+    if (
+      // An empty slug stays empty: it follows the title.
+      slug && !path.custom && path.prefix !== '' && path.slug !== '' && path.input !== ''
+      && document.activeElement !== slug
+      && slug.value.trim() === path.input && slug.value !== path.slug
+    ) {
+      this.host.write({ slug: path.slug });
     }
-    if (notes.length) {
-      // The error names the alias in markup (Drupal's %placeholder): as text.
-      children.push(h('ul', { class: 'neo-seo-url__notes' }, notes.map(([text, className]) => h('li', { class: className || null }, [
-        new DOMParser().parseFromString(text, 'text/html').body.textContent ?? '',
-      ]))));
+    const alias = urlInput(form, 'alias');
+    if (
+      alias && path.custom && !alias.disabled
+      && document.activeElement !== alias
+      && alias.value === path.input && alias.value !== path.alias
+    ) {
+      this.host.write({ url_alias: path.alias });
     }
-    box.replaceChildren(...children);
   }
 
   /**
@@ -524,6 +552,11 @@ export class SeoPanel {
     meter.text.textContent = `${source}${Drupal.formatPlural(chars, '1 character', '@count characters')} · ${pixels} / ${limit} px. ${verdict}`;
   }
 
+}
+
+/** The slug or custom URL input, where the form shows it. */
+function urlInput(form: HTMLElement, kind: 'slug' | 'alias'): HTMLInputElement | null {
+  return form.querySelector<HTMLInputElement>(`input[data-neo-seo-url-input="${kind}"]`);
 }
 
 /**

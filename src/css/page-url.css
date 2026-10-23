@@ -1,6 +1,6 @@
 /*
- * The page URL under the slug and custom URL controls: the pattern's part of
- * the address muted, the editor's part in full, then any notes.
+ * The notes under the slug and custom URL controls: what an editor should
+ * know about the address the page will have once saved.
  */
 .neo-seo-url {
   display: flex;
@@ -11,17 +11,65 @@
   line-height: 1.4;
 }
 
-.neo-seo-url__address {
-  margin: 0;
-  overflow-wrap: anywhere;
+.neo-seo-url:not(:has(li)) {
+  display: none;
 }
 
-.neo-seo-url__prefix {
+/*
+ * The slug in its address: one bordered box, the pattern's part muted on its
+ * own lines above the input, wrapping however long it is. It rides in the
+ * form element's field prefix, which a theme draws inline beside the input;
+ * here the box stacks them, and the input gives the box its border.
+ */
+.neo-seo-url-slug .field-inline,
+.neo-seo-url-box .neo-seo-url-box__address {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid rgb(var(--color-base-300, 209 213 219));
+  border-radius: 0.375rem;
+  background: rgb(var(--color-base-0, 255 255 255));
+}
+
+.neo-seo-url-slug .field-inline:focus-within {
+  border-color: rgb(var(--color-primary-500, 59 130 246));
+  box-shadow: 0 0 0 1px rgb(var(--color-primary-500, 59 130 246));
+}
+
+.neo-seo-url-slug .field-prefix {
+  margin: 0;
+  padding: 0.5rem 0.75rem 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
   color: rgb(var(--color-base-500, 107 114 128));
 }
 
-.neo-seo-url__slug {
-  font-weight: 600;
+.neo-seo-url-slug .field-prefix:not(:has(.neo-seo-url-slug__prefix:not(:empty))) {
+  display: none;
+}
+
+.neo-seo-url-slug .field-inline input {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+/* An empty slug follows the title: its placeholder must not read as typed. */
+.neo-seo-url-slug .field-inline input::placeholder {
+  color: rgb(var(--color-base-400, 156 163 175));
+  opacity: 1;
+}
+
+.neo-seo-url-box .neo-seo-url-box__address {
+  padding: 0.5rem 0.75rem;
+  overflow-wrap: anywhere;
+  color: rgb(var(--color-base-600, 75 85 99));
+  background: rgb(var(--color-base-50, 249 250 251));
 }
 
 .neo-seo-url__notes {

@@ -61,17 +61,33 @@ interface NeoSeoPagePath {
   /** Null until a new page is saved. */
   alias: string | null;
   url: string | null;
-  /** The pattern's part of the alias, and the editor's part after it. */
+  /** The pattern's part of the alias, before the slug. */
   prefix: string;
+  /**
+   * The slug as it will be saved: cleaned, without the suffix pathauto adds
+   * to an address that is another page's (all of the alias when custom).
+   */
   slug: string;
+  /** What the editor sent: the slug, or the custom URL as typed. */
+  input: string;
+  /** The slug the title gives, which an empty slug follows. */
+  placeholder: string;
+  /** Whether the site sets the whole address (no slug in its pattern). */
+  automatic: boolean;
+  /** Whether the slug's address is another page's. */
+  taken: boolean;
   saved: string | null;
   changed: boolean;
+  /** Whether saving moves a published page. */
+  moving: boolean;
   /** Whether the old address will redirect to the new one. */
   redirect: boolean;
   /** How many pages under this one move with it. */
   children: number;
   notice: string | null;
   error: string | null;
+  /** All an editor should know, in order; the text is escaped HTML. */
+  notes: Array<{ text: string; error: boolean }>;
 }
 
 /** Something to point at in the page preview (neo_seo_analysis highlights). */
