@@ -1,6 +1,12 @@
 /**
  * Neo | SEO — the page URL field's browser half (PageUrlField).
  *
+ * As an editor types (or pastes) a slug or custom URL, spaces become the
+ * separator and letters lowercase, as pathauto writes them, and a slug's
+ * slashes become the separator too: a slug is one segment. Nothing typed is
+ * refused; the rest (punctuation, accents, ignored words) is cleaned when the
+ * editor leaves the input, by the site's own rules (the SEO panel).
+ *
  * Copy puts the page's address on the clipboard and says so to a screen
  * reader. "Keep current address" puts the URL controls back to the values
  * that keep the page where it is, as if typed, so whatever listens for edits
@@ -15,6 +21,41 @@
     slug: string;
     url_alias: string;
   }
+
+  /**
+   * An address as pathauto writes it, as far as typing can be followed.
+   *
+   * A space (or a slug's slash) right after a separator adds nothing, so
+   * "water / plant" typed reads water-plant; one typed before a separator
+   * still makes its own, so a word can go in front of a hyphen. Anything
+   * left doubled is cleaned on leaving.
+   */
+  function written(value: string, input: HTMLInputElement): string {
+    const separator = input.dataset.neoSeoUrlSeparator || '-';
+    const spaces = input.dataset.neoSeoUrlInput === 'slug' ? '[\\s/]+' : '\\s+';
+    const after = new RegExp(`(${separator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})${spaces}`, 'g');
+    const text = value.replace(after, '$1').replace(new RegExp(spaces, 'g'), separator);
+    return input.dataset.neoSeoUrlLowercase === '1' ? text.toLowerCase() : text;
+  }
+
+  // First, so whatever listens for the edit (the SEO panel, Alchemist's
+  // draft) reads the address as written.
+  document.addEventListener('input', (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || !input.hasAttribute('data-neo-seo-url-separator') || (event as InputEvent).isComposing) {
+      return;
+    }
+    const value = written(input.value, input);
+    if (value === input.value) {
+      return;
+    }
+    // The caret stays after what was typed: the text before it, written.
+    const caret = input.selectionStart === null ? null : written(input.value.slice(0, input.selectionStart), input).length;
+    input.value = value;
+    if (caret !== null) {
+      input.setSelectionRange(caret, caret);
+    }
+  }, true);
 
   /** Sets a control as if the editor had. */
   function set(control: HTMLInputElement | null, apply: (control: HTMLInputElement) => void): void {

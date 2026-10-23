@@ -91,6 +91,12 @@ class PageUrlField {
     $mayCustomize = $this->pageUrl->mayCustomize($entity, $account);
     $hasPattern = $this->pageUrl->pattern($entity) !== NULL;
     $usesSlug = $this->pageUrl->usesSlug($entity);
+    // As typed, spaces become the separator and letters lowercase, as
+    // pathauto writes them (page-url.ts); the rest is cleaned on leaving.
+    $writing = [
+      'data-neo-seo-url-separator' => $this->pageUrl->writing()['separator'],
+      'data-neo-seo-url-lowercase' => $this->pageUrl->writing()['lowercase'] ? '1' : '0',
+    ];
     $first = $parents;
     $name = array_shift($first) . ($first ? '[' . implode('][', $first) . ']' : '') . '[url_custom]';
     $customOn = [':input[name="' . $name . '"]' => ['value' => '1']];
@@ -130,7 +136,7 @@ class PageUrlField {
       '#access' => $usesSlug,
       '#states' => ['invisible' => $customOn],
       '#neo_seo_prefix' => $url['prefix'],
-      '#attributes' => ['data-neo-seo-url-input' => 'slug'],
+      '#attributes' => ['data-neo-seo-url-input' => 'slug'] + $writing,
       '#wrapper_attributes' => ['class' => ['neo-seo-url-slug']],
       '#process' => array_merge(
         $this->elementInfo->getInfoProperty('textfield', '#process', []),
@@ -142,7 +148,7 @@ class PageUrlField {
       '#title' => $this->t('Custom URL'),
       '#default_value' => $url['alias'] ?? '',
       '#maxlength' => 255,
-      '#attributes' => ['data-neo-seo-url-input' => 'alias'],
+      '#attributes' => ['data-neo-seo-url-input' => 'alias'] + $writing,
       '#access' => $mayCustomize || $url['custom'],
       '#disabled' => !$mayCustomize,
       '#states' => $hasPattern ? ['visible' => $customOn] : [],

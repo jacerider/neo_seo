@@ -28,18 +28,20 @@ a pattern uses the tokens.
 
 The slug sits under the rest of its address, in one box: the pattern's part, muted and wrapping
 however deep the page is, then the input. An empty slug shows the slug its title gives, and follows
-a new title before it is saved. Leaving the input replaces what was typed with the slug as it will
-be saved ("Phase 2: The Plan!" becomes `phase-2-plan`); where that address is another page's, the
-slug stays clean and a note names the `-0` address pathauto will use. A custom URL is cleaned the
-same way, segment by segment ("/About Us/Team!" becomes `/about-us/team`), on leaving the input and
-again on save; a page's existing custom URL is left as it is. Where saving moves a page — a new
-slug, a new custom URL, or a new title with no slug — one callout shows the old address and the new
-as a diff (a long one cut in the middle), why when the title moved it, the `-0` when the slug was
-taken, whether a published page's old address will redirect (with the redirect module's automatic
-redirects) or its links will stop working, and the pages under it that move too; it is a warning
-when links will break, and *Keep current address* undoes the move. Other notes are callouts of their
-own, toned as errors, warnings or information. Where a bundle's pattern has no slug, the address
-shows read-only, set by the site. The previews and the keyphrase-in-slug check use the address the page will have.
+a new title before it is saved. As editors type, spaces become hyphens (pathauto's separator) and
+letters lowercase, in both inputs; nothing typed is refused. Leaving the input replaces what was
+typed with the slug as it will be saved ("Phase 2: The Plan!" becomes `phase-2-plan`); where that
+address is another page's, the slug stays clean and a note names the `-0` address pathauto will use.
+A custom URL is cleaned the same way, segment by segment ("/About Us/Team!" becomes
+`/about-us/team`), on leaving the input and again on save; a page's existing custom URL is left as
+it is. Where saving moves a page — a new slug, a new custom URL, or a new title with no slug — one
+callout shows the old address and the new as a diff (a long one cut in the middle), why when the
+title moved it, the `-0` when the slug was taken, whether a published page's old address will
+redirect (with the redirect module's automatic redirects) or its links will stop working, and the
+pages under it that move too; it is a warning when links will break, and *Keep current address*
+undoes the move. Other notes are callouts of their own, toned as errors, warnings or information.
+Where a bundle's pattern has no slug, the address shows read-only, set by the site. The previews and
+the keyphrase-in-slug check use the address the page will have.
 
 ## Local businesses by their specific type, with opening hours
 

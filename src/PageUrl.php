@@ -606,6 +606,24 @@ class PageUrl {
   }
 
   /**
+   * How an address is written, for the URL inputs to follow as typed.
+   *
+   * Pathauto's separator and whether it lowercases; without pathauto, what
+   * normalize() does: hyphens, lowercase.
+   *
+   * @return array{separator: string, lowercase: bool}
+   *   The separator, and whether addresses are lowercase.
+   */
+  public function writing(): array {
+    $settings = $this->configFactory->get('pathauto.settings');
+    $separator = $this->aliasCleaner ? (string) $settings->get('separator') : '-';
+    return [
+      'separator' => $separator !== '' ? $separator : '-',
+      'lowercase' => $this->aliasCleaner ? (bool) $settings->get('case') : TRUE,
+    ];
+  }
+
+  /**
    * A custom URL as typed, cleaned unless it is the one the page has.
    *
    * A page's existing address is left alone, however it is written: cleaning

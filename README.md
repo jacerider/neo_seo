@@ -259,6 +259,11 @@ box: the pattern's part muted on its own lines, wrapping however deep the page i
 A screen reader reads the prefix with the input (`aria-describedby`). An empty input shows the slug
 the title gives as its placeholder, and follows a new title from each draft render, before saving.
 
+**Written as typed.** While an editor types or pastes into either input, spaces become pathauto's
+separator and letters lowercase where pathauto lowercases; in the slug a slash does too, since a slug
+is one segment. A space typed right after a separator adds nothing. Nothing typed is refused:
+accents, punctuation and ignored words follow the site's own rules when the editor leaves the input.
+
 **Cleaned as it will be saved.** Leaving the slug input replaces what was typed with the slug as it
 will be saved, from the draft render ("Phase 2: The Plan!" becomes `phase-2-plan`), as WordPress
 does. Pathauto's `-0` is never written into it: where the address is another page's, the slug stays

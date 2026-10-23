@@ -225,6 +225,13 @@ class PageUrlTest extends NeoSeoKernelTestBase {
     $this->assertSame('Custom URL', (string) $field['url_alias']['#title']);
     $this->assertStringContainsString('The whole address after the domain', (string) $field['url_alias']['#description']);
     $this->assertSame('plant-expansion', $field['slug']['#placeholder'], 'The slug the title gives.');
+    // As typed, both follow how pathauto writes an address.
+    foreach (['slug', 'url_alias'] as $key) {
+      $this->assertSame('-', $field[$key]['#attributes']['data-neo-seo-url-separator']);
+      $this->assertSame('1', $field[$key]['#attributes']['data-neo-seo-url-lowercase']);
+    }
+    $this->config('pathauto.settings')->set('separator', '_')->set('case', FALSE)->save();
+    $this->assertSame(['separator' => '_', 'lowercase' => FALSE], $this->pageUrl()->writing());
 
     // A new title, not yet saved: the placeholder the draft render gives.
     $node->setTitle('Plant Expansion, Phase Two');
