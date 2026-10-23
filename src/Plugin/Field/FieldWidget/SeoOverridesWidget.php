@@ -15,11 +15,9 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Render\ElementInfoManagerInterface;
 use Drupal\Core\Render\Markup;
-use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_seo\Element\MediaPicker;
 use Drupal\neo_seo\Mapping\BundleMappingRepository;
-use Drupal\neo_seo\PageUrl;
 use Drupal\neo_seo\Plugin\Field\FieldType\SeoOverridesItem;
 use Drupal\neo_seo\Schema\SchemaTypes;
 use Drupal\neo_seo\SeoOverrides;
@@ -29,13 +27,16 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /**
  * The SEO overrides as sidebar sections of the edit form.
  *
- * Sections, each a details element of its own: "Search & social" (how the
- * page is listed and shared), "SEO" (what it is analysed for) and, where
- * neo_seo manages the page's URL, "URL" (where core's URL alias section was).
- * Other modules add theirs to #neo_seo_sections and place an element in one
- * with #neo_seo_section; anything placed in none is in the first. The
- * controls are moved into their sections as the form is built, keeping their
- * names, so values are submitted as one flat set wherever they are shown.
+ * Two sections, each a details element of its own: "Search & social" (how the
+ * page is listed and shared) and "SEO" (what it is analysed for). Other
+ * modules add theirs to #neo_seo_sections and place an element in one with
+ * #neo_seo_section; anything placed in none is in the first. The controls are
+ * moved into their sections as the form is built, keeping their names, so
+ * values are submitted as one flat set wherever they are shown.
+ *
+ * The slug is an override, but its control is the page URL field's
+ * (PageUrlField), which the form shows apart from these, to whoever may
+ * change the page's URL.
  *
  * The plain form. The SEO panel (neo_seo_panel) adds previews and analysis
  * to it, and still writes these same values.
@@ -68,16 +69,6 @@ class SeoOverridesWidget extends WidgetBase {
   protected Snippet $snippet;
 
   /**
-   * The page URL service, for the slug and custom URL.
-   */
-  protected PageUrl $pageUrl;
-
-  /**
-   * The current user, for what of the URL they may change.
-   */
-  protected AccountInterface $currentUser;
-
-  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
@@ -86,8 +77,6 @@ class SeoOverridesWidget extends WidgetBase {
     $instance->mapping = $container->get('neo_seo.bundle_mapping');
     $instance->elementInfo = $container->get('element_info');
     $instance->snippet = $container->get('neo_seo.snippet');
-    $instance->pageUrl = $container->get('neo_seo.page_url');
-    $instance->currentUser = $container->get('current_user');
     return $instance;
   }
 
@@ -116,7 +105,6 @@ class SeoOverridesWidget extends WidgetBase {
         [[static::class, 'processSections']],
       ),
     ];
-    $this->urlControls($element, $item, array_merge($element['#field_parents'] ?? [], [$items->getName(), $delta]));
     $element['title'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Title'),
@@ -220,211 +208,16 @@ class SeoOverridesWidget extends WidgetBase {
   }
 
   /**
-   * The page's URL: the editor's slug, or a URL of the page's own.
-   *
-   * Only where neo_seo manages the page's URL (ADR 0005), which hides core's
-   * path widget (PageUrlHooks). An Automatic | Custom choice leads: the slug
-   * shows under Automatic, where the pattern holds [neo:slug]; the custom URL
-   * under Custom, to those who may set one, and read-only to anyone else on a
-   * page that already has one, who may still choose Automatic to hand it
-   * back to the pattern. Under them, what to know about the URL the page will
-   * have once saved, which the SEO panel keeps current from its renders. All
-   * of it in one container, url_field, placed in the URL section; each
-   * control keeps its flat name.
-   *
-   * @param array $element
-   *   The widget element.
-   * @param \Drupal\neo_seo\Plugin\Field\FieldType\SeoOverridesItem $item
-   *   The overrides item.
-   * @param array $parents
-   *   The element's #parents, for the controls' #states.
-   */
-  protected function urlControls(array &$element, SeoOverridesItem $item, array $parents): void {
-    $entity = $item->getEntity();
-    if (!$entity instanceof ContentEntityInterface || !$this->pageUrl->manages($entity)) {
-      return;
-    }
-    $url = $this->pageUrl->describe($entity);
-    $mayCustomize = $this->pageUrl->mayCustomize($entity, $this->currentUser);
-    $hasPattern = $this->pageUrl->pattern($entity) !== NULL;
-    $first = $parents;
-    $name = array_shift($first) . ($first ? '[' . implode('][', $first) . ']' : '') . '[url_custom]';
-    $customOn = [':input[name="' . $name . '"]' => ['value' => '1']];
-
-    // One URL field: the choice first, then the slug or the custom URL in one
-    // place, one shown at a time, with what to know about the address under
-    // them, so switching moves nothing the editor is looking at.
-    $field = [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['neo-seo-url-field']],
-      '#neo_seo_section' => 'url',
-      '#attached' => ['library' => ['neo_seo/page_url']],
-    ];
-    $field['actions'] = static::urlActions($entity);
-    $field['url_custom'] = [
-      '#type' => 'radios',
-      '#title' => $this->t('URL'),
-      '#title_display' => 'invisible',
-      '#options' => [0 => $this->t('Automatic'), 1 => $this->t('Custom')],
-      '#default_value' => (int) $url['custom'],
-      '#access' => $hasPattern && ($mayCustomize || $url['custom']),
-      '#neo_style' => 'inline_buttons',
-      '#neo_size' => 'sm',
-    ];
-    // The slug under the address it ends, in one box: the pattern's part
-    // above, read with the input (processSlug()).
-    $field['slug'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('URL slug'),
-      '#default_value' => $item->slug,
-      '#maxlength' => 255,
-      // The slug an empty field follows: the title's.
-      '#placeholder' => $url['placeholder'],
-      '#access' => $this->pageUrl->usesSlug($entity),
-      '#states' => ['invisible' => $customOn],
-      '#neo_seo_prefix' => $url['prefix'],
-      '#attributes' => ['data-neo-seo-url-input' => 'slug'],
-      '#wrapper_attributes' => ['class' => ['neo-seo-url-slug']],
-      '#process' => array_merge(
-        $this->elementInfo->getInfoProperty('textfield', '#process', []),
-        [[static::class, 'processSlug']],
-      ),
-    ];
-    $this->help($field['slug'],
-      $this->t('The last part of this page’s address.'),
-      $this->t('Leave empty to follow the title.'),
-    );
-    $field['url_alias'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('Custom URL'),
-      '#default_value' => $url['alias'] ?? '',
-      '#maxlength' => 255,
-      '#attributes' => ['data-neo-seo-url-input' => 'alias'],
-      '#access' => $mayCustomize || $url['custom'],
-      '#disabled' => !$mayCustomize,
-      '#states' => $hasPattern ? ['visible' => $customOn] : [],
-      '#description' => $mayCustomize
-        ? $this->t('The whole address after the domain, starting with a slash, e.g. /about-us.')
-        : $this->t('This page has an address of its own. Choose Automatic to give it the one the site sets.'),
-    ];
-    // A pattern without the slug: the site sets the whole address.
-    $field['url_auto'] = [
-      '#type' => 'item',
-      '#title' => $this->t('URL'),
-      '#markup' => '<span class="neo-seo-url-box__address" data-neo-seo-url-auto>' . Html::escape((string) $url['alias']) . '</span>',
-      '#wrapper_attributes' => ['class' => ['neo-seo-url-box', 'is-readonly']],
-      '#access' => $hasPattern && !$this->pageUrl->usesSlug($entity),
-      '#states' => ['invisible' => $customOn],
-    ];
-    $field['url_preview'] = static::urlPreview($url);
-    foreach (['url_custom', 'slug', 'url_alias', 'url_auto', 'url_preview'] as $key) {
-      $field[$key]['#parents'] = array_merge($parents, [$key]);
-    }
-    $element['url_field'] = $field;
-    // Where core's URL alias section was, beside URL redirects.
-    $element['#neo_seo_sections']['url'] = ['#title' => $this->t('URL'), '#weight' => 3, '#neo_seo_weight' => 30];
-  }
-
-  /**
-   * Open the live page, and copy its address: once the page has one.
-   *
-   * The address it has now, not the one a draft would give it.
-   */
-  protected static function urlActions(ContentEntityInterface $entity): array {
-    $url = !$entity->isNew() ? $entity->toUrl('canonical', ['absolute' => TRUE])->toString() : NULL;
-    return [
-      '#type' => 'inline_template',
-      '#template' => '<div class="neo-seo-url-actions">'
-      . '<a class="neo-seo-url-actions__action" href="{{ url }}" target="_blank" rel="noopener" title="{{ open }}" aria-label="{{ open }}">'
-      . '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v3.5a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5V5a.5.5 0 0 1 .5-.5h3.5"/></svg>'
-      . '</a>'
-      . '<button type="button" class="neo-seo-url-actions__action" data-neo-seo-url-copy="{{ url }}" title="{{ copy }}" aria-label="{{ copy }}">'
-      . '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 3.5V3a.5.5 0 0 0-.5-.5H3a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h.5"/></svg>'
-      . '</button>'
-      . '<span class="visually-hidden" role="status" data-neo-seo-url-copied></span>'
-      . '</div>',
-      '#context' => [
-        'url' => $url,
-        'open' => new TranslatableMarkup('Open the page in a new tab'),
-        'copy' => new TranslatableMarkup('Copy the page’s address'),
-      ],
-      '#access' => $url !== NULL,
-    ];
-  }
-
-  /**
-   * The slug input's address: the pattern's part, stacked above it.
-   *
-   * In the field prefix, which the input reads first (aria-describedby), so
-   * a screen reader hears the whole address. The SEO panel redraws it from
-   * each draft render (data-neo-seo-url-prefix).
-   */
-  public static function processSlug(array $element): array {
-    $id = $element['#id'] . '--prefix';
-    $element['#field_prefix'] = Markup::create('<span class="neo-seo-url-slug__prefix" id="' . $id . '" data-neo-seo-url-prefix>' . Html::escape((string) ($element['#neo_seo_prefix'] ?? '')) . '</span>');
-    $describedBy = $element['#attributes']['aria-describedby'] ?? NULL;
-    $element['#attributes']['aria-describedby'] = $describedBy ? $id . ' ' . $describedBy : $id;
-    return $element;
-  }
-
-  /**
-   * What an editor should know about the URL the page will have once saved.
-   *
-   * The SEO panel redraws it from each draft render (neo_seo_panel).
-   *
-   * @param array $url
-   *   The page's URL, as PageUrl::describe() gives it.
-   */
-  public static function urlPreview(array $url): array {
-    $notes = [];
-    foreach ($url['notes'] as $note) {
-      // Text, its placeholders escaped by the translation.
-      $notes[] = [
-        '#markup' => $note['text'],
-        '#wrapper_attributes' => ['class' => $note['error'] ? ['is-error'] : []],
-      ];
-    }
-    return [
-      '#type' => 'container',
-      '#attributes' => [
-        'class' => ['neo-seo-url'],
-        'data-neo-seo-url' => '',
-        'aria-live' => 'polite',
-      ],
-      '#attached' => ['library' => ['neo_seo/page_url']],
-      'notes' => [
-        '#theme' => 'item_list',
-        '#items' => $notes,
-        '#attributes' => ['class' => ['neo-seo-url__notes']],
-        '#access' => (bool) $notes,
-      ],
-    ];
-  }
-
-  /**
    * Moves the controls into their sections, as details elements.
    *
    * Each control keeps the name it has outside a section: its #parents are
    * set before it moves, so the sections add nothing to them. The sections
-   * start closed, after the field's others in the sidebar unless one sets
-   * its own place there (#neo_seo_weight). With no sections (the Alchemist
-   * panel's form) the controls stay where they are, the URL under a heading
-   * of its own between the previews and the title: in the order a search
-   * result shows them, address, title, description.
+   * start closed. With no sections (the Alchemist panel's form) the controls
+   * stay where they are.
    */
   public static function processSections(array $element, FormStateInterface $form_state, array &$complete_form): array {
     $sections = $element['#neo_seo_sections'] ?? [];
     if (!$sections) {
-      if (isset($element['url_field'])) {
-        $element['url_field']['#weight'] = -50;
-        $element['url_field']['heading'] = [
-          '#type' => 'html_tag',
-          '#tag' => 'h3',
-          '#value' => new TranslatableMarkup('URL'),
-          '#attributes' => ['class' => ['neo-seo-url-field__heading']],
-          '#weight' => -10,
-        ];
-      }
       return $element;
     }
     uasort($sections, fn(array $a, array $b) => ($a['#weight'] ?? 0) <=> ($b['#weight'] ?? 0));
@@ -441,7 +234,7 @@ class SeoOverridesWidget extends WidgetBase {
         ],
       ];
       // After the field's other sections, in the sidebar's order.
-      $element[$id]['#weight'] = $section['#neo_seo_weight'] ?? 90 + ($section['#weight'] ?? 0);
+      $element[$id]['#weight'] = 90 + ($section['#weight'] ?? 0);
     }
     foreach ($children as $key) {
       $id = $element[$key]['#neo_seo_section'] ?? $first;
@@ -488,11 +281,16 @@ class SeoOverridesWidget extends WidgetBase {
         $value[$key] = Snippet::override($value[$key] ?? NULL, $templates[$key] ?? '');
       }
       $value['image'] = !empty($value['image']) ? (int) $value['image'] : NULL;
+      // The slug's control is the URL field, shown only to those who may
+      // change the page's URL: without it the slug stays as it was.
+      if (!array_key_exists('slug', $value)) {
+        $value['slug'] = $entity instanceof ContentEntityInterface ? (SeoOverrides::of($entity)['slug'] ?? NULL) : NULL;
+      }
       foreach (['page_type', 'article_type', 'title', 'description', 'keyphrase', 'slug'] as $key) {
         $value[$key] = ($value[$key] ?? '') === '' ? NULL : $value[$key];
       }
       // The URL controls write the page's path (PageUrlHooks), not the field.
-      unset($value['url_custom'], $value['url_alias'], $value['url_preview']);
+      unset($value['url_custom'], $value['url_alias'], $value['url_preview'], $value['url_auto']);
       $value['noindex'] = (bool) ($value['noindex'] ?? FALSE);
       $value['cornerstone'] = (bool) ($value['cornerstone'] ?? FALSE);
       // Scores are advisory: one that is not a 0–100 integer is dropped, never

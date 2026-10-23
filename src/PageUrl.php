@@ -135,6 +135,16 @@ class PageUrl {
   }
 
   /**
+   * Whether an account may change a page's URL at all: its slug, or more.
+   *
+   * Who core lets edit a page's URL alias: those who may create or
+   * administer URL aliases, whether or not they may edit the SEO overrides.
+   */
+  public function mayChange(ContentEntityInterface $entity, AccountInterface $account): bool {
+    return $entity->hasField('path') && $entity->get('path')->access('edit', $account);
+  }
+
+  /**
    * Whether an account may give a page a URL of its own.
    *
    * Where the bundle allows it, to those who may create aliases; anywhere, to
@@ -294,10 +304,10 @@ class PageUrl {
   /**
    * Applies what the URL controls sent to a page's path, without saving it.
    *
-   * What an account may not do is dropped, so the path stays as it was: a
+   * What an account may not do is dropped, so the path stays as it was:
+   * anything from one who may not change the page's URL (mayChange()), a
    * custom URL from one who may not set one, or one that is another page's.
-   * Anyone who may edit the overrides may hand a custom URL back to the
-   * pattern.
+   * Anyone who may change the URL may hand a custom URL back to the pattern.
    *
    * @param \Drupal\Core\Entity\ContentEntityInterface $entity
    *   The page; changed in memory.
@@ -309,7 +319,7 @@ class PageUrl {
   public function apply(ContentEntityInterface $entity, AccountInterface $account, array $values): void {
     $hasCustom = array_key_exists('url_custom', $values);
     $hasAlias = array_key_exists('url_alias', $values);
-    if ((!$hasCustom && !$hasAlias) || !$this->manages($entity)) {
+    if ((!$hasCustom && !$hasAlias) || !$this->manages($entity) || !$this->mayChange($entity, $account)) {
       return;
     }
     $pattern = $this->pattern($entity) !== NULL;

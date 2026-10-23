@@ -189,14 +189,14 @@ class PageUrlTest extends NeoSeoKernelTestBase {
     $project = $this->form($this->node('project', 'A'));
     $this->assertFalse($project['path']['#access'], 'Core’s path widget is hidden.');
     // The controls sit in a URL section of their own.
-    $element = $project[SeoOverrides::FIELD]['widget'][0]['url']['url_field'];
+    $element = $this->urlField($project);
     $this->assertNotFalse($element['slug']['#access'] ?? TRUE);
     $this->assertFalse($element['url_custom']['#access'], 'No custom URL for a slug-only editor.');
     $this->assertArrayHasKey('url_preview', $element);
 
     $article = $this->form($this->node('article', 'B'));
     $this->assertNotFalse($article['path']['#access'] ?? TRUE, 'Core’s widget stays where neo_seo has nothing to offer.');
-    $this->assertArrayNotHasKey('url', $article[SeoOverrides::FIELD]['widget'][0], 'No URL section either.');
+    $this->assertArrayNotHasKey('neo_seo_url', $article, 'No URL section either.');
   }
 
   /**
@@ -353,23 +353,62 @@ class PageUrlTest extends NeoSeoKernelTestBase {
   }
 
   /**
+   * The URL field follows core's URL alias permission, not the overrides'.
+   */
+  public function testUrlFieldFollowsTheAliasPermission(): void {
+    $node = $this->node('project', 'Plant Expansion');
+    $node->set(SeoOverrides::FIELD, ['slug' => 'phase-one', 'keyphrase' => 'plant'])->save();
+
+    // May change URLs, not SEO overrides: the URL field, and its slug saves.
+    $urlsOnly = $this->createUser(['access content', 'bypass node access', 'create url aliases']);
+    $this->setCurrentUser($urlsOnly);
+    $form = $this->form($this->reload($node));
+    $this->assertArrayHasKey('neo_seo_url', $form);
+    $this->assertFalse($form['path']['#access']);
+    $this->submit($this->reload($node), ['slug' => 'phase-two']);
+    $saved = $this->reload($node);
+    $this->assertSame('phase-two', SeoOverrides::of($saved)['slug']);
+    $this->assertSame('plant', SeoOverrides::of($saved)['keyphrase'], 'The overrides they may not edit are kept.');
+    $this->assertSame('/projects/phase-two', $this->alias($saved));
+
+    // May edit SEO overrides, not URLs: no URL field, and the slug is kept.
+    $seoOnly = $this->createUser(['access content', 'bypass node access', 'edit neo_seo overrides']);
+    $this->setCurrentUser($seoOnly);
+    $form = $this->form($this->reload($node));
+    $this->assertArrayNotHasKey('neo_seo_url', $form);
+    $this->assertFalse($form['path']['#access'], 'Nor core’s widget, which they may not use either.');
+    $this->submit($this->reload($node), ['keyphrase' => 'expansion']);
+    $saved = $this->reload($node);
+    $this->assertSame('phase-two', SeoOverrides::of($saved)['slug'], 'Saving the overrides keeps the slug.');
+    $this->assertSame('expansion', SeoOverrides::of($saved)['keyphrase']);
+
+    // Nor may they change the URL through drafted values.
+    $this->pageUrl()->apply($saved, $seoOnly, ['url_custom' => FALSE]);
+    $noAliases = $this->createUser(['administer neo_seo']);
+    $this->pageUrl()->apply($saved, $noAliases, ['url_custom' => TRUE, 'url_alias' => '/elsewhere']);
+    $saved->save();
+    $this->assertSame('/projects/phase-two', $this->alias($this->reload($saved)));
+  }
+
+  /**
    * The URL's own section in the edit form; open and copy once it is saved.
    */
   public function testUrlSectionAndActions(): void {
-    $element = $this->form($this->node('project', 'Plant Expansion'))[SeoOverrides::FIELD]['widget'][0];
-    $this->assertSame('details', $element['url']['#type']);
-    $this->assertSame('URL', (string) $element['url']['#title']);
-    $this->assertFalse($element['url']['#open'], 'It starts closed.');
-    $this->assertSame('advanced', $element['url']['#group']);
-    $this->assertSame(30, $element['url']['#weight'], 'Where core’s URL alias section was.');
-    $this->assertArrayNotHasKey('slug', $element['search_social'], 'No longer in Search & social.');
-    $this->assertSame('neo_seo[0][slug]', $element['url']['url_field']['slug']['#name'], 'The name stays flat.');
+    $form = $this->form($this->node('project', 'Plant Expansion'));
+    $section = $form['neo_seo_url'];
+    $this->assertSame('details', $section['#type']);
+    $this->assertSame('URL', (string) $section['#title']);
+    $this->assertFalse($section['#open'], 'It starts closed.');
+    $this->assertSame('advanced', $section['#group']);
+    $this->assertSame(30, $section['#weight'], 'Where core’s URL alias section was.');
+    $this->assertArrayNotHasKey('slug', $form[SeoOverrides::FIELD]['widget'][0]['search_social'], 'Not in Search & social.');
+    $this->assertSame('neo_seo[0][slug]', $section['url_field']['slug']['#name'], 'Named as the overrides are.');
 
-    $actions = $element['url']['url_field']['actions'];
+    $actions = $section['url_field']['actions'];
     $this->assertNotFalse($actions['#access']);
     $this->assertStringEndsWith('/projects/plant-expansion', $actions['#context']['url']);
 
-    $new = $this->form(Node::create(['type' => 'project']))[SeoOverrides::FIELD]['widget'][0]['url']['url_field'];
+    $new = $this->urlField($this->form(Node::create(['type' => 'project'])));
     $this->assertFalse($new['actions']['#access'], 'A new page has no address to open or copy.');
   }
 
@@ -471,7 +510,7 @@ class PageUrlTest extends NeoSeoKernelTestBase {
    * The URL field of a node's built edit form.
    */
   protected function urlField(array $form): array {
-    return $form[SeoOverrides::FIELD]['widget'][0]['url']['url_field'];
+    return $form['neo_seo_url']['url_field'];
   }
 
   /**
@@ -482,6 +521,20 @@ class PageUrlTest extends NeoSeoKernelTestBase {
    */
   protected function notes(NodeInterface $node): array {
     return array_map('html_entity_decode', array_column($this->pageUrl()->describe($node)['notes'], 'text'));
+  }
+
+  /**
+   * Submits a node's edit form with these overrides values.
+   */
+  protected function submit(NodeInterface $node, array $overrides): void {
+    $formObject = $this->container->get('entity_type.manager')->getFormObject('node', 'default')->setEntity($node);
+    $formState = (new FormState())->setValues([
+      'title' => [['value' => $node->label()]],
+      SeoOverrides::FIELD => [$overrides],
+      'op' => 'Save',
+    ]);
+    $this->container->get('form_builder')->submitForm($formObject, $formState);
+    $this->assertSame([], $formState->getErrors());
   }
 
   /**

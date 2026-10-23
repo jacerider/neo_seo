@@ -125,6 +125,12 @@ services:
       - '@?pathauto.generator'
       - '@?pathauto.alias_cleaner'
   Drupal\neo_seo\PageUrl: '@neo_seo.page_url'
+  neo_seo.page_url_field:
+    class: Drupal\neo_seo\PageUrlField
+    arguments:
+      - '@neo_seo.page_url'
+      - '@element_info'
+  Drupal\neo_seo\PageUrlField: '@neo_seo.page_url_field'
 
   # Moves pathauto patterns onto the slug tokens (drush neo-seo:slugs).
   neo_seo.page_url_patterns:

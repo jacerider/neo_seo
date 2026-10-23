@@ -18,9 +18,12 @@ children), and the URL field says how many will move. `drush neo-seo:slugs` move
 onto the tokens: it shows the change and which pages would move, then asks. A bundle's new URL
 section has *Editors may set a custom URL* (off by default) for replacing the whole address, and
 lists the bundle's patterns and the URL tokens each uses. On managed bundles the field replaces
-core's path widget. In Alchemist, URL edits are drafted with the layout and applied on Publish. Run
-`drush updatedb` (`neo_seo_update_11004`): it adds the `slug` column to the SEO overrides; nothing
-else changes until a pattern uses the tokens.
+core's path widget, whose *URL alias* row in Manage form display is then not used. Who may change a
+page's URL is who may create URL aliases, as for core's widget, whether or not they may edit the SEO
+overrides; in Alchemist the field is in the SEO panel, so it also takes the panel's access. In
+Alchemist, URL edits are drafted with the layout and applied on Publish. Run `drush updatedb`
+(`neo_seo_update_11004`): it adds the `slug` column to the SEO overrides; nothing else changes until
+a pattern uses the tokens.
 
 The slug sits under the rest of its address, in one box: the pattern's part, muted and wrapping
 however deep the page is, then the input. An empty slug shows the slug its title gives, and follows

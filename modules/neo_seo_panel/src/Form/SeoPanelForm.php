@@ -8,7 +8,9 @@ use Drupal\Core\Entity\ContentEntityInterface;
 use Drupal\Core\Field\WidgetPluginManager;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\neo_seo\PageUrl;
+use Drupal\neo_seo\PageUrlField;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo_panel\PanelBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -38,6 +40,11 @@ class SeoPanelForm extends FormBase {
   protected PageUrl $pageUrl;
 
   /**
+   * The page URL field, for editors who may change the page's URL.
+   */
+  protected PageUrlField $pageUrlField;
+
+  /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container) {
@@ -45,6 +52,7 @@ class SeoPanelForm extends FormBase {
     $instance->widgetManager = $container->get('plugin.manager.field.widget');
     $instance->builder = $container->get('neo_seo_panel.builder');
     $instance->pageUrl = $container->get('neo_seo.page_url');
+    $instance->pageUrlField = $container->get('neo_seo.page_url_field');
     return $instance;
   }
 
@@ -106,6 +114,19 @@ class SeoPanelForm extends FormBase {
     $element['#neo_seo_sections'] = [];
     unset($element['#title']);
     $element['panel'] = $this->builder->mount($entity, 'alchemist') + ['#weight' => -100];
+    // The URL under the previews, above the title: in the order a search
+    // result shows them, address, title, description. Only for editors who
+    // may change the page's URL.
+    if ($this->pageUrlField->access($entity, $this->currentUser())) {
+      $element['url_field'] = $this->pageUrlField->build($entity, $this->currentUser()) + ['#weight' => -50];
+      $element['url_field']['heading'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'h3',
+        '#value' => new TranslatableMarkup('URL'),
+        '#attributes' => ['class' => ['neo-seo-url-field__heading']],
+        '#weight' => -10,
+      ];
+    }
 
     $form[SeoOverrides::FIELD] = ['#tree' => TRUE, 0 => $element];
     $form['#attributes']['class'][] = 'neo-seo-panel-form';

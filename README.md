@@ -307,8 +307,14 @@ keyphrase-in-slug check use the new address. On a site whose pathauto keeps ever
 
 **Where it applies.** neo_seo manages the URL of a page whose entity type has per-page SEO and a
 path, when its pattern uses the token or its bundle allows custom URLs. There its field replaces
-core's path widget, for editors who may edit the overrides; everywhere else core's widget is left
-alone. Without pathauto there is no slug, only a custom URL where the bundle allows one.
+core's path widget, whether or not the form display shows the *URL alias* field (its row is not
+used); everywhere else core's widget is left alone. Without pathauto there is no slug, only a custom
+URL where the bundle allows one.
+
+**Who may change a URL.** Whoever core lets edit a URL alias: editors with *Create URL aliases* or
+*Administer URL aliases*, whether or not they may edit the SEO overrides. Editors without them get
+no URL field, and saving the SEO overrides keeps the page's slug. In Alchemist the URL field is in
+the SEO panel, so there it also takes the panel's own access.
 
 In Alchemist, URL edits are drafted with the layout and applied on Publish, as far as the
 publishing editor may make them; Revert and Reset discard them. The slug is stored in the
