@@ -289,7 +289,7 @@ overrides or whose form hides them. It builds every page's alias from the old pa
 (`--no-check` skips that), writes active configuration only — export it — and never re-aliases a
 page.
 
-**A custom URL.** A bundle's SEO section has *Editors may set a custom URL* (off by default). Where
+**A custom URL.** A bundle's URL section has *Editors may set a custom URL* (off by default). Where
 it is on, editors who may *create URL aliases* get the *Automatic | Custom* choice; *Custom*
 replaces the whole address and turns pathauto off for the page, and choosing *Automatic* again hands
 the page back to the pattern. *Administer URL aliases* allows a custom URL on any bundle. Anyone
@@ -317,8 +317,9 @@ alias.
 
 ## Bundle mapping
 
-Each content type, vocabulary and media type form has an **SEO** section. The mapping is stored on
-the bundle as third-party settings, so it is exported with the bundle.
+Each content type, vocabulary and media type form has an **SEO** section, and, where its pages have
+a path, a **URL** section. The mapping is stored on the bundle as third-party settings, so it is
+exported with the bundle.
 
 | Setting | Meaning |
 |---|---|
@@ -330,7 +331,7 @@ the bundle as third-party settings, so it is exported with the bundle.
 | Date published / Date modified | Timestamp or date fields; by default *created* and *changed*. A date-only field is published as a date, never an invented time. |
 | Authors | A reference to content whose own type is a **Profile page**. Each referenced, visible entity becomes an author of this page's Article. |
 | Job title, Social profiles | On a profile-page bundle: the fields for the Person's job title and `sameAs` links. |
-| Editors may set a custom URL | Lets editors who may create URL aliases replace a page's whole address, not only its slug. Below it, the bundle's pathauto patterns and which of the URL tokens each uses. See [Page URLs](#page-urls-the-slug-and-a-custom-url). |
+| Editors may set a custom URL | In the URL section. Lets editors who may create URL aliases replace a page's whole address, not only its slug. Below it, the bundle's pathauto patterns and which of the URL tokens each uses, and a note that the URL alias row in Manage form display is not used. See [Page URLs](#page-urls-the-slug-and-a-custom-url). |
 
 **People.** Any bundle mapped as a *Profile page* describes a person. Their page gets a Person as
 the WebPage's `mainEntity`. When another page names them in its Authors field, the same Person

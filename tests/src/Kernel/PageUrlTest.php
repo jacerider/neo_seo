@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\Tests\neo_seo\Kernel;
 
 use Drupal\Core\Form\FormState;
+use Drupal\neo_seo\Hook\BundleMappingHooks;
 use Drupal\neo_seo\PageUrl;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo_panel\Form\SeoPanelForm;
@@ -386,6 +387,26 @@ class PageUrlTest extends NeoSeoKernelTestBase {
     $this->assertGreaterThan($element['panel']['#weight'], $field['#weight'], 'Under the previews.');
     $this->assertLessThan($element['title']['#weight'] ?? 0, $field['#weight'], 'Above the title.');
     $this->assertSame('neo_seo[0][slug]', $field['slug']['#name']);
+  }
+
+  /**
+   * The bundle form's URL settings are a URL section of their own.
+   */
+  public function testBundleUrlSection(): void {
+    $this->setCurrentUser($this->createUser(['administer content types', 'administer neo_seo']));
+    $formObject = $this->container->get('entity_type.manager')->getFormObject('node_type', 'edit')->setEntity(NodeType::load('project'));
+    $formState = new FormState();
+    $form = $this->container->get('form_builder')->buildForm($formObject, $formState);
+    $this->assertSame('URL', (string) $form['neo_seo_url']['#title']);
+    $this->assertSame('additional_settings', $form['neo_seo_url']['#group']);
+    $this->assertArrayNotHasKey('custom_url', $form['neo_seo'], 'No longer in the SEO section.');
+    $this->assertSame('neo_seo[custom_url]', $form['neo_seo_url']['custom_url']['#name'], 'Still the mapping’s value.');
+    $this->assertStringContainsString('[neo:slug]', (string) $form['neo_seo_url']['url_patterns']['list']['#items'][0]['#context']['pattern']);
+
+    $type = NodeType::load('project');
+    $formState = (new FormState())->setValue('neo_seo', ['custom_url' => 1]);
+    BundleMappingHooks::buildBundleEntity('node_type', $type, $form, $formState);
+    $this->assertTrue($type->getThirdPartySetting('neo_seo', 'custom_url'));
   }
 
   /**

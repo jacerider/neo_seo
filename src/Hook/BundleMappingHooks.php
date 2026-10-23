@@ -16,6 +16,7 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\neo_seo\Mapping\BundleMapping;
 use Drupal\neo_seo\PageUrl;
 use Drupal\neo_seo\Schema\SchemaTypes;
+use Drupal\neo_seo\SeoOverrides;
 
 /**
  * The bundle mapping: a section on every routable bundle's edit form.
@@ -176,14 +177,41 @@ class BundleMappingHooks {
       '#states' => $profileState,
       '#access' => !$bundleEntity->isNew(),
     ];
-    $form['neo_seo']['custom_url'] = [
+    $this->urlSettings($form, $mapping, $entityTypeId, $bundleEntity->isNew() ? NULL : (string) $bundleEntity->id());
+    $form['#entity_builders'][] = [static::class, 'buildBundleEntity'];
+  }
+
+  /**
+   * The bundle's URL settings, in a URL section of their own.
+   *
+   * Beside the SEO section, as the edit form's URL section is beside Search &
+   * social: for a type whose pages have SEO overrides and a path. The values
+   * are still the mapping's (neo_seo[custom_url]).
+   */
+  protected function urlSettings(array &$form, BundleMapping $mapping, string $entityTypeId, ?string $bundle): void {
+    $fields = $this->entityFieldManager->getBaseFieldDefinitions($entityTypeId);
+    if (!isset($fields[SeoOverrides::FIELD], $fields['path'])) {
+      return;
+    }
+    $form['neo_seo_url'] = [
+      '#type' => 'details',
+      '#title' => $this->t('URL'),
+      '#group' => isset($form['additional_settings']) ? 'additional_settings' : NULL,
+      '#weight' => 51,
+    ];
+    $form['neo_seo_url']['custom_url'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Editors may set a custom URL'),
       '#default_value' => $mapping->customUrl,
       '#description' => $this->t('Lets editors who may create URL aliases replace a page’s whole address. Otherwise they change only its slug, where the URL alias pattern allows it.'),
+      '#parents' => ['neo_seo', 'custom_url'],
     ];
-    $form['neo_seo']['url_patterns'] = $this->urlPatterns($entityTypeId, $bundleEntity->isNew() ? NULL : (string) $bundleEntity->id());
-    $form['#entity_builders'][] = [static::class, 'buildBundleEntity'];
+    $form['neo_seo_url']['url_patterns'] = $this->urlPatterns($entityTypeId, $bundle);
+    $form['neo_seo_url']['form_display'] = [
+      '#type' => 'item',
+      '#markup' => $this->t('Where editors may change the slug or set a custom URL, neo_seo’s URL field takes the place of the URL alias field. Its row in Manage form display is not used and can be disabled.'),
+      '#access' => $bundle !== NULL,
+    ];
   }
 
   /**

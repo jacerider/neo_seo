@@ -15,10 +15,10 @@ page's part, and a parent's slug carries into its children's addresses. Without 
 exactly today's values, so no existing alias changes. When a page's slug or title changes, or its
 menu link is renamed or moved, the pages under it are re-aliased (pathauto never did this for menu
 children), and the URL field says how many will move. `drush neo-seo:slugs` moves a site's patterns
-onto the tokens: it shows the change and which pages would move, then asks. A bundle's SEO section
-adds *Editors may set a custom URL* (off by default) for replacing the whole address, and lists the
-bundle's patterns and the URL tokens each uses. On managed bundles the field replaces core's path
-widget. In Alchemist, URL edits are drafted with the layout and applied on Publish. Run
+onto the tokens: it shows the change and which pages would move, then asks. A bundle's new URL
+section has *Editors may set a custom URL* (off by default) for replacing the whole address, and
+lists the bundle's patterns and the URL tokens each uses. On managed bundles the field replaces
+core's path widget. In Alchemist, URL edits are drafted with the layout and applied on Publish. Run
 `drush updatedb` (`neo_seo_update_11004`): it adds the `slug` column to the SEO overrides; nothing
 else changes until a pattern uses the tokens.
 
