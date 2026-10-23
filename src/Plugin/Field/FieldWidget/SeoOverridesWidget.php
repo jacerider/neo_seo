@@ -408,14 +408,15 @@ class SeoOverridesWidget extends WidgetBase {
    * set before it moves, so the sections add nothing to them. The sections
    * start closed, after the field's others in the sidebar unless one sets
    * its own place there (#neo_seo_weight). With no sections (the Alchemist
-   * panel's form) the controls stay where they are, the URL first under a
-   * heading of its own.
+   * panel's form) the controls stay where they are, the URL under a heading
+   * of its own between the previews and the title: in the order a search
+   * result shows them, address, title, description.
    */
   public static function processSections(array $element, FormStateInterface $form_state, array &$complete_form): array {
     $sections = $element['#neo_seo_sections'] ?? [];
     if (!$sections) {
       if (isset($element['url_field'])) {
-        $element['url_field']['#weight'] = -200;
+        $element['url_field']['#weight'] = -50;
         $element['url_field']['heading'] = [
           '#type' => 'html_tag',
           '#tag' => 'h3',

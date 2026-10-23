@@ -4,20 +4,21 @@
 
 **Changing a URL meant unticking pathauto and retyping the whole path, and it could not be done in
 Alchemist.** A URL field now has a *URL* section of its own in the edit form's sidebar, where core's
-URL alias section was, and leads the Alchemist SEO panel under a *URL* heading. Icons beside it open
-the saved page in a new tab and copy its address. An *Automatic | Custom* choice leads it:
-Automatic shows *URL slug*, the page's part of its address; Custom shows *Custom URL*, a whole
-address of its own. An editor who may not set a custom URL sees no choice, or, on a page that has
-one, sees it read-only and may choose Automatic to hand the page back to its pattern. Put `[neo:slug]` in a pathauto pattern
-where the title was, and `[neo:parents:join-path]` where core's parents path was: editors change just
-their page's part, and a parent's slug carries into its children's addresses. Without slugs both
-give exactly today's values, so no existing alias changes. When a page's slug or title changes, or
-its menu link is renamed or moved, the pages under it are re-aliased (pathauto never did this for
-menu children), and the URL field says how many will move. `drush neo-seo:slugs` moves a site's
-patterns onto the tokens: it shows the change and which pages would move, then asks. A bundle's SEO
-section adds *Editors may set a custom URL* (off by default) for replacing the whole address, and
-lists the bundle's patterns and the URL tokens each uses. On managed bundles the field replaces
-core's path widget. In Alchemist, URL edits are drafted with the layout and applied on Publish. Run
+URL alias section was, and sits under the Alchemist SEO panel's previews, above the title, under a
+*URL* heading: the order a search result shows them. Icons beside it open the saved page in a new
+tab and copy its address. An *Automatic | Custom* choice leads it: Automatic shows *URL slug*, the
+page's part of its address; Custom shows *Custom URL*, a whole address of its own. An editor who may
+not set a custom URL sees no choice, or, on a page that has one, sees it read-only and may choose
+Automatic to hand the page back to its pattern. Put `[neo:slug]` in a pathauto pattern where the
+title was, and `[neo:parents:join-path]` where core's parents path was: editors change just their
+page's part, and a parent's slug carries into its children's addresses. Without slugs both give
+exactly today's values, so no existing alias changes. When a page's slug or title changes, or its
+menu link is renamed or moved, the pages under it are re-aliased (pathauto never did this for menu
+children), and the URL field says how many will move. `drush neo-seo:slugs` moves a site's patterns
+onto the tokens: it shows the change and which pages would move, then asks. A bundle's SEO section
+adds *Editors may set a custom URL* (off by default) for replacing the whole address, and lists the
+bundle's patterns and the URL tokens each uses. On managed bundles the field replaces core's path
+widget. In Alchemist, URL edits are drafted with the layout and applied on Publish. Run
 `drush updatedb` (`neo_seo_update_11004`): it adds the `slug` column to the SEO overrides; nothing
 else changes until a pattern uses the tokens.
 

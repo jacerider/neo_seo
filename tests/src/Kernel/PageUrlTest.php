@@ -373,7 +373,9 @@ class PageUrlTest extends NeoSeoKernelTestBase {
   }
 
   /**
-   * The Alchemist panel has no sections: the URL leads it, under a heading.
+   * The Alchemist panel has no sections: the URL has a heading of its own.
+   *
+   * Under the previews and above the title, in a search result's order.
    */
   public function testPanelUrlHeading(): void {
     $form = $this->container->get('form_builder')->getForm(SeoPanelForm::class, $this->node('project', 'Plant Expansion'), NULL);
@@ -381,7 +383,8 @@ class PageUrlTest extends NeoSeoKernelTestBase {
     $this->assertArrayNotHasKey('url', $element, 'No sections.');
     $field = $element['url_field'];
     $this->assertSame('URL', (string) $field['heading']['#value']);
-    $this->assertLessThan($element['panel']['#weight'], $field['#weight'], 'Above the previews.');
+    $this->assertGreaterThan($element['panel']['#weight'], $field['#weight'], 'Under the previews.');
+    $this->assertLessThan($element['title']['#weight'] ?? 0, $field['#weight'], 'Above the title.');
     $this->assertSame('neo_seo[0][slug]', $field['slug']['#name']);
   }
 

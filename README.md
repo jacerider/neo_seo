@@ -230,8 +230,10 @@ form and in the Alchemist editor. Pathauto still builds the rest (ADR 0005).
 
 **Where the field is.** In the edit form, a **URL** section of the sidebar, where core's URL alias
 section was (beside *URL redirects*); it starts closed. In Alchemist, the SEO panel has no sections,
-so the field leads it under a **URL** heading. Once a page is saved, two icons beside the field open
-it in a new tab and copy its address — the address it has now, not the one a draft would give it.
+so the field sits under the previews and above the title, under a **URL** heading — address, title,
+description, the order a search result shows them. Once a page is saved, two icons beside the field
+open it in a new tab and copy its address — the address it has now, not the one a draft would give
+it.
 
 **Automatic | Custom.** A choice leads the field. *Automatic* shows **URL slug**, the last part of
 the page's address; *Custom* shows **Custom URL**, the whole address after the domain. Editors who
