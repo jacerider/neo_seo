@@ -223,10 +223,11 @@ class SeoOverridesWidget extends WidgetBase {
    * The page's URL: the editor's slug, or a URL of the page's own.
    *
    * Only where neo_seo manages the page's URL (ADR 0005), which hides core's
-   * path widget (PageUrlHooks). The slug shows only where the pattern holds
-   * [neo:slug]; the custom URL to those who may set one, and read-only to
-   * anyone else on a page that already has one, so they can hand it back to
-   * the pattern. Under them, the URL the page will have once saved, which the
+   * path widget (PageUrlHooks). An Automatic | Custom choice leads: the slug
+   * shows under Automatic, where the pattern holds [neo:slug]; the custom URL
+   * under Custom, to those who may set one, and read-only to anyone else on a
+   * page that already has one, who may still choose Automatic to hand it
+   * back to the pattern. Under them, the URL the page will have once saved, which the
    * SEO panel keeps current from its renders. All of it in one container,
    * url_field, placed in the URL section; each control keeps its flat name.
    *
@@ -247,11 +248,11 @@ class SeoOverridesWidget extends WidgetBase {
     $hasPattern = $this->pageUrl->pattern($entity) !== NULL;
     $first = $parents;
     $name = array_shift($first) . ($first ? '[' . implode('][', $first) . ']' : '') . '[url_custom]';
-    $customOn = [':input[name="' . $name . '"]' => ['checked' => TRUE]];
+    $customOn = [':input[name="' . $name . '"]' => ['value' => '1']];
 
-    // One URL field: the slug and the custom URL share its place, one shown at
-    // a time, with the address they make under them and the switch between
-    // them last, so switching moves nothing the editor is looking at.
+    // One URL field: the choice first, then the slug or the custom URL in one
+    // place, one shown at a time, with what to know about the address under
+    // them, so switching moves nothing the editor is looking at.
     $field = [
       '#type' => 'container',
       '#attributes' => ['class' => ['neo-seo-url-field']],
@@ -259,6 +260,16 @@ class SeoOverridesWidget extends WidgetBase {
       '#attached' => ['library' => ['neo_seo/page_url']],
     ];
     $field['actions'] = static::urlActions($entity);
+    $field['url_custom'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('URL'),
+      '#title_display' => 'invisible',
+      '#options' => [0 => $this->t('Automatic'), 1 => $this->t('Custom')],
+      '#default_value' => (int) $url['custom'],
+      '#access' => $hasPattern && ($mayCustomize || $url['custom']),
+      '#neo_style' => 'inline_buttons',
+      '#neo_size' => 'sm',
+    ];
     // The slug under the address it ends, in one box: the pattern's part
     // above, read with the input (processSlug()).
     $field['slug'] = [
@@ -293,7 +304,7 @@ class SeoOverridesWidget extends WidgetBase {
       '#states' => $hasPattern ? ['visible' => $customOn] : [],
       '#description' => $mayCustomize
         ? $this->t('The whole address after the domain, starting with a slash, e.g. /about-us.')
-        : $this->t('This page has an address of its own. Untick “Use a custom URL” to give it the automatic one.'),
+        : $this->t('This page has an address of its own. Choose Automatic to give it the one the site sets.'),
     ];
     // A pattern without the slug: the site sets the whole address.
     $field['url_auto'] = [
@@ -305,14 +316,7 @@ class SeoOverridesWidget extends WidgetBase {
       '#states' => ['invisible' => $customOn],
     ];
     $field['url_preview'] = static::urlPreview($url);
-    $field['url_custom'] = [
-      '#type' => 'checkbox',
-      '#title' => $this->t('Use a custom URL'),
-      '#default_value' => $url['custom'],
-      '#access' => $hasPattern && ($mayCustomize || $url['custom']),
-      '#neo_size' => 'xs',
-    ];
-    foreach (['slug', 'url_alias', 'url_auto', 'url_preview', 'url_custom'] as $key) {
+    foreach (['url_custom', 'slug', 'url_alias', 'url_auto', 'url_preview'] as $key) {
       $field[$key]['#parents'] = array_merge($parents, [$key]);
     }
     $element['url_field'] = $field;

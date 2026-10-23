@@ -5,8 +5,10 @@
 **Changing a URL meant unticking pathauto and retyping the whole path, and it could not be done in
 Alchemist.** A URL field now has a *URL* section of its own in the edit form's sidebar, where core's
 URL alias section was, and leads the Alchemist SEO panel under a *URL* heading. Icons beside it open
-the saved page in a new tab and copy its address. It holds *URL slug* for the page's part of its
-address, and *Custom URL* for a whole address of its own. Put `[neo:slug]` in a pathauto pattern
+the saved page in a new tab and copy its address. An *Automatic | Custom* choice leads it:
+Automatic shows *URL slug*, the page's part of its address; Custom shows *Custom URL*, a whole
+address of its own. An editor who may not set a custom URL sees no choice, or, on a page that has
+one, sees it read-only and may choose Automatic to hand the page back to its pattern. Put `[neo:slug]` in a pathauto pattern
 where the title was, and `[neo:parents:join-path]` where core's parents path was: editors change just
 their page's part, and a parent's slug carries into its children's addresses. Without slugs both
 give exactly today's values, so no existing alias changes. When a page's slug or title changes, or

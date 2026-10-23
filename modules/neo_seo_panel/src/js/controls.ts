@@ -75,6 +75,11 @@ function score(value: string): number | null {
   return /^\d{1,3}$/.test(value) ? Number(value) : null;
 }
 
+/** The value of a choice (radios), '' where none is chosen or shown. */
+function chosen(root: Scope, key: NeoSeoOverrideKey): string {
+  return root.querySelector<HTMLInputElement>(`[name="${PREFIX}${key}]"]:checked`)?.value ?? '';
+}
+
 export function read(root: Scope): NeoSeoOverrides {
   const text = (key: NeoSeoOverrideKey) => input(root, key)?.value ?? '';
   const checked = (key: NeoSeoOverrideKey) => {
@@ -93,7 +98,8 @@ export function read(root: Scope): NeoSeoOverrides {
     seo_score: score(text('seo_score')),
     readability_score: score(text('readability_score')),
     slug: text('slug'),
-    url_custom: checked('url_custom'),
+    // Automatic | Custom.
+    url_custom: chosen(root, 'url_custom') === '1',
     url_alias: text('url_alias'),
   };
 }
@@ -111,6 +117,14 @@ export function write(root: Scope, values: Partial<NeoSeoOverrides>, announce: b
     }
     if (control instanceof HTMLInputElement && control.type === 'checkbox') {
       control.checked = !!value;
+    }
+    else if (control instanceof HTMLInputElement && control.type === 'radio') {
+      // A choice: the radio whose value is the one written (true is '1').
+      const want = typeof value === 'boolean' ? String(Number(value)) : String(value ?? '');
+      const radio = root.querySelector<HTMLInputElement>(`[name="${PREFIX}${key}]"][value="${want}"]`);
+      if (radio) {
+        radio.checked = true;
+      }
     }
     else {
       control.value = value === null || value === undefined ? '' : String(value);
