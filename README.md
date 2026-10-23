@@ -283,7 +283,7 @@ one being edited.
 
 **Moving a site onto the tokens.** `drush neo-seo:slugs` shows what it would change in each enabled
 pattern, and which pages' addresses that would move, then asks (`-y` to skip, `--pattern=ID` for
-one). It swaps only what is exact: a last segment that is the label token, and core's two parents
+one; `-n` is not "no": Drush answers every question with its default, which is yes). It swaps only what is exact: a last segment that is the label token, and core's two parents
 paths. Anything else is listed for a person to edit, as is a pattern whose content has no SEO
 overrides. It builds every page's alias from the old pattern and the new (`--no-check` skips that).
 Then it lists the form displays that still show core's *URL alias* field where neo_seo's URL field
