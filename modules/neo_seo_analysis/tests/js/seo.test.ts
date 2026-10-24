@@ -89,10 +89,22 @@ describe('keyphraseInSlug', () => {
   const at = (url: string, keyphrase = 'sourdough bread recipe', cornerstone = false): string | undefined =>
     seo({ keyphrase, url, cornerstone }, 'keyphraseInSlug')?.band;
 
-  test('all words good (hyphens and underscores are spaces)', () => {
+  test('the keyphrase leading the slug is good (hyphens and underscores are spaces)', () => {
     assert.equal(at('https://example.com/blog/sourdough-bread-recipe'), 'good');
-    assert.equal(at('/recipe_sourdough_bread?page=2#top'), 'good');
+    assert.equal(at('/sourdough_bread_recipe-for-beginners?page=2#top'), 'good');
     assert.equal(at('/caf%C3%A9-latte', 'café latte'), 'good');
+  });
+
+  test('all words but not at the front is ok, with how to fix it', () => {
+    assert.equal(at('/recipe_sourdough_bread'), 'ok');
+    assert.equal(at('/easy-sourdough-bread-recipe'), 'ok');
+    const result = seo({ keyphrase: 'sourdough bread recipe', url: '/easy-sourdough-bread-recipe' }, 'keyphraseInSlug');
+    assert.match(result?.message ?? '', /Move it to the front/);
+  });
+
+  test('function words dropped from the slug still count as the front', () => {
+    assert.equal(at('/how-bake-sourdough-bread', 'how to bake sourdough bread'), 'good');
+    assert.equal(at('/the-sourdough-bread-recipe'), 'good');
   });
 
   test('more than half ok (problem for cornerstone); half or less problem', () => {

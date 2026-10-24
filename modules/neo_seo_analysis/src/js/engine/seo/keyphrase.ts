@@ -121,7 +121,8 @@ export function slugWords(url: string): string[] {
 
 export const keyphraseInSlug: Check = (ctx, keyphrase) => {
   const id = 'keyphraseInSlug';
-  const slug = new Set(slugWords(ctx.input.url));
+  const words = slugWords(ctx.input.url);
+  const slug = new Set(words);
   if (slug.size === 0) {
     // The front page (or an unparseable URL) has no slug to judge.
     return null;
@@ -129,7 +130,17 @@ export const keyphraseInSlug: Check = (ctx, keyphrase) => {
   const required = [...new Set(keyphrase.required.flatMap((w) => w.split(/[-']/)).filter((w) => w !== ''))];
   const found = required.filter((w) => slug.has(w)).length;
   if (found === required.length) {
-    return { id, band: 'good', message: 'The keyphrase appears in the URL slug.' };
+    // At the front: the keyphrase's words lead the slug, in order. Function
+    // words are skipped, as pathauto drops them from slugs ("how-bake-bread").
+    const lead = ctx.english ? words.filter((w) => !FUNCTION_WORDS.has(w)) : words;
+    if (required.every((w, i) => lead[i] === w)) {
+      return { id, band: 'good', message: 'The keyphrase starts the URL slug.' };
+    }
+    return {
+      id,
+      band: 'ok',
+      message: 'The keyphrase is in the URL slug, but not at its start. Move it to the front.',
+    };
   }
   if (required.length > 1 && found * 2 > required.length) {
     return {

@@ -1,5 +1,13 @@
 # Changelog
 
+## The slug check wants the keyphrase at the front
+
+**The keyphrase-in-slug check passed a slug that held the keyphrase anywhere, in any order.** It is
+now *good* only when the keyphrase's words lead the slug, in order (function words such as "to",
+which pathauto drops from slugs, are skipped), and *ok* — "Move it to the front" — when they are all
+there but later. A slug missing words is scored as before. The title check already wanted the
+keyphrase at the start.
+
 ## Editors change a page's URL slug, or give it a URL of its own
 
 **Changing a URL meant unticking pathauto and retyping the whole path, and it could not be done in
