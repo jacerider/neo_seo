@@ -1,0 +1,7 @@
+# Product types get the bundle mapping content has, and a brand field.
+commerce_product.commerce_product_type.*.third_party.neo_seo:
+  type: neo_seo.bundle_mapping
+  mapping:
+    brand_field:
+      type: string
+      label: 'Brand field: a term reference or text field on the product'

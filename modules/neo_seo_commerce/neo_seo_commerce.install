@@ -1,0 +1,58 @@
+<?php
+
+/**
+ * @file
+ * Install and uninstall functions for neo_seo_commerce.
+ */
+
+declare(strict_types=1);
+
+use Drupal\commerce_product\Entity\ProductType;
+use Drupal\neo_seo_commerce\Hook\ProductTypeHooks;
+
+/**
+ * Implements hook_install().
+ *
+ * Gives products per-page SEO, as content has it: the SEO overrides field
+ * and, where pathauto has a product pattern, the URL field. Every product
+ * type without a page type of its own becomes an item page.
+ */
+function neo_seo_commerce_install(bool $is_syncing = FALSE): void {
+  if ($is_syncing) {
+    return;
+  }
+  $config = \Drupal::configFactory()->getEditable('neo_seo.settings');
+  $enabled = (array) $config->get('override_entity_types');
+  if (!in_array('commerce_product', $enabled, TRUE)) {
+    // neo_seo's settings subscriber installs the field on save.
+    $config->set('override_entity_types', [...array_values($enabled), 'commerce_product'])->save();
+  }
+  foreach (ProductType::loadMultiple() as $productType) {
+    if ($productType->getThirdPartySetting('neo_seo', 'page_type') === NULL) {
+      $productType->setThirdPartySetting('neo_seo', 'page_type', ProductTypeHooks::PAGE_TYPE)->save();
+    }
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ *
+ * The product types' mapping has its schema here, so it leaves with the
+ * module. Products keep their SEO overrides: whether commerce_product stays
+ * in neo_seo's per-page entity types is the site's to change.
+ */
+function neo_seo_commerce_uninstall(bool $is_syncing = FALSE): void {
+  if ($is_syncing) {
+    return;
+  }
+  foreach (ProductType::loadMultiple() as $productType) {
+    $settings = $productType->getThirdPartySettings('neo_seo');
+    if (!$settings) {
+      continue;
+    }
+    foreach (array_keys($settings) as $key) {
+      $productType->unsetThirdPartySetting('neo_seo', $key);
+    }
+    $productType->save();
+  }
+}

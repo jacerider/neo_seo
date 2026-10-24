@@ -1,5 +1,19 @@
 # Changelog
 
+## Product pages get SEO like content: `neo_seo_commerce`
+
+**A Commerce product page had no per-page SEO and no bundle mapping, so it was a plain WebPage
+that editors could not tune.** The new `neo_seo_commerce` submodule (for Commerce sites only;
+neo_seo itself still has no Commerce code) gives product types the bundle mapping content types
+have: their edit form gets the **SEO** and **URL** sections. Installing it adds products to the
+per-page entity types, so products get the SEO overrides field, the previews and analysis, and
+the URL field where a pathauto pattern builds product addresses. Every product type becomes an
+*Item page*, and so does a product type made later; a type that arrives by config import keeps
+its own. The SEO section has one more setting on product types, **Brand**: a taxonomy term
+reference or text field on the product. Uninstalling removes the product types' mapping, whose
+config schema lives in the submodule, and leaves products in the per-page entity types for the
+site to turn off.
+
 ## A module can set the head of a page the templates cannot reach
 
 **`hook_neo_seo_head_templates_alter()`** changes a page's head templates and their token
