@@ -1,5 +1,19 @@
 # Changelog
 
+## A product with variations is a ProductGroup
+
+**A product sold in several variations is now described in Google's variant form, so search
+results can show its variants.** With more than one active variation, the product page's
+`mainEntity` is a **ProductGroup**: `productGroupID` (the product id), the product's name,
+description, brand and image, `variesBy`, and `hasVariant` — each active variation a Product with
+its own `sku`, `name` (the variation title), `image` where it has one, `?v=` URL and Offer.
+`variesBy` lists the properties Google reads variants by (color, size, material, pattern, age,
+gender) for the attributes whose values differ between the variations. An attribute counts when
+its machine name or label is one of those (`colour` and `age group` too); age and gender go on the
+variant's `audience`, Google's age groups as age ranges. Any other attribute (a finish, a pack
+size) tells variants apart only by their names. A single variation's matched attributes are on its
+Product too.
+
 ## A product page describes its product: Product and Offer
 
 **A product page's schema said only that it was a page.** With `neo_seo_commerce`, a product with

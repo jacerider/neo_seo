@@ -44,6 +44,20 @@ class ProductSchema {
   ];
 
   /**
+   * The properties Google reads variants by, with the names that match them.
+   *
+   * Names are compared lower case, letters only.
+   */
+  public const VARIES_BY = [
+    'color' => ['color', 'colour'],
+    'size' => ['size'],
+    'material' => ['material'],
+    'pattern' => ['pattern'],
+    'suggestedAge' => ['age', 'agegroup', 'suggestedage'],
+    'suggestedGender' => ['gender', 'suggestedgender'],
+  ];
+
+  /**
    * Constructs the product schema service.
    *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entityTypeManager
@@ -116,16 +130,67 @@ class ProductSchema {
       return NULL;
     }
     $price = $this->rounder->round($price);
-    $url = $variation->toUrl('canonical', ['absolute' => TRUE])->toString(TRUE);
-    $context->addCacheableDependency($url);
     return [
       '@type' => 'Offer',
       'price' => $price->getNumber(),
       'priceCurrency' => $price->getCurrencyCode(),
       'availability' => 'https://schema.org/' . ($this->inStock($variation) ? 'InStock' : 'OutOfStock'),
-      'url' => $url->getGeneratedUrl(),
+      'url' => $this->variationUrl($variation, $context),
       'seller' => SchemaIds::ref($this->ids->siteIdentity($context)),
     ];
+  }
+
+  /**
+   * A variation's own address: the product page with `?v={variation id}`.
+   */
+  public function variationUrl(ProductVariationInterface $variation, PageContext $context): string {
+    $url = $variation->toUrl('canonical', ['absolute' => TRUE])->toString(TRUE);
+    $context->addCacheableDependency($url);
+    return $url->getGeneratedUrl();
+  }
+
+  /**
+   * The schema.org properties a variation's attributes give it.
+   *
+   * An attribute counts when its machine name or label is one Google lists
+   * for variants (VARIES_BY); its value's name is the property's value. Any
+   * other attribute only tells variants apart by their names.
+   *
+   * @return array<string, string>
+   *   Values keyed by schema.org property, in VARIES_BY order.
+   */
+  public function variantProperties(ProductVariationInterface $variation, PageContext $context): array {
+    $properties = [];
+    foreach ($variation->getAttributeValues() as $value) {
+      $attribute = $value->getAttribute();
+      if (!$attribute) {
+        continue;
+      }
+      $context->addCacheableDependency($value);
+      $context->addCacheableDependency($attribute);
+      $property = static::property([(string) $attribute->id(), (string) $attribute->label()]);
+      $name = trim((string) $value->getName());
+      if ($property && $name !== '') {
+        $properties[$property] ??= $name;
+      }
+    }
+    return array_intersect_key(array_merge(static::VARIES_BY, $properties), $properties);
+  }
+
+  /**
+   * The schema.org variant property one of an attribute's names matches.
+   *
+   * @param string[] $names
+   *   The attribute's machine name and label.
+   */
+  protected static function property(array $names): ?string {
+    $names = array_map(static fn(string $name): string => preg_replace('/[^a-z]/', '', strtolower($name)), $names);
+    foreach (static::VARIES_BY as $property => $aliases) {
+      if (array_intersect($names, $aliases)) {
+        return $property;
+      }
+    }
+    return NULL;
   }
 
   /**
