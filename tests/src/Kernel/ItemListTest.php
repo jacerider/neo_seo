@@ -94,18 +94,28 @@ class ItemListTest extends NeoSeoKernelTestBase {
   }
 
   /**
+   * The canonical URL the last page printed.
+   */
+  protected ?string $canonical = NULL;
+
+  /**
    * The graph of the listing's page.
    */
   protected function page(string $query = ''): array {
     $this->pushRoute('view.listing.page_1', [], '/listing' . $query);
     $attachments = ['#attached' => []];
     $this->container->get(NeoSeoHooks::class)->pageAttachments($attachments);
+    $document = [];
     foreach ($attachments['#attached']['html_head'] ?? [] as [$element, $key]) {
       if ($key === 'neo_seo_graph') {
-        return json_decode((string) $element['#value'], TRUE);
+        $document = json_decode((string) $element['#value'], TRUE);
+      }
+      if ($key === 'neo_seo_canonical') {
+        $this->canonical = $element['#attributes']['href'];
       }
     }
-    return [];
+    $this->assertContains('url.query_args:page', $attachments['#cache']['contexts']);
+    return $document;
   }
 
   /**
@@ -132,6 +142,7 @@ class ItemListTest extends NeoSeoKernelTestBase {
     $this->createView('CollectionPage');
     $document = $this->page();
     $page = 'http://localhost/listing';
+    $this->assertSame($page, $this->canonical);
     $this->assertSame(array_combine(range(1, 10), range(1, 10)), $this->listed($document, $page));
     $webPage = $this->assertGraphNode($document, $page);
     $this->assertSame(['WebPage', 'CollectionPage'], $webPage['@type']);
@@ -140,14 +151,19 @@ class ItemListTest extends NeoSeoKernelTestBase {
   }
 
   /**
-   * A later page numbers its rows from the pager's first: page 3 from 21.
+   * A later page names itself, and numbers its rows from the pager's first.
    */
   public function testLaterPage(): void {
     $this->createView('CollectionPage');
-    $this->assertSame(
-      array_combine(range(21, 25), range(21, 25)),
-      $this->listed($this->page('?page=2'), 'http://localhost/listing'),
-    );
+    $page = 'http://localhost/listing?page=2';
+    $document = $this->page('?page=2&sort=x');
+    $this->assertSame($page, $this->canonical, 'The page query is kept, nothing else.');
+    $this->assertSame($page, $this->assertGraphNode($document, $page)['url']);
+    $this->assertSame(array_combine(range(21, 25), range(21, 25)), $this->listed($document, $page));
+    $this->assertGraphReferencesResolve($document);
+
+    $this->page('?page=0');
+    $this->assertSame('http://localhost/listing', $this->canonical, 'The first page is the listing itself.');
   }
 
   /**

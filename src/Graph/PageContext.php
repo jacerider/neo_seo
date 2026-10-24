@@ -30,7 +30,8 @@ final class PageContext {
    *   site-level @id hangs off it.
    * @param string $canonicalUrl
    *   The page's absolute canonical URL. It is the WebPage @id, and the
-   *   page-level @ids (#article, #breadcrumb …) hang off it.
+   *   page-level @ids (#article, #breadcrumb …) hang off it. Past the first
+   *   page of a paged listing it keeps the `page` query.
    * @param string $langcode
    *   The content language of the page.
    * @param string $siteName

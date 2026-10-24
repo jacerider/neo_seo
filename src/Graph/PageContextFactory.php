@@ -135,6 +135,11 @@ class PageContextFactory {
       $entity !== NULL => $entity->toUrl('canonical', ['absolute' => TRUE])->toString(),
       default => $this->routeUrl() ?? $siteUrl,
     };
+    // Each page of a paged listing is a page of its own and names itself:
+    // pointing page 2 at page 1 says page 2's items are not there.
+    if ($page = $this->pagerQuery()) {
+      $canonicalUrl .= (str_contains($canonicalUrl, '?') ? '&' : '?') . 'page=' . $page;
+    }
 
     $context = new PageContext(
       siteUrl: $siteUrl,
@@ -156,6 +161,7 @@ class PageContextFactory {
     $context->addCacheableDependency($site);
     $context->addCacheableDependency((new CacheableMetadata())->setCacheContexts([
       'route',
+      'url.query_args:page',
       'url.site',
       'languages:' . LanguageInterface::TYPE_CONTENT,
     ]));
@@ -209,6 +215,16 @@ class PageContextFactory {
       }
     }
     return $arguments;
+  }
+
+  /**
+   * The request's pager query when it is past the first page, else NULL.
+   *
+   * Drupal's form: a page number from 0 per pager, separated by commas.
+   */
+  protected function pagerQuery(): ?string {
+    $page = $this->requestStack->getCurrentRequest()?->query->all()['page'] ?? NULL;
+    return is_string($page) && preg_match('/^\d+(,\d+)*$/', $page) && preg_match('/[1-9]/', $page) ? $page : NULL;
   }
 
   /**

@@ -143,7 +143,9 @@ neo_seo prints these tags:
 
 - the document **title**;
 - **description**;
-- **canonical**, which is always the WebPage `@id` and `og:url`;
+- **canonical**, which is always the WebPage `@id` and `og:url`. Past the first page of a paged
+  listing it keeps the `page` query (`/news?page=1`): each page names itself, as Google asks,
+  rather than pointing at the first;
 - **robots**, only when it has a value;
 - **Open Graph**: site name, type, URL, title, description, locale, image with width, height and
   alt, and article published and modified times;

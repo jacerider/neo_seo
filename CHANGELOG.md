@@ -1,5 +1,13 @@
 # Changelog
 
+## Each page of a paged listing names itself canonical
+
+**Page 2 of a listing printed page 1's address as its canonical URL, which tells search engines
+that page 2's items are on page 1.** Past the first page, the canonical URL keeps the `page` query
+(`/news?page=1`) and drops every other query argument. So do `og:url`, the WebPage `@id` and the ids
+hung off it, including the ItemList's. The first page, `?page=0` included, is still the bare
+address. Head tags and the graph now vary by `url.query_args:page`.
+
 ## A collection page lists its items as an ItemList
 
 **A listing page was a CollectionPage that listed nothing, so search engines could not tell what it
