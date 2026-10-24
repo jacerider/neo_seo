@@ -13,7 +13,8 @@ use Drupal\neo_seo\Graph\SchemaIds;
  * The declaration is shaped like the JSON-LD it produces. Each value is read
  * as Expression describes; each node may carry three directives:
  * - `@each: <list> as <name>` — one node per row of the list (at the top) or
- *   a list of nodes (as a property's value), the row readable by name;
+ *   a list of nodes (as a property's value), the row readable by name and
+ *   its position, from 1, as `loop.position`;
  * - `@if: '{{ path }}'` or `'not {{ path }}'` — the node only when the value
  *   is truthy (or not);
  * - `@required: [property, …]` — the node only when it has them. A top-level
@@ -94,7 +95,9 @@ class Evaluator {
     $index = 0;
     foreach ($list as $row) {
       $index++;
-      $node = $this->build($declaration, $scope->with($each['name'], $row), $nested);
+      // A row left out takes no position, so the positions printed run 1, 2,
+      // 3 as a ListItem's must. Its index stays the row's own.
+      $node = $this->build($declaration, $scope->with($each['name'], $row, count($nodes) + 1), $nested);
       if ($node !== NULL) {
         $nodes[] = [$node, $index];
       }

@@ -57,7 +57,15 @@ class DeclarationLinterTest extends UnitTestCase {
           '@required' => ['name'],
           'name' => '{{ office.title }}',
           'address' => ['@type' => 'PostalAddress', 'addressLocality' => '{{ office.address.locality }}'],
-          'keywords' => [['@each' => 'office.tags as tag', '@type' => 'DefinedTerm', 'name' => '{{ tag }}']],
+          'keywords' => [
+            [
+              '@each' => 'office.tags as tag',
+              '@type' => 'DefinedTerm',
+              'name' => '{{ tag }}',
+              'position' => '{{ loop.position }}',
+            ],
+          ],
+          'position' => '{{ loop.position }}',
           'url' => '{{ page.url }}',
           'containedInPlace' => '{{ graph.organization }}',
           'description' => '{{ title }} in {{ site.name }}',
@@ -87,16 +95,25 @@ class DeclarationLinterTest extends UnitTestCase {
       ],
       ],
       'row named like a prop' => [[['@type' => 'Thing', '@each' => 'locations as title']], [
-        'error: `seo` node 1 (Thing) `@each` names its rows `title`, which is already a prop or a reserved name (graph, page, site).',
+        'error: `seo` node 1 (Thing) `@each` names its rows `title`, which is already a prop or a reserved name (graph, loop, page, site).',
+      ],
+      ],
+      'row named loop' => [[['@type' => 'Thing', '@each' => 'locations as loop']], [
+        'error: `seo` node 1 (Thing) `@each` names its rows `loop`, which is already a prop or a reserved name (graph, loop, page, site).',
+      ],
+      ],
+      'position outside a repeat' => [[['@type' => 'ItemList', 'position' => '{{ loop.position }}']], [
+        'error: `seo` node 1 (ItemList) `position` reads `loop.position` outside an `@each`: there is no row to number.',
       ],
       ],
       'unknown filter' => [[['@type' => 'Thing', 'name' => '{{ title|upper }}']], [
         'error: `seo` node 1 (Thing) `name` uses an unknown filter `upper`. Filters: postal_address, url, image, text, date, slug, first, join.',
       ],
       ],
-      'reserved roots' => [[['@type' => 'Thing', 'a' => '{{ graph.logo }}', 'b' => '{{ page }}']], [
-        'error: `seo` node 1 (Thing) `a` reads `graph.logo`; `graph` offers graph.organization, graph.website, graph.page.',
-        'error: `seo` node 1 (Thing) `b` reads `page`; `page` offers page.url, page.title, page.language.',
+      'reserved roots' => [[$office + ['a' => '{{ graph.logo }}', 'b' => '{{ page }}', 'c' => '{{ loop.index }}']], [
+        'error: `seo` node 1 (Place) `a` reads `graph.logo`; `graph` offers graph.organization, graph.website, graph.page.',
+        'error: `seo` node 1 (Place) `b` reads `page`; `page` offers page.url, page.title, page.language.',
+        'error: `seo` node 1 (Place) `c` reads `loop.index`; `loop` offers loop.position.',
       ],
       ],
       'bad if' => [[['@type' => 'Thing', '@if' => 'title', 'name' => 'x']], [

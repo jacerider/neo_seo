@@ -11,8 +11,9 @@ use Drupal\neo_seo\Graph\SchemaIds;
  * What a declaration's paths can read.
  *
  * In order: a row an `@each` named (the innermost first), the reserved roots
- * (graph, page, site), then the component's props — each resolved once, when
- * first read. A path then keys into the value, a segment at a time.
+ * (graph, loop, page, site), then the component's props — each resolved
+ * once, when first read. A path then keys into the value, a segment at a
+ * time.
  */
 final class Scope {
 
@@ -36,22 +37,26 @@ final class Scope {
    *   The graph's ids.
    * @param array<string, mixed> $rows
    *   The rows in scope, by name.
+   * @param int|null $position
+   *   The innermost row's position, from 1; NULL outside an `@each`.
    */
   public function __construct(
     protected \Closure $prop,
     public readonly PageContext $context,
     protected SchemaIds $ids,
     protected array $rows = [],
+    protected ?int $position = NULL,
   ) {
     $this->props = new \ArrayObject();
   }
 
   /**
-   * This scope with one more row, by name.
+   * This scope with one more row, by name, at its position.
    */
-  public function with(string $name, mixed $row): self {
+  public function with(string $name, mixed $row, int $position): self {
     $scope = clone $this;
     $scope->rows[$name] = $row;
+    $scope->position = $position;
     return $scope;
   }
 
@@ -104,6 +109,7 @@ final class Scope {
         'page' => SchemaIds::ref($this->ids->webPage($this->context)),
         default => NULL,
       },
+      'loop' => $key === 'position' ? $this->position : NULL,
       'page' => match ($key) {
         'url' => $this->context->canonicalUrl,
         'title' => $this->context->title,

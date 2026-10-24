@@ -1,5 +1,15 @@
 # Changelog
 
+## A component's `seo` declaration numbers its rows: `loop.position`
+
+**A component could not declare an ItemList: Google requires a `position` on each ListItem, and
+`@each` gave a row no number.** Inside an `@each`, `{{ loop.position }}` is the row's place, from 1,
+among the nodes that `@each` prints: a row left out (by `@if`, `@required`, or for being empty)
+takes no position, so the positions run 1, 2, 3; a nested `@each` numbers its own rows. `loop` is
+now a reserved root like `graph`, `page` and `site`, so the linter refuses a prop or row named
+`loop`, and reports `loop.position` read outside an `@each`. The README's *Components that add to
+the graph* has an ItemList example.
+
 ## The slug check wants the keyphrase at the front
 
 **The keyphrase-in-slug check passed a slug that held the keyphrase anywhere, in any order.** It is

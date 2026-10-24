@@ -397,11 +397,12 @@ seo:
 ```
 
 - **Values:** `{{ path }}` reads a prop, a row, or a reserved root (`page.url|title|language`,
-  `site.name|url`, and `graph.organization|website|page`, which print a reference); anything else
-  is literal. A value that is exactly one placeholder keeps its type; placeholders in text are
+  `site.name|url`, `loop.position`, and `graph.organization|website|page`, which print a
+  reference); anything else is literal. A value that is exactly one placeholder keeps its type; placeholders in text are
   filled in as text. Props are read as resolved, so bindings to entity fields work.
 - **Directives:** `@each: <list> as <name>` repeats a node, or builds a list inside a property, at
-  any depth. `@if: '{{ path }}'` (or `'not {{ path }}'`) keeps a node only when the value is
+  any depth. Inside it, `{{ loop.position }}` is the row's place, from 1, among the nodes that
+  `@each` prints: a row left out takes none, and a nested `@each` numbers its own rows. `@if: '{{ path }}'` (or `'not {{ path }}'`) keeps a node only when the value is
   truthy. `@required` drops a node missing the properties it lists. `@id` is optional; a
   `#fragment` is page-scoped, and a declared id two nodes share takes `-2`.
 - **Filters:** `postal_address`, `url`, `image`, `text`, `date`, `slug`, `first`, `join('sep')`.
@@ -415,6 +416,21 @@ seo:
   paths, filters), `drush neo-seo:component <id>` prints the JSON-LD the examples produce, and the
   component audit reports a node a page would leave out. The preview page's audit badge shows the
   same JSON-LD.
+
+**A listing.** Google wants a list of things on a summary page as an ItemList whose items each
+have a `position` and the `url` of the item's own page. A component that lists links declares it
+over its rows; a row without a link is left out and the positions close up:
+
+```yaml
+seo:
+  - '@type': ItemList
+    itemListElement:
+      - '@type': ListItem
+        '@each': items as item
+        '@required': [url]
+        position: '{{ loop.position }}'
+        url: '{{ item.link|url }}'
+```
 
 The neo-component skill has the full reference.
 

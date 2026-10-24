@@ -10,8 +10,9 @@ namespace Drupal\neo_seo\ComponentSchema;
  * Static: nothing is rendered or resolved. It checks the shape (a list of
  * nodes, each with an @type), the directives, the syntax of every value, that
  * each path starts at something that exists — a prop, a row in scope, a
- * reserved root — and keys into what the prop's schema declares where it
- * declares it, that an `@each` names an array, and that each filter exists.
+ * reserved root (`loop` only inside an `@each`) — and keys into what the
+ * prop's schema declares where it declares it, that an `@each` names an
+ * array, and that each filter exists.
  */
 class DeclarationLinter {
 
@@ -76,7 +77,7 @@ class DeclarationLinter {
           $findings[] = $this->warning(sprintf('%s `@each` repeats over `%s`, which is not an array prop.', $label, implode('.', $each['path'])));
         }
         if (in_array($each['name'], Expression::RESERVED, TRUE) || isset($props[$each['name']])) {
-          $findings[] = $this->error(sprintf('%s `@each` names its rows `%s`, which is already a prop or a reserved name (graph, page, site).', $label, $each['name']));
+          $findings[] = $this->error(sprintf('%s `@each` names its rows `%s`, which is already a prop or a reserved name (%s).', $label, $each['name'], implode(', ', Expression::RESERVED)));
         }
         $rows[$each['name']] = is_array($schema['items'] ?? NULL) ? $schema['items'] : NULL;
       }
@@ -170,9 +171,17 @@ class DeclarationLinter {
       $schema = $rows[$root];
     }
     elseif (in_array($root, Expression::RESERVED, TRUE)) {
-      $allowed = ['graph' => Expression::GRAPH, 'page' => Expression::PAGE, 'site' => Expression::SITE][$root];
+      $allowed = match ($root) {
+        'graph' => Expression::GRAPH,
+        'loop' => Expression::LOOP,
+        'page' => Expression::PAGE,
+        default => Expression::SITE,
+      };
       if (count($path) !== 2 || !in_array($path[1], $allowed, TRUE)) {
         $findings[] = $this->error(sprintf('%s reads `%s`; `%s` offers %s.', $label, $dotted, $root, implode(', ', array_map(fn($key) => "$root.$key", $allowed))));
+      }
+      elseif ($root === 'loop' && !$rows) {
+        $findings[] = $this->error(sprintf('%s reads `%s` outside an `@each`: there is no row to number.', $label, $dotted));
       }
       return NULL;
     }

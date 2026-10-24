@@ -157,6 +157,61 @@ class EvaluatorTest extends UnitTestCase {
   }
 
   /**
+   * The position numbers the rows each `@each` prints, nested or not.
+   */
+  public function testPositions(): void {
+    // The nameless row first, so a row left out comes before the others.
+    [$ada, $second, $ghost] = $this->props['people'];
+    $this->props['people'] = [$ghost, $ada, $second];
+    $built = $this->evaluate([
+      [
+        '@type' => 'Person',
+        '@each' => 'people as person',
+        '@if' => '{{ person.name }}',
+        'name' => '{{ person.name }}',
+        'position' => '{{ loop.position }}',
+        'hasOccupation' => [
+          '@each' => 'person.roles as role',
+          '@type' => 'Occupation',
+          'name' => '{{ role }}',
+          'position' => '{{ loop.position }}',
+        ],
+        'identifier' => 'person-{{ loop.position }}',
+      ],
+      [
+        '@type' => 'ItemList',
+        'position' => '{{ loop.position }}',
+        'itemListElement' => [
+          [
+            '@type' => 'ListItem',
+            '@each' => 'people as person',
+            '@required' => ['name'],
+            'position' => '{{ loop.position }}',
+            'name' => '{{ person.name }}',
+          ],
+        ],
+      ],
+    ]);
+    $this->assertSame([2, 3, NULL], array_column($built, 'index'), 'Rows keep their own numbers.');
+    [$first, $next, $list] = array_column($built, 'node');
+
+    $this->assertSame(1, $first['position'], 'A left-out row takes no position; a whole placeholder stays a number.');
+    $this->assertSame(2, $next['position']);
+    $this->assertSame([
+      ['@type' => 'Occupation', 'name' => 'Mathematician', 'position' => 1],
+      ['@type' => 'Occupation', 'name' => 'Writer', 'position' => 2],
+    ], $first['hasOccupation'], 'A nested repeat numbers its own rows.');
+    $this->assertSame('person-1', $first['identifier'], 'After a nested repeat, the row is at its own position again.');
+    $this->assertSame('person-2', $next['identifier']);
+
+    $this->assertArrayNotHasKey('position', $list, 'Outside a repeat there is no position.');
+    $this->assertSame([
+      ['@type' => 'ListItem', 'position' => 1, 'name' => 'Ada Lovelace'],
+      ['@type' => 'ListItem', 'position' => 2, 'name' => 'Ada Lovelace'],
+    ], $list['itemListElement'], 'A nested row missing what it requires takes no position.');
+  }
+
+  /**
    * What reads nothing prints nothing, down to a node of only a type.
    */
   public function testPruning(): void {

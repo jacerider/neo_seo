@@ -11,8 +11,8 @@ namespace Drupal\neo_seo\ComponentSchema;
  * value that is one placeholder and nothing else keeps the type of what it
  * reads (a number, a list, an object); placeholders inside other text are
  * filled in as text. A path names a prop of the component, a row an `@each`
- * named, or one of the reserved roots — graph, page, site — then keys into
- * the value, a segment at a time. Filters follow, each optionally with one
+ * named, or one of the reserved roots — graph, loop, page, site — then keys
+ * into the value, a segment at a time. Filters follow, each optionally with one
  * quoted argument: `{{ tags|join(' / ') }}`.
  *
  * Two directives have syntax of their own: `'@each': <path> as <name>`, and
@@ -23,7 +23,7 @@ final class Expression {
   /**
    * The roots a path may start with besides props and rows.
    */
-  public const RESERVED = ['graph', 'page', 'site'];
+  public const RESERVED = ['graph', 'loop', 'page', 'site'];
 
   /**
    * The nodes `graph.*` refers to.
@@ -31,8 +31,12 @@ final class Expression {
   public const GRAPH = ['organization', 'website', 'page'];
 
   /**
-   * The values `page.*` and `site.*` read.
+   * The values `loop.*`, `page.*` and `site.*` read.
+   *
+   * `loop.position` is the place, from 1, of the row the innermost `@each`
+   * is building among the nodes it prints.
    */
+  public const LOOP = ['position'];
   public const PAGE = ['url', 'title', 'language'];
   public const SITE = ['name', 'url'];
 
