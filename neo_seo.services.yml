@@ -150,6 +150,17 @@ services:
     arguments: ['@breadcrumb', '@current_route_match']
   Drupal\neo_seo\Graph\BreadcrumbTrail: '@neo_seo.breadcrumb_trail'
 
+  # What a collection page lists, for its ItemList: a Views page's rows, or
+  # those of a view a component on an entity's page lists.
+  neo_seo.listed_items:
+    class: Drupal\neo_seo\Graph\ListedItems
+    arguments: ['@neo_seo.head_values', '@neo_seo.component_views', '@module_handler']
+  Drupal\neo_seo\Graph\ListedItems: '@neo_seo.listed_items'
+  neo_seo.component_views:
+    class: Drupal\neo_seo\Alchemist\ComponentViews
+    arguments: ['@module_handler']
+  Drupal\neo_seo\Alchemist\ComponentViews: '@neo_seo.component_views'
+
   neo_seo.people:
     class: Drupal\neo_seo\Graph\People
     arguments: ['@neo_seo.bundle_mapping', '@neo_seo.schema_ids', '@neo_seo.media_image', '@entity.repository']

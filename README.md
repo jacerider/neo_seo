@@ -119,6 +119,7 @@ The pieces, and when each appears:
 | Primary ImageObject | `{canonical}#primaryimage` | When the page has an image |
 | BreadcrumbList | `{canonical}#breadcrumb` | Every page but the front page, built from the site's breadcrumb |
 | Article (+ article type) | `{canonical}#article` | When the bundle or editor makes the page an article |
+| ItemList | `{canonical}#itemlist` | On a collection page that lists a view's rows; the WebPage's `mainEntity`. See [Views pages](#views-pages) |
 | Person | `{site}/#/schema/person/{uuid}` | The subject of a profile page, and each article author |
 | Component nodes | as declared, else `{canonical}#{type}-{uuid}` (`-{row}` when repeated) | When a component on the page declares them (`seo` in its `.component.yml`) |
 
@@ -373,6 +374,21 @@ listing or *Search results page* for a search.
 The templates can use `[view:*]` tokens, contextual arguments included. They sit above the global
 set and below front, 403 and 404. They are stored in the view's own config.
 
+**What a listing lists.** A page whose page type is *Collection page* describes its rows as an
+ItemList, the WebPage's `mainEntity`: one `ListItem` per row on the page being viewed, with its
+`position` and the `url` of the row's own page. This is Google's summary-page form. Rows without a
+page of their own (a file, media without standalone URLs) are skipped, and positions follow the
+pager, so page 2 of a ten-per-page listing starts at 11. Which rows:
+
+- **A Views page**: its own display's rows, set by the display's *SEO* page type.
+- **An entity's page**, e.g. a node with a listing component: the rows of a view that a component on
+  the page lists through neo_alchemist's *Views* value provider. Where there are several, the first
+  with a pager is used, else the first. The page type comes from the bundle mapping or the editor's
+  override; allow *Collection page* in *Page types editors may choose instead* to set it page by
+  page.
+
+The rows are read the same whether or not the page's render came from the cache.
+
 ## Components that add to the graph
 
 With `neo_alchemist`, a component adds nodes to the page's graph by declaring them in its
@@ -431,6 +447,9 @@ seo:
         position: '{{ loop.position }}'
         url: '{{ item.link|url }}'
 ```
+
+A listing whose component lists a view's rows does not need this: on a *Collection page* the
+ItemList comes from the view itself (see [Views pages](#views-pages)).
 
 The neo-component skill has the full reference.
 

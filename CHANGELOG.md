@@ -1,5 +1,19 @@
 # Changelog
 
+## A collection page lists its items as an ItemList
+
+**A listing page was a CollectionPage that listed nothing, so search engines could not tell what it
+collects.** A page whose page type is *Collection page* now has an ItemList as its WebPage's
+`mainEntity`: a `ListItem` per row on the page being viewed, with its `position` and the `url` of
+the row's own page (Google's summary-page form). Rows without a page of their own are skipped, and
+positions follow the pager: page 2 of a ten-per-page listing starts at 11. On a Views page the rows
+are its display's; on an entity's page, those of a view a component on the page lists through
+neo_alchemist's *Views* value provider (the first with a pager, else the first). Either way they are
+read whether or not the page's render came from the cache. To make an entity's page a collection,
+set its bundle's page type to *Collection page*, or allow that type as an editor's choice and set it
+on the page. `drush neo-seo:validate` no longer reports a ListItem of an ItemList without a name as
+an error: Google's summary form gives it none. A BreadcrumbList's items still need their names.
+
 ## A component's `seo` declaration numbers its rows: `loop.position`
 
 **A component could not declare an ItemList: Google requires a `position` on each ListItem, and

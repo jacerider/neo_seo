@@ -22,14 +22,23 @@ import { dangling, scripts } from './lib.mjs';
  * Google's Image metadata rich result needs one of creator, creditText,
  * copyrightNotice or license, but only an image that wants that rich result
  * has to have one: an ImageObject without them is valid and simply not
- * eligible. Yoast's graph carries ImageObjects without them too. Reported as
- * warnings instead, with the reason.
+ * eligible. Yoast's graph carries ImageObjects without them too.
+ *
+ * The validator holds every ListItem to the breadcrumb's rule, a name. The
+ * ItemList of a summary page, Google's carousel form, gives each only a
+ * position and the url of the item's own page. A BreadcrumbList's ListItems
+ * still need their names. Reported as warnings instead, with the reason.
  */
 const NOT_ERRORS = [
   {
     type: 'ImageObject',
     match: /Required attribute "creator" is missing or Required attribute "creditText" is missing/,
     note: 'Only needed for the Image metadata rich result; an ImageObject without it is valid.',
+  },
+  {
+    type: 'ItemList',
+    match: /Required attribute "name" is missing or Required attribute "item.name" is missing/,
+    note: 'A summary page\'s ItemList gives each item a position and a url; a name is only needed where the item is described in place.',
   },
 ];
 

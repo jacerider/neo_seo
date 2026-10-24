@@ -25,6 +25,7 @@ final class SchemaIds {
   public const PRIMARY_IMAGE = '#primaryimage';
   public const BREADCRUMB = '#breadcrumb';
   public const PERSON = '#/schema/person/';
+  public const ITEM_LIST = '#itemlist';
 
   /**
    * The site identity (Organization or Person): `{site}#organization`.
@@ -73,6 +74,13 @@ final class SchemaIds {
    */
   public function breadcrumb(PageContext $context): string {
     return $context->canonicalUrl . self::BREADCRUMB;
+  }
+
+  /**
+   * A collection page's ItemList: `{canonical}#itemlist`.
+   */
+  public function itemList(PageContext $context): string {
+    return $context->canonicalUrl . self::ITEM_LIST;
   }
 
   /**
