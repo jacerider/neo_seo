@@ -3,7 +3,7 @@ type: module
 neo: true
 description: 'A connected schema.org graph, head tags and on-page SEO for Neo sites.'
 package: Neo
-version: 1.2.0
+version: 1.2.1
 core_version_requirement: ^11.3
 dependencies:
   - drupal:system
