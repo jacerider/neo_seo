@@ -1,3 +1,17 @@
 parameters:
   # Every hook lives on a class under src/Hook.
   neo_seo_commerce.skip_procedural_hook_scan: true
+
+services:
+  neo_seo_commerce.product_schema:
+    class: Drupal\neo_seo_commerce\ProductSchema
+    arguments:
+      - '@entity_type.manager'
+      - '@commerce_price.chain_price_resolver'
+      - '@commerce_store.default_store_resolver'
+      - '@commerce_price.rounder'
+      - '@neo_seo.schema_ids'
+      - '@neo_seo.media_image'
+      # Availability from stock levels, where commerce_stock is installed.
+      - '@?commerce_stock.service_manager'
+  Drupal\neo_seo_commerce\ProductSchema: '@neo_seo_commerce.product_schema'

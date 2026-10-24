@@ -1,5 +1,20 @@
 # Changelog
 
+## A product page describes its product: Product and Offer
+
+**A product page's schema said only that it was a page.** With `neo_seo_commerce`, a product with
+one active variation is a **Product**, the WebPage's `mainEntity`: its `name`, `description`,
+`sku`, `url`, `brand` (from the product type's brand field, left out when there is none) and
+`image` — the editor's share image or the product type's mapped image field, else the
+variation's own image field. The site-wide image template never stands in for a product photo,
+so a product with no image of its own has none, and the validator says so. Its **Offer** carries
+what an anonymous visitor pays in the default store, resolved by Commerce's price resolvers so
+sales and price lists show as on the page (a signed-in customer's own price never does), the
+currency, `InStock` (or the stock level, where `commerce_stock` is installed), the variation's
+`?v=` URL and the site identity as `seller`. Unpublished variations are never offered, and a
+product with none published has no Product. The graph is the same for every visitor and is
+cached on the product, its variations, the store and the site's promotions and price lists.
+
 ## Product pages get SEO like content: `neo_seo_commerce`
 
 **A Commerce product page had no per-page SEO and no bundle mapping, so it was a plain WebPage

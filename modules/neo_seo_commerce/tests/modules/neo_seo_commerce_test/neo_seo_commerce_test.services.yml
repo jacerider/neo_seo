@@ -1,0 +1,5 @@
+services:
+  neo_seo_commerce_test.price_resolver:
+    class: Drupal\neo_seo_commerce_test\TestPriceResolver
+    tags:
+      - { name: commerce_price.price_resolver, priority: 100 }
