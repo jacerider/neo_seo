@@ -14,6 +14,7 @@ It replaces `metatag`, `schema_metatag` and `neo_metatag`.
 - [Bundle mapping](#bundle-mapping)
 - [Views pages](#views-pages)
 - [Components that add to the graph](#components-that-add-to-the-graph)
+- [Commerce: product pages](#commerce-product-pages-neo_seo_commerce)
 - [The SEO panel](#the-seo-panel-neo_seo_panel)
 - [Content analysis](#content-analysis-neo_seo_analysis)
 - [Validating structured data](#validating-structured-data)
@@ -27,7 +28,7 @@ It replaces `metatag`, `schema_metatag` and `neo_metatag`.
 
 | | |
 |---|---|
-| **Schema graph** | One JSON-LD `@graph` per page: the site's Organization (or Person), WebSite, WebPage, primary image, breadcrumb, Article, authors and profile people, plus anything a module or component adds. Every piece links to the others by `@id`, so search engines read one connected description of the page rather than unrelated fragments. |
+| **Schema graph** | One JSON-LD `@graph` per page: the site's Organization (or Person), WebSite, WebPage, primary image, breadcrumb, Article, authors and profile people, products and their offers (`neo_seo_commerce`), plus anything a module or component adds. Every piece links to the others by `@id`, so search engines read one connected description of the page rather than unrelated fragments. |
 | **Head tags** | Title, description, canonical, robots, Open Graph, X card and site verification codes, from token templates layered global → entity type → bundle → front/403/404. |
 | **Per-page overrides** | Editors can set a page's search title, description, share image, page type, article type, noindex, focus keyphrase and cornerstone flag. These are stored on the entity, revisioned and translatable. |
 | **SEO panel** | Google desktop and mobile previews, a Facebook/LinkedIn card and an X card, with live length and pixel-width feedback. Shown in the edit form sidebar and inside the Alchemist editor, where SEO edits are drafted with the layout. |
@@ -35,12 +36,14 @@ It replaces `metatag`, `schema_metatag` and `neo_metatag`.
 | **Page URLs** | Editors change a page's slug (or, where allowed, its whole URL) in the edit form and in Alchemist; pathauto builds the rest, and parents' slugs carry into their children's addresses. |
 | **Tooling** | `drush neo-seo:validate` checks pages against schema.org and Google's rich-result rules. `drush neo-seo:migrate` converts a metatag setup and diffs the head before and after. `drush neo-seo:slugs` moves pathauto patterns onto the slug tokens. |
 
-The package has three modules:
+The package has four modules:
 
 - **`neo_seo`** — the graph, head tags, templates, overrides, bundle mapping, Views pages, component
   pieces, draft rendering and the Drush commands. A site can run on this alone.
 - **`neo_seo_panel`** — the SEO panel in the edit form and the Alchemist editor.
 - **`neo_seo_analysis`** — content analysis inside the panel.
+- **`neo_seo_commerce`** — product pages on Drupal Commerce sites: SEO for product types, and
+  Product, Offer and ProductGroup schema. Enable it only where Commerce is installed.
 
 ## Requirements and install
 
@@ -49,6 +52,8 @@ The package has three modules:
 - `neo_alchemist` is optional, at 1.3 or later (Composer refuses an older one). With it, components
   can add to the graph and the SEO panel appears in the Alchemist editor.
 - `views` is optional. With it, Views pages get their own SEO settings.
+- `neo_seo_commerce` needs Drupal Commerce's product, price and store modules. `commerce_stock`
+  is optional; with it, availability follows stock levels.
 - Node 20+ wherever `drush neo-seo:validate` runs (the DDEV web container has it).
 
 ```bash
@@ -119,6 +124,7 @@ The pieces, and when each appears:
 | Primary ImageObject | `{canonical}#primaryimage` | When the page has an image |
 | BreadcrumbList | `{canonical}#breadcrumb` | Every page but the front page, built from the site's breadcrumb |
 | Article (+ article type) | `{canonical}#article` | When the bundle or editor makes the page an article |
+| Product or ProductGroup | `{canonical}#product`; variants `{canonical}#product-{variation id}` | On a product page with a variation a visitor can buy; the WebPage's `mainEntity`. See [Commerce](#commerce-product-pages-neo_seo_commerce) |
 | ItemList | `{canonical}#itemlist` | On a collection page that lists a view's rows; the WebPage's `mainEntity`. See [Views pages](#views-pages) |
 | Person | `{site}/#/schema/person/{uuid}` | The subject of a profile page, and each article author |
 | Component nodes | as declared, else `{canonical}#{type}-{uuid}` (`-{row}` when repeated) | When a component on the page declares them (`seo` in its `.component.yml`) |
@@ -455,6 +461,74 @@ ItemList comes from the view itself (see [Views pages](#views-pages)).
 
 The neo-component skill has the full reference.
 
+## Commerce: product pages (`neo_seo_commerce`)
+
+On a Drupal Commerce site, enable `neo_seo_commerce` and product pages become SEO pages like
+content, with their product described for search engines. neo_seo itself has no Commerce code;
+everything here is the submodule's.
+
+**Installing it** adds products to the per-page entity types (*Per-page SEO* in the settings), so
+products get the SEO overrides, the panel and analysis, and the URL field where a pathauto pattern
+builds product addresses. Every product type becomes an *Item page*, as does a product type made
+later. A type arriving by config import keeps the mapping it carries.
+
+**Product types** get the same **SEO** and **URL** sections as content types (see
+[Bundle mapping](#bundle-mapping)), plus one setting:
+
+| Setting | Meaning |
+|---|---|
+| Brand | A taxonomy term reference or text field on the product. Its term name or text is the product's `brand`. Without one, or when it is empty, the brand is left out. |
+
+**What a product page publishes.** The WebPage (an ItemPage) has the product as its `mainEntity`,
+and the breadcrumb neo_seo builds from the site's breadcrumb as on any page:
+
+- **One active variation: a Product** with `name` (the product title), `description` (the page's
+  description), `image`, `sku`, `brand`, `url` and an **Offer**.
+- **Several active variations: a ProductGroup** with `productGroupID` (the product id), `name`,
+  `description`, `image`, `brand`, `url`, `variesBy` and `hasVariant`: each active variation a
+  Product with its own `sku`, `name` (the variation title), `image` where it has one, `url`
+  (`?v={variation id}`) and Offer. This is Google's variant form.
+- **No active variation: nothing.** An unpublished variation is never offered, whoever is looking.
+
+**The image** is the product's own: the editor's share image, else the product type's mapped
+*Primary image* field, both of which are also the page's primary image. Without either, a single
+variation's image field (an image or media reference) pictures the product. The site-wide image
+template never does, because a logo is not a product photo; a product with no image publishes
+none, and `drush neo-seo:validate` reports it.
+
+**The Offer** says what an anonymous visitor pays in the default store:
+
+| Property | From |
+|---|---|
+| `price`, `priceCurrency` | Commerce's chain price resolver, for an anonymous customer in the default store, rounded to the currency. Sales and price lists apply, as on the page; a signed-in customer's own price never reaches the schema. |
+| `availability` | `InStock` for an active variation. With `commerce_stock`, `OutOfStock` when it tracks the variation with nothing left. |
+| `url` | The variation's address, `?v={variation id}`. |
+| `seller` | The site identity. |
+
+The graph is the same for every visitor. It is cached on the product, its variations, the default
+store, the product type and the site's promotions and price lists.
+
+**Variants.** `variesBy` lists the schema.org properties Google reads variants by, for the
+attributes whose values differ between the active variations:
+
+| Property | An attribute named (machine name or label) |
+|---|---|
+| `color` | color, colour |
+| `size` | size |
+| `material` | material |
+| `pattern` | pattern |
+| `suggestedAge` | age, age group, suggested age |
+| `suggestedGender` | gender, suggested gender |
+
+Each variant carries its matched values: color, size, material and pattern on the Product; age and
+gender on its `audience` (a PeopleAudience), Google's age groups (newborn, infant, toddler, kids,
+adult) as age ranges. An attribute with no match (a finish, a pack size) tells variants apart only
+by their names, so give variation types generated titles or distinct titles.
+
+**Reviews are next.** AggregateRating and Review are not emitted: no shop on neo has ratings data,
+and self-written or invented ratings break Google's review guidelines. They are the next step once a
+site collects reviews.
+
 ## The schemamap: the whole site's schema
 
 `/schemamap.xml` lists the site's schema as feeds, in the format Yoast SEO's schema
@@ -648,8 +722,8 @@ Nothing is uninstalled. Once the report reads right:
 ### A graph piece
 
 Add a plugin under `src/Plugin/GraphPiece/` in any module. Use it for specialist types such as
-JobPosting, Event or Product, which a site's own module understands better than a generic mapping
-could:
+JobPosting or Event, which a site's own module understands better than a generic mapping could
+(Commerce products have `neo_seo_commerce`):
 
 ```php
 #[GraphPiece(id: 'my_event', label: new TranslatableMarkup('Event'), weight: -20)]
@@ -743,6 +817,7 @@ current from editor load. Content analysis is built both ways. See
 
 ```bash
 ddev phpunit web/modules/contrib/neo_seo/tests                          # kernel and unit
+ddev phpunit web/modules/contrib/neo_seo/modules/neo_seo_commerce/tests # products (needs Commerce)
 node --test 'modules/neo_seo_analysis/tests/js/*.test.ts'               # analysis engine (package root)
 node --test tools/validate/lib.test.mjs                                 # graph reference check
 ```
