@@ -1,5 +1,15 @@
 # Changelog
 
+## The Alchemist panel matches the inspector, and its URL slug is one line
+
+**Search & social in the Alchemist editor read differently from the component inspector next
+to it.** Its field labels were 14px bold against the inspector's 13px semibold, and the URL slug
+showed its address ("/") and the slug on two lines inside one box. In the panel, labels and
+headings now use the inspector's 13px semibold, help and readouts its 12px. The slug is one line
+with the address inline before it, muted (content colour at 75%, over 4.5:1) and trimmed from its
+start when long. The edit form's slug field is unchanged. CSS only; editing the slug still saves
+through the panel draft.
+
 ## A product with variations is a ProductGroup
 
 **A product sold in several variations is now described in Google's variant form, so search

@@ -362,15 +362,16 @@
 }
 
 /*
- * The Alchemist panel: as dense as Layers beside it (0.75rem sides, tight
- * gaps). The form's own margins are the edit form's, not a floating panel's.
+ * The Alchemist panel, a tab in the editor's left dock beside Layers: the
+ * inspector's 1rem sides and tight gaps. The form's own margins are the edit
+ * form's, not a docked panel's.
  */
 .neo-seo-panel-form {
-  padding: 0.5rem 0.75rem 0.75rem;
+  padding: 0.5rem 1rem 1rem;
 }
 
-/* The floating panel draws the box; the form's own card must not draw a
-   second one inside it. (The edit form's sidebar never has this form.) */
+/* The dock draws the box; the form's own card must not draw a second one
+   inside it. (The edit form's sidebar never has this form.) */
 .neo-seo-panel-form.card,
 .neo-seo-panel-form.form--wrapper {
   margin: 0;
@@ -437,4 +438,55 @@
 .neo-seo-suggest__text {
   margin: 0;
   color: rgb(var(--color-base-900, 17 24 39));
+}
+
+/*
+ * The inspector's type scale, so this panel and the inspector across the
+ * canvas read as one editor: field labels and headings at 13px semibold (the inspector's
+ * legends), help and readouts at its 12px floor, sentence case throughout.
+ */
+.neo-seo-panel-form :is(label.form-label, .form-item--label, .neo-seo-url-field__heading, .neo-seo-panel__heading) {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+/*
+ * The URL slug, one line: the address it ends inline before the input, muted
+ * and not editable. A long address gives way from its start, so the part
+ * beside the slug stays readable; the previews show it whole. The edit form's
+ * own slug field keeps its address on lines of its own (page-url.css).
+ */
+.neo-seo-panel-form .neo-seo-url-slug .field-inline {
+  flex-direction: row;
+  align-items: center;
+}
+
+.neo-seo-panel-form .neo-seo-url-slug .field-prefix {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  padding: 0 0 0 0.75rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  /* The ellipsis goes where the box starts: the start of the address. */
+  direction: rtl;
+  text-align: left;
+  /* Muted the way the inspector's own secondary text is: the content colour
+     at 75%, which stays over 4.5:1. A base ramp shade does not work here:
+     inside a scheme the ramp can sit right next to the content colour. */
+  color: rgb(var(--color-base-0-content, 17 24 39) / 0.75);
+}
+
+.neo-seo-panel-form .neo-seo-url-slug .neo-seo-url-slug__prefix {
+  direction: ltr;
+  unicode-bidi: embed;
+}
+
+.neo-seo-panel-form .neo-seo-url-slug .field-inline input {
+  flex: 1 1 auto;
+  min-width: 6rem;
+  padding-inline-start: 0.125rem;
 }
