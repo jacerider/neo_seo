@@ -1,5 +1,11 @@
 # Changelog
 
+## Search & social's button explains itself
+
+Hovering the Search & social button in the Alchemist editor says what it is for: "Edit how this
+page appears in search results and when it is shared". It no longer repeats the button's own
+name. Needs the neo_alchemist release that adds panel descriptions.
+
 ## The scores are meters on the Alchemist editor's dark band
 
 **SEO and Read show as meters in the editor's header: the name, a bar filled to the score in its
