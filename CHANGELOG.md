@@ -1,5 +1,13 @@
 # Changelog
 
+## The SEO scores no longer keep a layout draft alive
+
+**Undoing every layout change in the Alchemist editor now leaves the page with no draft, even
+with the analysis running.** The SEO and readability scores are drafted beside any layout draft,
+which made the editor count the draft as holding a Search & social edit. The panel now says its
+scores alone are not an edit (`SeoPanel::isEdited()`), so Undo back to the saved layout drops
+them with the draft. A drafted override (a title, a description, the slug) still keeps the draft.
+
 ## The Alchemist panel matches the inspector, and its URL slug is one line
 
 **Search & social in the Alchemist editor read differently from the component inspector next

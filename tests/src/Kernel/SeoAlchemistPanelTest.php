@@ -114,6 +114,15 @@ class SeoAlchemistPanelTest extends HybridFieldKernelTestBase {
   }
 
   /**
+   * The scores alone are no edit; any override is.
+   */
+  public function testScoresAloneAreNoEdit(): void {
+    $item = $this->item($this->createTestEntity());
+    $this->assertFalse($this->panel()->isEdited($item, ['seo_score' => 67, 'readability_score' => 64]), 'Computed scores are not an edit.');
+    $this->assertTrue($this->panel()->isEdited($item, ['seo_score' => 67, 'title' => 'Typed']), 'An override beside them is.');
+  }
+
+  /**
    * Until Publish, the entity keeps its saved overrides; Revert discards.
    */
   public function testDraftIsNotLiveAndRevertDiscardsIt(): void {

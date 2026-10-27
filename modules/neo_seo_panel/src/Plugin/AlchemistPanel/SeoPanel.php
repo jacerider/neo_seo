@@ -18,6 +18,7 @@ use Drupal\neo_alchemist\Panel\AlchemistPanelBase;
 use Drupal\neo_alchemist\Plugin\Field\FieldType\ComponentTreeItem;
 use Drupal\neo_seo\Mapping\BundleMappingRepository;
 use Drupal\neo_seo\PageUrl;
+use Drupal\neo_seo\Plugin\Field\FieldType\SeoOverridesItem;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo_panel\Form\SeoPanelForm;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -145,6 +146,16 @@ final class SeoPanel extends AlchemistPanelBase implements ContainerFactoryPlugi
    */
   protected static function url(array $data): array {
     return array_intersect_key($data, array_flip(PageUrl::KEYS));
+  }
+
+  /**
+   * {@inheritdoc}
+   *
+   * The scores are the analysis's arithmetic, drafted only beside a layout
+   * draft: alone they are no edit, and go when the layout goes back to saved.
+   */
+  public function isEdited(ComponentTreeItem $item, mixed $data): bool {
+    return is_array($data) && array_diff_key($data, array_flip(SeoOverridesItem::SCORES)) !== [];
   }
 
   /**
