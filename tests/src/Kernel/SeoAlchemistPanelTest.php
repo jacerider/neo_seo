@@ -144,7 +144,7 @@ class SeoAlchemistPanelTest extends HybridFieldKernelTestBase {
   }
 
   /**
-   * The top bar badge holds analysis's score pills, for panel editors only.
+   * The band badge holds analysis's score meters, for panel editors only.
    */
   public function testBadgeShowsScoresOnlyWithAnalysis(): void {
     $item = $this->item($this->createTestEntity());
@@ -152,10 +152,11 @@ class SeoAlchemistPanelTest extends HybridFieldKernelTestBase {
 
     $this->enableModules(['neo_seo_analysis']);
     $badge = $this->panel()->badge($item);
-    $this->assertContains('btn-group', $badge['neo_seo_analysis']['#attributes']['class'], 'The pills are a button group like the scale and device groups.');
+    $this->assertContains('neo-seo-pills', $badge['neo_seo_analysis']['#attributes']['class']);
     $this->assertSame('seo', $badge['neo_seo_analysis']['seo']['#attributes']['data-neo-seo-score']);
     $this->assertSame('readability', $badge['neo_seo_analysis']['readability']['#attributes']['data-neo-seo-score']);
-    $this->assertContains('is-active:btn-primary', $badge['neo_seo_analysis']['seo']['#attributes']['class']);
+    $this->assertContains('neo-seo-pill--meter', $badge['neo_seo_analysis']['seo']['#attributes']['class'], 'The scores are meters on the band.');
+    $this->assertContains('neo-alchemist--compact-hide', $badge['neo_seo_analysis']['seo']['meter']['#attributes']['class'], 'The bar is what the band drops when it is short of room.');
     $this->assertContains('neo_seo_analysis/panel', $badge['#attached']['library']);
     $badges = $this->container->get('renderer')->executeInRenderContext(new RenderContext(), static fn() => ComponentManageHelper::buildSidePanels($item))['badges'];
     $this->assertArrayHasKey('badge_' . SeoPanel::ID, $badges);

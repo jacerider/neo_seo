@@ -117,17 +117,19 @@ class AnalysisHooks {
   /**
    * Implements hook_neo_seo_panel_badge_alter().
    *
-   * The Alchemist top bar shows the page's SEO and readability scores.
+   * The Alchemist band shows the page's SEO and readability scores.
    */
   #[Hook('neo_seo_panel_badge_alter')]
   public function neoSeoPanelBadgeAlter(array &$badge, ContentEntityInterface $entity): void {
-    // The two scores, as a button group styled like the editor's scale and
-    // device groups beside it; analysis.ts fills in the scores and marks the
-    // open one active (is-active:btn-primary).
+    // The two scores as meters on the editor's dark band: a short name, a bar
+    // filled to the score in its band's colour, the number. analysis.ts fills
+    // them in and marks the open one active. The bar is what the band drops
+    // first when it runs short of room (neo-alchemist--compact-hide); the
+    // number stays.
     $badge['neo_seo_analysis'] = [
       '#type' => 'html_tag',
       '#tag' => 'div',
-      '#attributes' => ['class' => ['btn-group', 'flush', 'neo-seo-pills']],
+      '#attributes' => ['class' => ['neo-seo-pills']],
     ];
     $names = ['seo' => $this->t('SEO score'), 'readability' => $this->t('Readability score')];
     foreach (['seo' => $this->t('SEO'), 'readability' => $this->t('Read')] as $kind => $label) {
@@ -136,24 +138,32 @@ class AnalysisHooks {
         '#tag' => 'button',
         '#attributes' => [
           'type' => 'button',
-          'class' => ['neo-seo-pill', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary', 'is-updating'],
+          'class' => ['neo-seo-pill', 'neo-seo-pill--meter', 'is-updating'],
           'data-neo-seo-score' => $kind,
           'data-label' => $names[$kind],
-          // The tooltip goes on the body: left beside the pill, it would be
-          // the group's last child and square off the Read pill's corners.
+          'data-band' => 'none',
+          // On the body, beside the band's other tooltips.
           'data-neo-tooltip-detach' => 'true',
-        ],
-        // A small ring of the score; analysis.ts draws it.
-        'ring' => [
-          '#type' => 'html_tag',
-          '#tag' => 'span',
-          '#attributes' => ['class' => ['neo-seo-pill__ring'], 'aria-hidden' => 'true'],
         ],
         'label' => [
           '#type' => 'html_tag',
           '#tag' => 'span',
           '#value' => $label,
           '#attributes' => ['class' => ['neo-seo-pill__label']],
+        ],
+        // The score as a bar; analysis.ts sets how full.
+        'meter' => [
+          '#type' => 'html_tag',
+          '#tag' => 'span',
+          '#attributes' => [
+            'class' => ['neo-seo-pill__meter', 'neo-alchemist--compact-hide'],
+            'aria-hidden' => 'true',
+          ],
+          'fill' => [
+            '#type' => 'html_tag',
+            '#tag' => 'span',
+            '#attributes' => ['class' => ['neo-seo-pill__fill']],
+          ],
         ],
         'value' => [
           '#type' => 'html_tag',

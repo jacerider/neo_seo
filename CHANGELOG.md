@@ -1,5 +1,19 @@
 # Changelog
 
+## The scores are meters on the Alchemist editor's dark band
+
+**SEO and Read show as meters in the editor's header: the name, a bar filled to the score in its
+band's colour, and the number.** They sit on their own, before Undo, apart from the Search &
+social button. Clicking one still opens that score's analysis; the tooltips are unchanged.
+
+- When the header runs short of room, the bars go and the numbers stay (the bar carries
+  `neo-alchemist--compact-hide`).
+- The panel's own score row keeps its rings.
+
+For code: the badge's pills are `.neo-seo-pill.neo-seo-pill--meter` in a plain `.neo-seo-pills`
+container, no longer a `btn-group` of outline buttons; `setPill()` fills a
+`.neo-seo-pill__fill` bar when the pill has one, a ring otherwise.
+
 ## The SEO and Read scores open their analysis again
 
 **In the Alchemist editor, clicking SEO or Read opens that score's analysis straight away. The

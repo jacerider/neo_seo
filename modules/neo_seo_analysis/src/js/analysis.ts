@@ -1144,7 +1144,9 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         return;
       }
       const value = pill.querySelector<HTMLElement>('.neo-seo-pill__value');
+      // A ring (the panel's score row) or a bar (the Alchemist band's meters).
       pill.querySelector<HTMLElement>('.neo-seo-pill__ring')?.replaceChildren(ring(score, 'sm'));
+      pill.querySelector<HTMLElement>('.neo-seo-pill__fill')?.style.setProperty('width', `${Math.max(0, Math.min(100, score ?? 0))}%`);
       pill.dataset.missing = missing ? 'true' : 'false';
       const band = score === null ? 'none' : scoreBand(score);
       pill.dataset.band = band;
