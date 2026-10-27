@@ -1,5 +1,18 @@
 # Changelog
 
+## The SEO and Read scores open their analysis again
+
+**In the Alchemist editor, clicking SEO or Read opens that score's analysis straight away. The
+"Search & social" button in front of them opens the panel.** The scores used to open the panel,
+and the analysis took a second click from there.
+
+- The scores' tooltips are neo_tooltips, like the rest of the editor's header: the score and its
+  band, or "SEO score" / "Readability score" until the analysis has run. They render on the page
+  body, so hovering Read no longer squares off the group's right end.
+- "Edit search & social" and the field fixes in the analysis open the panel again. They looked for
+  a panel hidden with `display: none` and for a header button the panel no longer had, so they
+  did nothing.
+
 ## The SEO scores no longer keep a layout draft alive
 
 **Undoing every layout change in the Alchemist editor now leaves the page with no draft, even

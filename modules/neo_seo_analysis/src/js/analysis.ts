@@ -1152,11 +1152,15 @@ import AnalysisWorker from './analysis.worker?worker&inline';
         value.hidden = false;
         value.textContent = score === null ? '–' : String(score);
       }
-      pill.title = score === null
-        ? ''
+      // A neo_tooltip, like the rest of the header's; the text is kept on the
+      // element too, for an instance created after this.
+      const text = score === null
+        ? (pill.dataset.label ?? '')
         : missing
           ? Drupal.t('@score / 100 without the keyphrase checks: set a focus keyphrase to run them.', { '@score': String(score) })
           : `${bandLabel(band as Band)}: ${score} / 100`;
+      pill.dataset.tippyContent = text;
+      (pill as HTMLElement & { _tippy?: { setContent(content: string): void } })._tippy?.setContent(text);
     };
     const setUpdating = (updating: boolean) => {
       [pills.seo, pills.readability].forEach((pill) => pill?.classList.toggle('is-updating', updating));

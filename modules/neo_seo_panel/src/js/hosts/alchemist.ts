@@ -189,7 +189,9 @@ export class AlchemistHost implements NeoSeoPanelHost {
     if (!panel) {
       return false;
     }
-    if (panel.style.display === 'none') {
+    // Not on screen: another panel or Layers has the dock, or the dock is
+    // closed. Its own header button opens it.
+    if (!panel.offsetParent) {
       document.querySelector<HTMLElement>(`.neo-alchemist--sidepanel-toggle[data-alchemist-sidepanel="${panel.dataset.alchemistSidepanel}"]`)?.click();
     }
     return true;

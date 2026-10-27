@@ -15,6 +15,7 @@ use Drupal\Core\Url;
 use Drupal\neo_seo\SeoOverrides;
 use Drupal\neo_seo_analysis\AlchemistLayout;
 use Drupal\neo_seo_analysis\ImageMedia;
+use Drupal\neo_tooltip\Tooltip;
 
 /**
  * Adds content analysis to the SEO panel.
@@ -128,6 +129,7 @@ class AnalysisHooks {
       '#tag' => 'div',
       '#attributes' => ['class' => ['btn-group', 'flush', 'neo-seo-pills']],
     ];
+    $names = ['seo' => $this->t('SEO score'), 'readability' => $this->t('Readability score')];
     foreach (['seo' => $this->t('SEO'), 'readability' => $this->t('Read')] as $kind => $label) {
       $badge['neo_seo_analysis'][$kind] = [
         '#type' => 'html_tag',
@@ -136,6 +138,10 @@ class AnalysisHooks {
           'type' => 'button',
           'class' => ['neo-seo-pill', 'btn', 'btn-xs', 'btn-outline', 'is-active:btn-primary', 'is-updating'],
           'data-neo-seo-score' => $kind,
+          'data-label' => $names[$kind],
+          // The tooltip goes on the body: left beside the pill, it would be
+          // the group's last child and square off the Read pill's corners.
+          'data-neo-tooltip-detach' => 'true',
         ],
         // A small ring of the score; analysis.ts draws it.
         'ring' => [
@@ -156,6 +162,8 @@ class AnalysisHooks {
           '#attributes' => ['class' => ['neo-seo-pill__value']],
         ],
       ];
+      // Named until analysis.ts has the score to show instead.
+      (new Tooltip($names[$kind], ['placement' => 'bottom']))->applyTo($badge['neo_seo_analysis'][$kind]);
     }
     $badge['#attached']['library'][] = 'neo_seo_analysis/panel';
   }
