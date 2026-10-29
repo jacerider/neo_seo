@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0: built for neo_alchemist 2.0's editor
+
+neo_seo 2.0 requires neo_alchemist 2.0 or later, and neo_alchemist 2.0 conflicts with neo_seo 1.x,
+so a site moves both together:
+
+```
+composer require 'jacerider/neo_alchemist:^2.0' 'jacerider/neo_seo:^2.0' -W
+```
+
+The entries from here down to "The Alchemist panel matches the inspector, and its URL slug is
+one line" are the release: the scores as meters on the editor's dark band, Search & social's
+button and tooltip, and scores that no longer keep a layout draft alive.
+Nothing stored changes, and there are no update hooks.
+
 ## Search & social's button explains itself
 
 Hovering the Search & social button in the Alchemist editor says what it is for: "Edit how this

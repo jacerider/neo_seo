@@ -24,6 +24,6 @@
     "jacerider/neo_tooltip": "^1"
   },
   "conflict": {
-    "jacerider/neo_alchemist": "<1.3"
+    "jacerider/neo_alchemist": "<2"
   }
 }
